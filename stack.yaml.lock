@@ -25,6 +25,20 @@ packages:
       sha256: d22f820a1f63497f7fd7e1f04b7d356d92de35582258f6ad55428c88b09e63ff
   original:
     hackage: prettyprinter-1.7.0
+- completed:
+    hackage: functor-combinators-0.3.5.1@sha256:8c3ea2dd2b816c72a9847b0a82962e3cb0f95c6f48932ca18278258809178808,5481
+    pantry-tree:
+      size: 2436
+      sha256: a49508fef412ecf92cc425d0c421e7096e32c1c7b8e5ba1b1fc8574f107650dd
+  original:
+    hackage: functor-combinators-0.3.5.1
+- completed:
+    hackage: vinyl-0.13.0@sha256:0f247cd3f8682b30881a07de18e6fec52d540646fbcb328420049cc8d63cd407,3724
+    pantry-tree:
+      size: 1857
+      sha256: 860fb95820b595161cdbdec5f376100ebae2d14e5ef0dbe311546202f7525d01
+  original:
+    hackage: vinyl-0.13.0
 snapshots:
 - completed:
     size: 532379

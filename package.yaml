@@ -30,6 +30,7 @@ dependencies:
 - text
 - containers
 - scientific
+- functor-combinators >= 0.3.5.1
 - recursion-schemes
 - aeson
 - dependent-sum
