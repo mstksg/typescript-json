@@ -211,40 +211,34 @@ testChain = KCCons (,)   id    (Not (\case {})) (Keyed #hello (Identity 10))
           . KCCons const (,()) (Not (\case {})) (Keyed #world (Identity True))
           $ KCNil  ()
 
--- data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
---     KCNil  :: a -> KeyChain '[] f a
---     KCCons :: (a -> b -> c)
---            -> (c -> (a, b))
---            -> Not (Elem ks k)
---            -> Keyed k f a
---            -> KeyChain ks f b
---            -> KeyChain (k ': ks) f c
-
-
 data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ListOf (TSType ks n) a -> TSType 'Nothing n a
     TSTuple        :: PreT Ap (TSType_ n) a -> TSType 'Nothing n a
     TSObject       :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
-    -- | keychain is necessary to prevent us from serializing a value of
-    -- a nonsense typescript type
-    --
-    -- hm no, keychain is not enough either because you can have two things
-    -- creating the same 'a' but then have different underlying types --
-    -- a TSType _ _ Int implemented using either TSBool or TSNumber for
-    -- example.
-    --
-    -- We need a way to reify the underlying exact type, or else we just
-    -- give up entirely
-    --
-    -- basically we have to disallow duplicates completely
-    -- TSObject       :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
-    -- TSObject       :: PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
-    -- PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
-    -- TSObject       :: PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
-    -- TSObject       :: PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
     TSUnion        :: PostT Dec (TSType_ n) a -> TSType 'Nothing n a
     TSNamed        :: n -> TSType ks n a -> TSType ks n a
-    -- hmm...
+    -- ah wait, this is going to be tough.  we want to allow intersections
+    -- where the same type appears in both, but only if they are the same
+    -- type?
+    --
+    -- a type mismatch is a valid type and has no compile error.  but we
+    -- need the a -> Value to be total.  this means maybe we can overwrite
+    -- it with one or the other, if there is more than one thing per field?
+    --
+    -- but the problem is that this needs to be Never in the case that
+    -- there is a type mismatch.  yeah.  so a -> Value has to typecheck,
+    -- but the only way that is possible is if we force a to be Never in
+    -- the case that there is a type mismatch.
+    --
+    -- so either we:
+    --
+    -- 1. do not allow duplicates, in which case we disallow some potential
+    --    useful types that people would want to use intersections for in
+    --    the first place
+    -- 2. allow duplicates, but somehow find a way to make sure 'a' is
+    --    Void
+    --
+    -- #2 seems pretty much impossible :(
     -- TSIntersection :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
     -- PreT Ap (TSType ks n) a -> TSType ks n a
     TSPrimType     :: PS TSPrim a -> TSType ks n a
