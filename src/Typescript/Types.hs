@@ -1,23 +1,26 @@
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE DeriveFoldable       #-}
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE DeriveGeneric        #-}
-{-# LANGUAGE DeriveTraversable    #-}
-{-# LANGUAGE EmptyCase            #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE KindSignatures       #-}
-{-# LANGUAGE LambdaCase           #-}
-{-# LANGUAGE OverloadedStrings    #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE StandaloneDeriving   #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE TypeApplications     #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE EmptyCase             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Typescript.Types where
 
@@ -54,12 +57,20 @@ import qualified Data.Vec.Lazy                             as Vec
 import qualified Data.Vector                               as V
 import qualified Prettyprinter                             as PP
 
-data PS r a = PS
-    { psParser     :: r -> Either Text a
+data PS f a = forall r. PS
+    { psItem       :: f r
+    , psParser     :: r -> Either Text a
     , psSerializer :: a -> r
     }
 
--- data TSHaskell =
+instance Invariant (PS f) where
+    invmap f g (PS x h k) = PS x (fmap f . h) (k . g)
+
+instance HFunctor PS where
+    hmap f (PS x g h) = PS (f x) g h
+
+instance Inject PS where
+    inject x = PS x Right id
 
 data EnumLit = ELString Text | ELNumber Scientific
 
@@ -93,7 +104,7 @@ type family Concat (as :: [[k]]) :: [k] where
 
 data Iso a b = Iso { iTo :: a -> b, iFrom :: b -> a }
 
--- data ArrayOf :: 
+-- data ArrayOf ::
 
 data ListOf f a = forall x. ListOf
     (f x)
@@ -108,7 +119,7 @@ listOf :: f a -> ListOf f [a]
 listOf x = ListOf x
         (\xs cons nil -> foldr cons nil xs)
         (\f -> f (:) [])
-        
+
 instance HFunctor ListOf where
     hmap f (ListOf x g h) = ListOf (f x) g h
 
@@ -122,15 +133,15 @@ interpretListOf f (ListOf x g h) = invmap
     (\y -> g y (:) [])
     (f x)
 
-data TSType :: ((Type -> Type) -> Type -> Type) -> Type -> Type -> Type where
-    TSArray        :: ListOf (TSType f n) a -> TSType f n a
-    TSTuple        :: PreT Ap (TSType f n) a -> TSType f n a
-    TSObject       :: PreT Ap (K Text :*: TSType f n) a -> TSType f n a
-    TSUnion        :: PostT Dec (TSType f n) a -> TSType f n a
-    TSNamed        :: n -> TSType f n a -> TSType f n a
+data TSType :: Type -> Type -> Type where
+    TSArray        :: ListOf (TSType n) a -> TSType n a
+    TSTuple        :: PreT Ap (TSType n) a -> TSType n a
+    TSObject       :: PreT Ap (K Text :*: TSType n) a -> TSType n a
+    TSUnion        :: PostT Dec (TSType n) a -> TSType n a
+    TSNamed        :: n -> TSType n a -> TSType n a
     -- hmm...
-    TSIntersection :: PreT Ap (TSType f n) a -> TSType f n a
-    TSPrimType     :: f TSPrim a -> TSType f n a
+    TSIntersection :: PreT Ap (TSType n) a -> TSType n a
+    TSPrimType     :: PS TSPrim a -> TSType n a
 
 ppScientific :: Scientific -> PP.Doc x
 ppScientific n = maybe (PP.pretty (show n)) PP.pretty
@@ -167,8 +178,7 @@ ppPrim = \case
     TSNever        -> "never"
 
 ppType
-    :: Interpret f (AltConst (PP.Doc x))
-    => TSType f Void a
+    :: TSType Void a
     -> PP.Doc x
 ppType = \case
     TSArray t   -> getConst (interpretListOf (Const . ppType) t) PP.<+> "[]"
@@ -179,7 +189,7 @@ ppType = \case
     TSNamed v _ -> absurd v
     TSIntersection ts  -> PP.encloseSep "" "" " & " (icollect ppType ts)
     -- TSIntersection ts -> PP.encloseSep "" "" " & " (icollect (ppType . getObjType) ts)
-    TSPrimType p      -> iget ppPrim p
+    TSPrimType PS{..} -> ppPrim psItem
 
 enumLitToValue :: EnumLit -> A.Value
 enumLitToValue = \case
@@ -207,40 +217,29 @@ primToValue = \case
     TSNever -> absurd
 
 typeToValue
-    :: Interpret f (Op A.Value)
-    => TSType f n a -> a -> A.Value
+    :: TSType n a -> a -> A.Value
 typeToValue = \case
     TSArray ts  -> A.Array
                  . V.fromList
                  . getOp (interpretListOf (\t -> Op (map (typeToValue t))) ts)
-    -- A.Array . fmap (typeToValue t) . iFrom i
-    -- iapply _ (contramap _ t)
-    -- fmap (typeToValue t)
     TSTuple ts  -> A.Array
-                 . V.fromList 
+                 . V.fromList
                  . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
-    TSObject ts -> A.object 
+    TSObject ts -> A.object
                  . getOp (preDivisibleT (\(K k :*: t) -> Op $ \x -> [k A..= typeToValue t x]) ts)
-    -- . npToList2 (\(K k :*: t) (I x) -> k A..= typeToValue t x) ts
     TSUnion ts  -> iapply typeToValue ts
     TSNamed _ t -> typeToValue t
-    -- this is too permissive :(
-    -- TSIntersection ts  -> A.Array
-    --              . V.fromList 
-    --              . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
     -- hm...
-    TSIntersection ts -> 
+    TSIntersection ts ->
                    undefined
                  . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
-    -- TSIntersection ts -> A.object
-    --                    . npToList2 (\(K k :*: t) (I x) -> k A..= typeToValue t x) (foldObjType (TSIntersection ts))
-    --                    . getObjFields
-    TSPrimType p -> iapply primToValue p
+    TSPrimType PS{..} -> primToValue psItem . psSerializer
 
 data ParseErr = PEInvalidEnum [(Text, EnumLit)]
               | PEInvalidString Text Text
               | PEInvalidNumber Scientific Scientific
               | PEInvalidBigInt Integer Integer
+              | PEPrimitive Text
               | PENever
 
 parseEnumLit :: EnumLit -> ABE.Parse () ()
@@ -273,11 +272,8 @@ parsePrim = \case
     TSNull -> ABE.asNull
     TSNever -> ABE.throwCustomError PENever
 
--- instance Invariant (ABE.ParseT m e) where
-
 parseType
-    :: Interpret f (ABE.ParseT ParseErr Identity)
-    => TSType f n a
+    :: TSType n a
     -> ABE.Parse ParseErr a
 parseType = \case
     TSArray ts -> unwrapFunctor $ interpretListOf (WrapFunctor . ABE.eachInArray . parseType) ts
@@ -289,16 +285,8 @@ parseType = \case
     TSNamed _ t -> parseType t
     -- hm...
     TSIntersection ts -> interpret parseType ts
-    TSPrimType p -> interpret parsePrim p
-
--- foldObjType :: TSType n (ObjFields as) -> NP (K Text :*: TSType n) as
--- foldObjType = \case
---     TSObject ts -> ts
---     TSNamed _ t -> foldObjType t
---     TSIntersection ts -> case ts of
---       Nil             -> Nil
---       ObjType x :* xs -> appendNP (foldObjType x) (foldObjType (TSIntersection xs))
---     TSPrimType p -> case p of {}
+    TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive) pure . psParser
+                     =<< parsePrim psItem
 
 npToList :: (forall x. f x -> b) -> NP f as -> [b]
 npToList f = \case
