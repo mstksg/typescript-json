@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 003e862f6fef4c7540253b15afc9faaa9ce1e393b2f9a4730e42f71b218ae132
+-- hash: f77bf8995b9383c807d72873b53b21940feac476f0ecf7583f91d2f10e4d40b1
 
 name:           typescript-types
 version:        0.1.0.0
@@ -38,12 +38,15 @@ library
     , aeson-better-errors
     , base >=4.7 && <5
     , containers
+    , contravariant
     , dependent-sum
     , fin
     , functor-combinators >=0.3.5.1
+    , invariant
     , prettyprinter >=1.7
     , recursion-schemes
     , scientific
+    , semigroupoids
     , some
     , sop-core
     , text

@@ -11,6 +11,7 @@
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE TypeApplications     #-}
@@ -20,13 +21,17 @@
 
 module Typescript.Types where
 
+import           Control.Applicative
 import           Control.Monad.Trans.State
 import           Data.Dependent.Sum                        (DSum)
 import           Data.Fin                                  (Fin)
 import           Data.Foldable
 import           Data.Functor.Combinator
 import           Data.Functor.Contravariant
+import           Data.Functor.Contravariant.Divisible
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
+import           Data.Functor.Identity
+import           Data.Functor.Invariant
 import           Data.HFunctor.Route
 import           Data.IntMap                               (IntMap)
 import           Data.Kind
@@ -86,14 +91,45 @@ type family Concat (as :: [[k]]) :: [k] where
     Concat '[] = '[]
     Concat (a ': as) = a ++ Concat as
 
+data Iso a b = Iso { iTo :: a -> b, iFrom :: b -> a }
+
+-- data ArrayOf :: 
+
+data ListOf f a = forall x. ListOf
+    (f x)
+    (a -> (forall r. (x -> r -> r) -> r -> r))
+    ((forall r. (x -> r -> r) -> r -> r) -> a)
+
+instance Invariant (ListOf f) where
+    invmap f g (ListOf x toBuild fromBuild) =
+      ListOf x (\xs -> toBuild (g xs)) (\h -> f (fromBuild h))
+
+listOf :: f a -> ListOf f [a]
+listOf x = ListOf x
+        (\xs cons nil -> foldr cons nil xs)
+        (\f -> f (:) [])
+        
+instance HFunctor ListOf where
+    hmap f (ListOf x g h) = ListOf (f x) g h
+
+interpretListOf
+    :: Invariant g
+    => (forall x. f x -> g [x])
+    -> ListOf f a
+    -> g a
+interpretListOf f (ListOf x g h) = invmap
+    (\xs -> h (\cons nil -> foldr cons nil xs))
+    (\y -> g y (:) [])
+    (f x)
+
 data TSType :: ((Type -> Type) -> Type -> Type) -> Type -> Type -> Type where
-    TSArray        :: f (TSType f n) (Vector a) -> TSType f n a
+    TSArray        :: ListOf (TSType f n) a -> TSType f n a
     TSTuple        :: PreT Ap (TSType f n) a -> TSType f n a
     TSObject       :: PreT Ap (K Text :*: TSType f n) a -> TSType f n a
     TSUnion        :: PostT Dec (TSType f n) a -> TSType f n a
     TSNamed        :: n -> TSType f n a -> TSType f n a
-    -- -- hmm...
-    -- TSIntersection :: NP (ObjType n) as -> TSType n (ObjFields (Concat as))
+    -- hmm...
+    TSIntersection :: PreT Ap (TSType f n) a -> TSType f n a
     TSPrimType     :: f TSPrim a -> TSType f n a
 
 ppScientific :: Scientific -> PP.Doc x
@@ -135,12 +171,13 @@ ppType
     => TSType f Void a
     -> PP.Doc x
 ppType = \case
-    TSArray t   -> iget ppType t PP.<+> "[]"
+    TSArray t   -> getConst (interpretListOf (Const . ppType) t) PP.<+> "[]"
     TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect ppType ts)
     TSObject ts -> PP.encloseSep "{" "}" "," $
       icollect (\(K n :*: x) -> PP.pretty n PP.<+> ": " PP.<+> ppType x) ts
     TSUnion ts  -> PP.encloseSep "" "" " | " (icollect ppType ts)
     TSNamed v _ -> absurd v
+    TSIntersection ts  -> PP.encloseSep "" "" " & " (icollect ppType ts)
     -- TSIntersection ts -> PP.encloseSep "" "" " & " (icollect (ppType . getObjType) ts)
     TSPrimType p      -> iget ppPrim p
 
@@ -173,69 +210,86 @@ typeToValue
     :: Interpret f (Op A.Value)
     => TSType f n a -> a -> A.Value
 typeToValue = \case
-    TSArray t   -> A.Array . fmap (typeToValue t)
-    -- TSTuple ts  -> A.Array . V.fromList . npToList2 (\t (I x) -> typeToValue t x) ts
-    -- TSObject ts -> A.object . npToList2 (\(K k :*: t) (I x) -> k A..= typeToValue t x) ts
-    -- TSUnion ts  -> zipPS (\t (I x) -> typeToValue t x) ts
+    TSArray ts  -> A.Array
+                 . V.fromList
+                 . getOp (interpretListOf (\t -> Op (map (typeToValue t))) ts)
+    -- A.Array . fmap (typeToValue t) . iFrom i
+    -- iapply _ (contramap _ t)
+    -- fmap (typeToValue t)
+    TSTuple ts  -> A.Array
+                 . V.fromList 
+                 . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
+    TSObject ts -> A.object 
+                 . getOp (preDivisibleT (\(K k :*: t) -> Op $ \x -> [k A..= typeToValue t x]) ts)
+    -- . npToList2 (\(K k :*: t) (I x) -> k A..= typeToValue t x) ts
+    TSUnion ts  -> iapply typeToValue ts
     TSNamed _ t -> typeToValue t
+    -- this is too permissive :(
+    -- TSIntersection ts  -> A.Array
+    --              . V.fromList 
+    --              . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
     -- hm...
+    TSIntersection ts -> 
+                   undefined
+                 . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
     -- TSIntersection ts -> A.object
     --                    . npToList2 (\(K k :*: t) (I x) -> k A..= typeToValue t x) (foldObjType (TSIntersection ts))
     --                    . getObjFields
     TSPrimType p -> iapply primToValue p
 
--- data ParseErr = PEInvalidEnum [(Text, EnumLit)]
---               | PEInvalidString Text Text
---               | PEInvalidNumber Scientific Scientific
---               | PEInvalidBigInt Integer Integer
---               | PENever
+data ParseErr = PEInvalidEnum [(Text, EnumLit)]
+              | PEInvalidString Text Text
+              | PEInvalidNumber Scientific Scientific
+              | PEInvalidBigInt Integer Integer
+              | PENever
 
--- parseEnumLit :: EnumLit -> ABE.Parse () ()
--- parseEnumLit = \case
---     ELString t -> ABE.withText $ eqOrFail (const ()) t
---     ELNumber t -> ABE.withScientific $ eqOrFail (const ()) t
+parseEnumLit :: EnumLit -> ABE.Parse () ()
+parseEnumLit = \case
+    ELString t -> ABE.withText $ eqOrFail (const ()) t
+    ELNumber t -> ABE.withScientific $ eqOrFail (const ()) t
 
--- eqOrFail :: Eq a => (a -> e) -> a -> a -> Either e ()
--- eqOrFail e x y
---   | x == y    = Right ()
---   | otherwise = Left (e y)
+eqOrFail :: Eq a => (a -> e) -> a -> a -> Either e ()
+eqOrFail e x y
+  | x == y    = Right ()
+  | otherwise = Left (e y)
 
--- parsePrim :: TSPrim a -> ABE.Parse ParseErr a
--- parsePrim = \case
---     TSBoolean   -> ABE.asBool
---     TSNumber    -> ABE.asScientific
---     TSBigInt    -> ABE.asIntegral
---     TSString    -> ABE.asText
---     TSEnum _ es -> ABE.mapError (\_ -> PEInvalidEnum (toList es)) $ Vec.ifoldr
---       (\i (_, e) ps -> (i <$ parseEnumLit e) ABE.<|> ps)
---       (ABE.throwCustomError ())
---       es
---     TSStringLit t -> ABE.withText $ eqOrFail (PEInvalidString t) t
---     TSNumericLit t -> ABE.withScientific $ eqOrFail (PEInvalidNumber t) t
---     TSBigIntLit t -> ABE.withIntegral $ eqOrFail (PEInvalidBigInt t) t
---     TSUnknown -> ABE.asValue
---     TSAny -> ABE.asValue
---     TSVoid -> ABE.asNull
---     TSUndefined -> ABE.asNull
---     TSNull -> ABE.asNull
---     TSNever -> ABE.throwCustomError PENever
+parsePrim :: TSPrim a -> ABE.Parse ParseErr a
+parsePrim = \case
+    TSBoolean   -> ABE.asBool
+    TSNumber    -> ABE.asScientific
+    TSBigInt    -> ABE.asIntegral
+    TSString    -> ABE.asText
+    TSEnum _ es -> ABE.mapError (\_ -> PEInvalidEnum (toList es)) $ Vec.ifoldr
+      (\i (_, e) ps -> (i <$ parseEnumLit e) ABE.<|> ps)
+      (ABE.throwCustomError ())
+      es
+    TSStringLit t -> ABE.withText $ eqOrFail (PEInvalidString t) t
+    TSNumericLit t -> ABE.withScientific $ eqOrFail (PEInvalidNumber t) t
+    TSBigIntLit t -> ABE.withIntegral $ eqOrFail (PEInvalidBigInt t) t
+    TSUnknown -> ABE.asValue
+    TSAny -> ABE.asValue
+    TSVoid -> ABE.asNull
+    TSUndefined -> ABE.asNull
+    TSNull -> ABE.asNull
+    TSNever -> ABE.throwCustomError PENever
 
--- parseType :: TSType n a -> ABE.Parse ParseErr a
--- parseType = \case
---     TSArray t  -> V.fromList <$> ABE.eachInArray (parseType t)
---     TSTuple ts -> flip evalStateT 0 $ (`traverseNP` ts) $ \t -> StateT $ \i -> do
---       (,i+1) . I <$> ABE.nth i (parseType t)
---     TSObject ts -> ObjFields <$> traverseNP (\(K k :*: t) -> I <$> ABE.key k (parseType t)) ts
---     TSUnion ts ->
---         foldr (ABE.<|>) (ABE.throwCustomError PENever)
---       . npToList (\(K k) -> k)
---       . imapNP (\i t -> K $ i . I <$> parseType t)
---       $ ts
---     TSNamed _ t -> parseType t
---     TSIntersection ts -> ObjFields <$>
---       traverseNP (\(K k :*: t) -> I <$> ABE.key k (parseType t))
---         (foldObjType (TSIntersection ts))
---     TSPrimType p -> parsePrim p
+-- instance Invariant (ABE.ParseT m e) where
+
+parseType
+    :: Interpret f (ABE.ParseT ParseErr Identity)
+    => TSType f n a
+    -> ABE.Parse ParseErr a
+parseType = \case
+    TSArray ts -> unwrapFunctor $ interpretListOf (WrapFunctor . ABE.eachInArray . parseType) ts
+    TSTuple ts -> flip evalStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
+      (,i+1) <$> ABE.nth i (parseType t)
+    TSObject ts -> (`interpret` ts) $ \(K k :*: t) -> ABE.key k (parseType t)
+    TSUnion ts -> foldr @[] (ABE.<|>) (ABE.throwCustomError PENever) $
+        icollect (interpretPost parseType) (unPostT ts)
+    TSNamed _ t -> parseType t
+    -- hm...
+    TSIntersection ts -> interpret parseType ts
+    TSPrimType p -> interpret parsePrim p
 
 -- foldObjType :: TSType n (ObjFields as) -> NP (K Text :*: TSType n) as
 -- foldObjType = \case
