@@ -10,10 +10,12 @@
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
@@ -42,17 +44,19 @@ import           Data.Map                                  (Map)
 import           Data.Proxy
 import           Data.SOP                                  (NP(..), NS(..), I(..), K(..))
 import           Data.Scientific                           (Scientific, toBoundedInteger)
-import           Data.Some                                 (Some)
+import           Data.Some                                 (Some(..), withSome, foldSome)
 import           Data.Text                                 (Text)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Vector                               (Vector)
 import           Data.Void
 import           GHC.Generics                              (Generic, (:*:)(..))
+import           GHC.OverloadedLabels
 import           GHC.TypeLits
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.SOP                                  as SOP
 import qualified Data.SOP.NP                               as NP
+import qualified Data.Text                                 as T
 import qualified Data.Vec.Lazy                             as Vec
 import qualified Data.Vector                               as V
 import qualified Prettyprinter                             as PP
@@ -133,15 +137,119 @@ interpretListOf f (ListOf x g h) = invmap
     (\y -> g y (:) [])
     (f x)
 
-data TSType :: Type -> Type -> Type where
-    TSArray        :: ListOf (TSType n) a -> TSType n a
-    TSTuple        :: PreT Ap (TSType n) a -> TSType n a
-    TSObject       :: PreT Ap (K Text :*: TSType n) a -> TSType n a
-    TSUnion        :: PostT Dec (TSType n) a -> TSType n a
-    TSNamed        :: n -> TSType n a -> TSType n a
+data TSType_ n a = forall ks. TSType_ { unTSType_ :: TSType ks n a }
+
+withTSType_
+    :: (forall ks. TSType ks n a -> r)
+    -> TSType_ n a
+    -> r
+withTSType_ f (TSType_ t) = f t
+
+-- data KeyList f
+
+-- data MapElem :: [Mapping k v] -> k -> v -> Type where
+--     MEZ :: MapElem ((k ':-> v) ': kvs) k v
+--     MES :: !(MapElem kvs k v) -> MapElem (kv ': kvs) k v
+
+-- data PreKeyed ks f a = PreKeyed
+--     { pkKey  :: 
+--     , pkItem :: f a
+--     }
+    
+-- type Elem ks a = NS ((:~:) a) ks
+data Elem :: [k] -> k -> Type where
+    EZ :: Elem (a ': as) a
+    ES :: !(Elem as a) -> Elem (b ': as) a
+
+data Key :: Symbol -> Type where
+    Key :: KnownSymbol k => Key k
+
+instance KnownSymbol k => IsLabel k (Key k) where
+    fromLabel = Key
+
+keyText :: Key k -> Text
+keyText k@Key = T.pack (symbolVal k)
+
+data Keyed k f a = Keyed
+    { keyedKey  :: Key k
+    , keyedItem :: f a
+    }
+
+data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
+    KCNil  :: a -> KeyChain '[] f a
+    KCCons :: (a -> b -> c)
+           -> (c -> (a, b))
+           -> Not (Elem ks k)
+           -> Keyed k f a
+           -> KeyChain ks f b
+           -> KeyChain (k ': ks) f c
+
+runCoKeyChain
+    :: forall ks f g. Applicative g
+    => (Text -> f ~> g)
+    -> KeyChain ks f ~> g
+runCoKeyChain f = go
+  where
+    go :: KeyChain js f ~> g
+    go = \case
+      KCNil x -> pure x
+      KCCons g _ _ (Keyed k x) xs -> liftA2 g (f (keyText k) x) (go xs)
+
+runContraKeyChain
+    :: forall ks f g. Divisible g
+    => (Text -> f ~> g)
+    -> KeyChain ks f ~> g
+runContraKeyChain f = go
+  where
+    go :: KeyChain js f ~> g
+    go = \case
+      KCNil _ -> conquer
+      KCCons _ g _ (Keyed k x) xs -> divide g (f (keyText k) x) (go xs)
+
+testChain :: KeyChain '[ "hello", "world" ] Identity (Int, Bool)
+testChain = KCCons (,)   id    (Not (\case {})) (Keyed #hello (Identity 10))
+          . KCCons const (,()) (Not (\case {})) (Keyed #world (Identity True))
+          $ KCNil  ()
+
+-- data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
+--     KCNil  :: a -> KeyChain '[] f a
+--     KCCons :: (a -> b -> c)
+--            -> (c -> (a, b))
+--            -> Not (Elem ks k)
+--            -> Keyed k f a
+--            -> KeyChain ks f b
+--            -> KeyChain (k ': ks) f c
+
+
+data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
+    TSArray        :: ListOf (TSType ks n) a -> TSType 'Nothing n a
+    TSTuple        :: PreT Ap (TSType_ n) a -> TSType 'Nothing n a
+    TSObject       :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
+    -- | keychain is necessary to prevent us from serializing a value of
+    -- a nonsense typescript type
+    --
+    -- hm no, keychain is not enough either because you can have two things
+    -- creating the same 'a' but then have different underlying types --
+    -- a TSType _ _ Int implemented using either TSBool or TSNumber for
+    -- example.
+    --
+    -- We need a way to reify the underlying exact type, or else we just
+    -- give up entirely
+    --
+    -- basically we have to disallow duplicates completely
+    -- TSObject       :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
+    -- TSObject       :: PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
+    -- PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
+    -- TSObject       :: PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
+    -- TSObject       :: PreT Ap (K Text :*: TSType_ n) a -> TSType ks n a
+    TSUnion        :: PostT Dec (TSType_ n) a -> TSType 'Nothing n a
+    TSNamed        :: n -> TSType ks n a -> TSType ks n a
     -- hmm...
-    TSIntersection :: PreT Ap (TSType n) a -> TSType n a
-    TSPrimType     :: PS TSPrim a -> TSType n a
+    -- TSIntersection :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
+    -- PreT Ap (TSType ks n) a -> TSType ks n a
+    TSPrimType     :: PS TSPrim a -> TSType ks n a
+
+-- data KeyChain :: [Mapping Symbol Type] -> (Type -> Type) -> Type -> Type where
 
 ppScientific :: Scientific -> PP.Doc x
 ppScientific n = maybe (PP.pretty (show n)) PP.pretty
@@ -177,17 +285,61 @@ ppPrim = \case
     TSNull         -> "null"
     TSNever        -> "never"
 
+data Mapping k v = k :-> v
+
+-- data family Sing (a :: k)
+
+data MapElem :: [Mapping k v] -> k -> v -> Type where
+    MEZ :: MapElem ((k ':-> v) ': kvs) k v
+    MES :: !(MapElem kvs k v) -> MapElem (kv ': kvs) k v
+
+data MapChange :: [Mapping k v] -> [Mapping k v] -> k -> v -> v -> Type where
+    MCZ :: MapChange ((k ':-> v) ': kvs) ((k ':-> u) ': kvs) k v u
+    MCS :: !(MapChange kvs kus k v u) -> MapChange (kv ': kvs) (ku ': kus) k v u
+
+-- data KeyChain :: [Mapping Symbol Type] -> (Type -> Type) -> Type -> Type where
+--     KCNil  :: a -> KeyChain '[] f a
+--     KCNew  :: (a -> b -> c)
+--            -> (c -> (a, b))
+--            -> Not (Some (MapElem ks k))
+--            -> Keyed k f a
+--            -> KeyChain ks f b
+--            -> KeyChain ((k ':-> a) ': ks) f c
+--     KCOld  :: (a -> b -> c)
+--            -> (c -> (a, b))
+--            -> (a -> r -> s)
+--            -> (s -> (a, r))
+--            -> MapChange ks ks' k b c
+--            -> Keyed k f a
+--            -> KeyChain ks  f r
+--            -> KeyChain ks' f s
+
+-- testChain :: KeyChain '[ "hello" ':-> Int, "world" ':-> Bool ] Identity (Int, Bool)
+-- testChain = KCNew (,)   id    (Not not1) (Keyed (Identity 10))
+--           . KCNew const (,()) (Not not2) (Keyed (Identity True))
+--           $ KCNil ()
+--   where
+--     not1 :: Some (MapElem '[ "world" ':-> Bool ] "hello") -> Void
+--     not1 (Some me) = case me of {}
+--     not2 :: Some (MapElem '[] "world") -> Void
+--     not2 (Some me) = case me of {}
+
+-- testChain2 :: KeyChain '[ "hello" ':-> Int, "world" ':-> (String, Bool) ] Identity (Int, (Bool, String))
+-- testChain2 = KCOld (,) id (\x (y, z) -> (y, (z, x))) (\(x, (y, z)) -> (z, (x, y))) (MCS MCZ) (Keyed (Identity ("ok" :: String)))
+--            $ testChain
+
 ppType
-    :: TSType Void a
+    :: TSType ks Void a
     -> PP.Doc x
 ppType = \case
     TSArray t   -> getConst (interpretListOf (Const . ppType) t) PP.<+> "[]"
-    TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect ppType ts)
-    TSObject ts -> PP.encloseSep "{" "}" "," $
-      icollect (\(K n :*: x) -> PP.pretty n PP.<+> ": " PP.<+> ppType x) ts
-    TSUnion ts  -> PP.encloseSep "" "" " | " (icollect ppType ts)
+    TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect (withTSType_ ppType) ts)
+    TSObject ts -> PP.encloseSep "{" "}" "," . getConst $
+      -- icollect (\(K n :*: x) -> PP.pretty n PP.<+> ": " PP.<+> withTSType_ ppType x) ts
+      runCoKeyChain (\k x -> Const [PP.pretty k PP.<+> ": " PP.<+> withTSType_ ppType x]) ts
+    TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ ppType) ts)
     TSNamed v _ -> absurd v
-    TSIntersection ts  -> PP.encloseSep "" "" " & " (icollect ppType ts)
+    -- TSIntersection ts  -> PP.encloseSep "" "" " & " (icollect ppType ts)
     -- TSIntersection ts -> PP.encloseSep "" "" " & " (icollect (ppType . getObjType) ts)
     TSPrimType PS{..} -> ppPrim psItem
 
@@ -217,22 +369,22 @@ primToValue = \case
     TSNever -> absurd
 
 typeToValue
-    :: TSType n a -> a -> A.Value
+    :: TSType ks n a -> a -> A.Value
 typeToValue = \case
     TSArray ts  -> A.Array
                  . V.fromList
                  . getOp (interpretListOf (\t -> Op (map (typeToValue t))) ts)
     TSTuple ts  -> A.Array
                  . V.fromList
-                 . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
+                 . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
     TSObject ts -> A.object
-                 . getOp (preDivisibleT (\(K k :*: t) -> Op $ \x -> [k A..= typeToValue t x]) ts)
-    TSUnion ts  -> iapply typeToValue ts
+                 . getOp (runContraKeyChain (\k t -> Op $ \x -> [k A..= withTSType_ typeToValue t x]) ts)
+    TSUnion ts  -> iapply (withTSType_ typeToValue) ts
     TSNamed _ t -> typeToValue t
     -- hm...
-    TSIntersection ts ->
-                   undefined
-                 . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
+    -- TSIntersection ts ->
+    --                undefined
+    --              . getOp (preDivisibleT (\t -> Op $ \x -> [typeToValue t x]) ts)
     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
 data ParseErr = PEInvalidEnum [(Text, EnumLit)]
@@ -273,18 +425,18 @@ parsePrim = \case
     TSNever -> ABE.throwCustomError PENever
 
 parseType
-    :: TSType n a
+    :: TSType ks n a
     -> ABE.Parse ParseErr a
 parseType = \case
     TSArray ts -> unwrapFunctor $ interpretListOf (WrapFunctor . ABE.eachInArray . parseType) ts
     TSTuple ts -> flip evalStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
-      (,i+1) <$> ABE.nth i (parseType t)
-    TSObject ts -> (`interpret` ts) $ \(K k :*: t) -> ABE.key k (parseType t)
+      (,i+1) <$> ABE.nth i (withTSType_ parseType t)
+    TSObject ts -> (`runCoKeyChain` ts) $ \k t -> ABE.key k (withTSType_ parseType t)
     TSUnion ts -> foldr @[] (ABE.<|>) (ABE.throwCustomError PENever) $
-        icollect (interpretPost parseType) (unPostT ts)
+        icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t
     -- hm...
-    TSIntersection ts -> interpret parseType ts
+    -- TSIntersection ts -> interpret parseType ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive) pure . psParser
                      =<< parsePrim psItem
 
