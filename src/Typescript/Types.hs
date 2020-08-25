@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveFoldable        #-}
 {-# LANGUAGE DeriveFunctor         #-}
@@ -32,7 +33,7 @@ import           Data.Bifunctor
 import           Data.Dependent.Sum                        (DSum)
 import           Data.Fin                                  (Fin)
 import           Data.Foldable
-import           Data.Functor.Combinator hiding (Comp(..))
+import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Divisible
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
@@ -48,6 +49,7 @@ import           Data.SOP                                  (NP(..), NS(..), I(..
 import           Data.Scientific                           (Scientific, toBoundedInteger)
 import           Data.Some                                 (Some(..), withSome, foldSome)
 import           Data.Text                                 (Text)
+import           Data.Type.Equality
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Vector                               (Vector)
 import           Data.Void
@@ -268,10 +270,10 @@ data Intersections :: [Symbol] -> Type -> Type -> Type where
     INil  :: a -> Intersections '[] n a
     ICons :: (a -> b -> c)
           -> (c -> (a, b))
-          -> NP (Not :.: Elem kss) ks
+          -> NP (Not :.: Elem js) ks
           -> TSType ('Just ks) n a
-          -> Intersections kss n b
-          -> Intersections (ks ++ kss) n c
+          -> Intersections js n b
+          -> Intersections (ks ++ js) n c
 
 instance Invariant (Intersections ks f) where
     invmap f g = \case
@@ -300,35 +302,82 @@ runContraIntersections f = go
       INil _           -> conquer
       ICons _ g _ t ts -> divide g (f t) (go ts)
 
--- appendIntersections
---     :: forall a b c n ks js. ()
---     => (a -> b -> c)
---     -> (c -> (a, b))
---     -> NP (Not :.: Elem js) ks
---     -> Intersections ks n a
---     -> Intersections js n b
---     -> Intersections (ks ++ js) n c
--- appendIntersections f g = \case
---     Nil -> \case
---       INil x -> invmap (f x) (snd . g)
---     Comp (Not n) :* ns -> \case
---       ICons h k ms x xs -> case ms of
---         Nil ->
---             ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) Nil                    x
---           . appendIntersections (,)                        id                      (Comp (Not n) :* ns)   xs
---         -- Comp (Not o) :* os ->
---         --     ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) _ x
---         --   . appendIntersections (,)                        id                      _ xs
-        
-          -- ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) _  x
-        -- . appendIntersections (,)                        id                      ns xs
+takeNP
+    :: forall as bs p q. ()
+    => NP p as
+    -> NP q (as ++ bs)
+    -> (NP (p :*: q) as, NP q bs)
+takeNP = \case
+    Nil -> (Nil,)
+    x :* xs -> \case
+      y :* ys -> first ((x :*: y) :*) (takeNP xs ys)
 
+appendIntersections
+    :: forall a b c n ks js. ()
+    => (a -> b -> c)
+    -> (c -> (a, b))
+    -> NP (Not :.: Elem js) ks
+    -> Intersections ks n a
+    -> Intersections js n b
+    -> Intersections (ks ++ js) n c
+appendIntersections f g ns = \case
+    INil x -> invmap (f x) (snd . g)
+    ICons h k ms (x :: TSType ('Just as) n q) (xs :: Intersections bs n r) -> case takeNP @as @bs ms ns of
+      (here, there) ->
+        case assocConcat @as @bs @js here of
+          Refl -> ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem' there here) x
+                . appendIntersections (,) id there xs
 
+injectIntersection :: TSType ('Just as) n a -> Intersections as n a
+injectIntersection x = case appendNil ks of
+    Refl -> ICons const (,()) (hmap (\_ -> Comp (Not (\case {}))) ks) x (INil ())
+  where
+    ks = typeStructure x
 
-    -- Comp (Not n) :* ns -> \case
-    --   KCCons h k m x xs ->
-    --      KCCons         (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
-    --    . appendKeyChain (,)                        id                      ns                      xs
+keyChainKeys
+    :: KeyChain ks f a
+    -> NP Key ks
+keyChainKeys = \case
+    KCNil _ -> Nil
+    KCCons _ _ _ (Keyed k _) xs -> k :* keyChainKeys xs
+
+intersectionsKeys
+    :: Intersections ks n a
+    -> NP Key ks
+intersectionsKeys = \case
+    INil _ -> Nil
+    ICons _ _ _ x xs -> typeStructure x `appendNP` intersectionsKeys xs
+
+typeStructure :: TSType ('Just as) n a -> NP Key as
+typeStructure = \case
+    TSObject ts -> keyChainKeys ts
+    TSIntersection ts -> intersectionsKeys ts
+    TSNamed _ t -> typeStructure t
+
+assocConcat
+    :: forall as bs cs p. ()
+    => NP p as
+    -> ((as ++ bs) ++ cs) :~: (as ++ (bs ++ cs))
+assocConcat = \case
+    Nil -> Refl
+    _ :* ps -> case assocConcat @_ @bs @cs ps of
+      Refl -> Refl
+
+appendNil
+    :: NP p as
+    -> (as ++ '[]) :~: as
+appendNil = \case
+    Nil -> Refl
+    _ :* ps -> case appendNil ps of
+      Refl -> Refl
+
+concatNotElem'
+    :: forall js ks as p. ()
+    => NP p js
+    -> NP ((Not :.: Elem js) :*: (Not :.: Elem ks)) as
+    -> NP (Not :.: Elem (js ++ ks)) as
+concatNotElem' js = hmap $ \(Comp (Not ns) :*: Comp (Not ms)) ->
+    Comp $ Not $ concatNotElem js ns ms
 
 data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ListOf (TSType ks n) a -> TSType 'Nothing n a
