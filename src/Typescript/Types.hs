@@ -28,10 +28,11 @@ module Typescript.Types where
 
 import           Control.Applicative
 import           Control.Monad.Trans.State
+import           Data.Bifunctor
 import           Data.Dependent.Sum                        (DSum)
 import           Data.Fin                                  (Fin)
 import           Data.Foldable
-import           Data.Functor.Combinator
+import           Data.Functor.Combinator hiding (Comp(..))
 import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Divisible
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
@@ -41,6 +42,7 @@ import           Data.HFunctor.Route
 import           Data.IntMap                               (IntMap)
 import           Data.Kind
 import           Data.Map                                  (Map)
+import           Data.Ord
 import           Data.Proxy
 import           Data.SOP                                  (NP(..), NS(..), I(..), K(..), (:.:)(..))
 import           Data.Scientific                           (Scientific, toBoundedInteger)
@@ -55,6 +57,7 @@ import           GHC.TypeLits
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Types                          as A
+import qualified Data.Bifunctor.Assoc                      as B
 import qualified Data.SOP                                  as SOP
 import qualified Data.SOP.NP                               as NP
 import qualified Data.Text                                 as T
@@ -160,10 +163,79 @@ data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
     KCNil  :: a -> KeyChain '[] f a
     KCCons :: (a -> b -> c)
            -> (c -> (a, b))
-           -> Not (Elem ks k)
+           -> (Elem ks k -> Void)
            -> Keyed k f a
            -> KeyChain ks f b
            -> KeyChain (k ': ks) f c
+
+instance Invariant (KeyChain ks f) where
+    invmap f g = \case
+      KCNil x -> KCNil (f x)
+      KCCons h k e x xs -> KCCons (\r -> f . h r) (k . g) e x xs
+
+instance HFunctor (KeyChain ks) where
+    hmap f = \case
+      KCNil x -> KCNil x
+      KCCons g h n (Keyed k x) xs -> KCCons g h n (Keyed k (f x)) (hmap f xs)
+
+injectKC :: Key k -> f a -> KeyChain '[k] f a
+injectKC k x = KCCons const (,()) (\case {}) (Keyed k x) (KCNil ())
+
+instance KnownSymbol k => Inject (KeyChain '[k]) where
+    inject = injectKC Key
+
+class KnownNotElem ks k where
+    knownNotElem :: Elem ks k -> Void
+
+instance KnownNotElem '[] k where
+    knownNotElem = \case{}
+
+type family CmpEq (a :: Ordering) :: Bool where
+    CmpEq 'LT = 'False
+    CmpEq 'EQ = 'True
+    CmpEq 'GT = 'False
+
+instance (CmpEq (CmpSymbol k j) ~ 'False, KnownNotElem ks j) => KnownNotElem (k ': ks) j where
+    knownNotElem = \case
+      ES x -> knownNotElem x
+
+kcCons
+    :: KnownNotElem ks k
+    => Key k
+    -> (a -> b -> c)
+    -> (c -> (a, b))
+    -> f a
+    -> KeyChain ks f b
+    -> KeyChain (k ': ks) f c
+kcCons k f g x = KCCons f g knownNotElem (Keyed k x)
+
+concatNotElem
+    :: forall js ks a p. ()
+    => NP p js
+    -> (Elem js a -> Void)
+    -> (Elem ks a -> Void)
+    -> (Elem (js ++ ks) a -> Void)
+concatNotElem = \case
+    Nil     -> \_ g -> g
+    _ :* ps -> \f g -> \case
+      EZ   -> f EZ
+      ES e -> concatNotElem ps (f . ES) g e
+
+appendKeyChain
+    :: forall a b c f ks js. ()
+    => (a -> b -> c)
+    -> (c -> (a, b))
+    -> NP (Not :.: Elem js) ks
+    -> KeyChain ks f a
+    -> KeyChain js f b
+    -> KeyChain (ks ++ js) f c
+appendKeyChain f g = \case
+    Nil -> \case
+      KCNil x -> invmap (f x) (snd . g)
+    Comp (Not n) :* ns -> \case
+      KCCons h k m x xs ->
+         KCCons         (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
+       . appendKeyChain (,)                        id                      ns                      xs
 
 runCoKeyChain
     :: forall ks f g. Applicative g
@@ -188,8 +260,8 @@ runContraKeyChain f = go
       KCCons _ g _ (Keyed k x) xs -> divide g (f (keyText k) x) (go xs)
 
 testChain :: KeyChain '[ "hello", "world" ] Identity (Int, Bool)
-testChain = KCCons (,)   id    (Not (\case {})) (Keyed #hello (Identity 10))
-          . KCCons const (,()) (Not (\case {})) (Keyed #world (Identity True))
+testChain = KCCons (,)   id    (\case {}) (Keyed #hello (Identity 10))
+          . KCCons const (,()) (\case {}) (Keyed #world (Identity True))
           $ KCNil  ()
 
 data Intersections :: [Symbol] -> Type -> Type -> Type where
@@ -200,6 +272,11 @@ data Intersections :: [Symbol] -> Type -> Type -> Type where
           -> TSType ('Just ks) n a
           -> Intersections kss n b
           -> Intersections (ks ++ kss) n c
+
+instance Invariant (Intersections ks f) where
+    invmap f g = \case
+      INil x -> INil (f x)
+      ICons h j ns x xs -> ICons (\r -> f . h r) (j . g) ns x xs
 
 runCoIntersections
     :: forall kss n f. Applicative f
@@ -223,6 +300,35 @@ runContraIntersections f = go
       INil _           -> conquer
       ICons _ g _ t ts -> divide g (f t) (go ts)
 
+-- appendIntersections
+--     :: forall a b c n ks js. ()
+--     => (a -> b -> c)
+--     -> (c -> (a, b))
+--     -> NP (Not :.: Elem js) ks
+--     -> Intersections ks n a
+--     -> Intersections js n b
+--     -> Intersections (ks ++ js) n c
+-- appendIntersections f g = \case
+--     Nil -> \case
+--       INil x -> invmap (f x) (snd . g)
+--     Comp (Not n) :* ns -> \case
+--       ICons h k ms x xs -> case ms of
+--         Nil ->
+--             ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) Nil                    x
+--           . appendIntersections (,)                        id                      (Comp (Not n) :* ns)   xs
+--         -- Comp (Not o) :* os ->
+--         --     ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) _ x
+--         --   . appendIntersections (,)                        id                      _ xs
+        
+          -- ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) _  x
+        -- . appendIntersections (,)                        id                      ns xs
+
+
+
+    -- Comp (Not n) :* ns -> \case
+    --   KCCons h k m x xs ->
+    --      KCCons         (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
+    --    . appendKeyChain (,)                        id                      ns                      xs
 
 data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ListOf (TSType ks n) a -> TSType 'Nothing n a
@@ -230,7 +336,6 @@ data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     TSObject       :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
     TSUnion        :: PostT Dec (TSType_ n) a -> TSType 'Nothing n a
     TSNamed        :: n -> TSType ks n a -> TSType ks n a
-
     -- either we:
     --
     -- 1. do not allow duplicates, in which case we disallow some potential

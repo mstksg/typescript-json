@@ -39,6 +39,7 @@ dependencies:
 - some
 - sop-core
 - contravariant
+- assoc
 - vector
 - prettyprinter >= 1.7
 - fin

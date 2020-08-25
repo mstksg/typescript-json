@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f77bf8995b9383c807d72873b53b21940feac476f0ecf7583f91d2f10e4d40b1
+-- hash: b6125697a4764d8b68317b88c9a4ffe928aa7c467387331e5a2dc912d599b53f
 
 name:           typescript-types
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
   build-depends:
       aeson
     , aeson-better-errors
+    , assoc
     , base >=4.7 && <5
     , containers
     , contravariant
