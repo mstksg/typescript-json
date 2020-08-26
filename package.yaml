@@ -1,6 +1,6 @@
-name:                typescript-types
+name:                typescript-json
 version:             0.1.0.0
-github:              "mstksg/typescript-types"
+github:              "mstksg/typescript-json"
 license:             BSD3
 author:              "Justin Le"
 maintainer:          "justin@jle.im"

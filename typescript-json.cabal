@@ -1,16 +1,16 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.2.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b6125697a4764d8b68317b88c9a4ffe928aa7c467387331e5a2dc912d599b53f
+-- hash: 6f45cc4876b34c1b67a286542e651f52ef83bd1d145a36fd4cc2512b780cc76d
 
-name:           typescript-types
+name:           typescript-json
 version:        0.1.0.0
 description:    Please see the README on GitHub.
-homepage:       https://github.com/mstksg/typescript-types#readme
-bug-reports:    https://github.com/mstksg/typescript-types/issues
+homepage:       https://github.com/mstksg/typescript-json#readme
+bug-reports:    https://github.com/mstksg/typescript-json/issues
 author:         Justin Le
 maintainer:     justin@jle.im
 copyright:      2020 Justin Le
@@ -23,13 +23,14 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/mstksg/typescript-types
+  location: https://github.com/mstksg/typescript-json
 
 library
   exposed-modules:
-      Typescript.Types
+      Typescript.Json
+      Typescript.Json.Core
   other-modules:
-      Paths_typescript_types
+      Paths_typescript_json
   hs-source-dirs:
       src
   ghc-options: -Wall -Werror=incomplete-patterns -Wcompat -Wredundant-constraints

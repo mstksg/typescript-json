@@ -25,7 +25,35 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Typescript.Types where
+module Typescript.Json.Core (
+    TSPrim(..)
+  , EnumLit(..)
+  , TSType(..)
+  , TSType_(..)
+  , KeyChain(..)
+  , Intersections(..)
+  -- * prettyprint
+  , ppEnumLit
+  , ppPrim
+  , ppType
+  -- * to value
+  , enumLitToValue
+  , primToValue
+  , typeToValue
+  -- * parse
+  , parseEnumLit
+  , parsePrim
+  , parseType
+  -- * utility func
+  , injectKC
+  , type (++)
+  -- * utility types
+  , Key(..)
+  , Keyed(..)
+  , PS(..)
+  , ListOf(..)
+  , Elem(..)
+  ) where
 
 import           Control.Applicative
 import           Control.Monad.Trans.State
@@ -104,10 +132,6 @@ type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[]     ++ bs = bs
     (a':as) ++ bs = a':(as ++ bs)
 
-type family Concat (as :: [[k]]) :: [k] where
-    Concat '[] = '[]
-    Concat (a ': as) = a ++ Concat as
-
 data ListOf f a = forall x. ListOf
     (f x)
     (a -> (forall r. (x -> r -> r) -> r -> r))
@@ -116,11 +140,6 @@ data ListOf f a = forall x. ListOf
 instance Invariant (ListOf f) where
     invmap f g (ListOf x toBuild fromBuild) =
       ListOf x (\xs -> toBuild (g xs)) (\h -> f (fromBuild h))
-
-listOf :: f a -> ListOf f [a]
-listOf x = ListOf x
-        (\xs cons nil -> foldr cons nil xs)
-        (\f -> f (:) [])
 
 instance HFunctor ListOf where
     hmap f (ListOf x g h) = ListOf (f x) g h
@@ -186,59 +205,6 @@ injectKC k x = KCCons const (,()) (\case {}) (Keyed k x) (KCNil ())
 instance KnownSymbol k => Inject (KeyChain '[k]) where
     inject = injectKC Key
 
-class KnownNotElem ks k where
-    knownNotElem :: Elem ks k -> Void
-
-instance KnownNotElem '[] k where
-    knownNotElem = \case{}
-
-type family CmpEq (a :: Ordering) :: Bool where
-    CmpEq 'LT = 'False
-    CmpEq 'EQ = 'True
-    CmpEq 'GT = 'False
-
-instance (CmpEq (CmpSymbol k j) ~ 'False, KnownNotElem ks j) => KnownNotElem (k ': ks) j where
-    knownNotElem = \case
-      ES x -> knownNotElem x
-
-kcCons
-    :: KnownNotElem ks k
-    => Key k
-    -> (a -> b -> c)
-    -> (c -> (a, b))
-    -> f a
-    -> KeyChain ks f b
-    -> KeyChain (k ': ks) f c
-kcCons k f g x = KCCons f g knownNotElem (Keyed k x)
-
-concatNotElem
-    :: forall js ks a p. ()
-    => NP p js
-    -> (Elem js a -> Void)
-    -> (Elem ks a -> Void)
-    -> (Elem (js ++ ks) a -> Void)
-concatNotElem = \case
-    Nil     -> \_ g -> g
-    _ :* ps -> \f g -> \case
-      EZ   -> f EZ
-      ES e -> concatNotElem ps (f . ES) g e
-
-appendKeyChain
-    :: forall a b c f ks js. ()
-    => (a -> b -> c)
-    -> (c -> (a, b))
-    -> NP (Not :.: Elem js) ks
-    -> KeyChain ks f a
-    -> KeyChain js f b
-    -> KeyChain (ks ++ js) f c
-appendKeyChain f g = \case
-    Nil -> \case
-      KCNil x -> invmap (f x) (snd . g)
-    Comp (Not n) :* ns -> \case
-      KCCons h k m x xs ->
-         KCCons         (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
-       . appendKeyChain (,)                        id                      ns                      xs
-
 runCoKeyChain
     :: forall ks f g. Applicative g
     => (Text -> f ~> g)
@@ -261,8 +227,8 @@ runContraKeyChain f = go
       KCNil _ -> conquer
       KCCons _ g _ (Keyed k x) xs -> divide g (f (keyText k) x) (go xs)
 
-testChain :: KeyChain '[ "hello", "world" ] Identity (Int, Bool)
-testChain = KCCons (,)   id    (\case {}) (Keyed #hello (Identity 10))
+_testChain :: KeyChain '[ "hello", "world" ] Identity (Int, Bool)
+_testChain = KCCons (,)   id    (\case {}) (Keyed #hello (Identity 10))
           . KCCons const (,()) (\case {}) (Keyed #world (Identity True))
           $ KCNil  ()
 
@@ -301,83 +267,6 @@ runContraIntersections f = go
     go = \case
       INil _           -> conquer
       ICons _ g _ t ts -> divide g (f t) (go ts)
-
-takeNP
-    :: forall as bs p q. ()
-    => NP p as
-    -> NP q (as ++ bs)
-    -> (NP (p :*: q) as, NP q bs)
-takeNP = \case
-    Nil -> (Nil,)
-    x :* xs -> \case
-      y :* ys -> first ((x :*: y) :*) (takeNP xs ys)
-
-appendIntersections
-    :: forall a b c n ks js. ()
-    => (a -> b -> c)
-    -> (c -> (a, b))
-    -> NP (Not :.: Elem js) ks
-    -> Intersections ks n a
-    -> Intersections js n b
-    -> Intersections (ks ++ js) n c
-appendIntersections f g ns = \case
-    INil x -> invmap (f x) (snd . g)
-    ICons h k ms (x :: TSType ('Just as) n q) (xs :: Intersections bs n r) -> case takeNP @as @bs ms ns of
-      (here, there) ->
-        case assocConcat @as @bs @js here of
-          Refl -> ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem' there here) x
-                . appendIntersections (,) id there xs
-
-injectIntersection :: TSType ('Just as) n a -> Intersections as n a
-injectIntersection x = case appendNil ks of
-    Refl -> ICons const (,()) (hmap (\_ -> Comp (Not (\case {}))) ks) x (INil ())
-  where
-    ks = typeStructure x
-
-keyChainKeys
-    :: KeyChain ks f a
-    -> NP Key ks
-keyChainKeys = \case
-    KCNil _ -> Nil
-    KCCons _ _ _ (Keyed k _) xs -> k :* keyChainKeys xs
-
-intersectionsKeys
-    :: Intersections ks n a
-    -> NP Key ks
-intersectionsKeys = \case
-    INil _ -> Nil
-    ICons _ _ _ x xs -> typeStructure x `appendNP` intersectionsKeys xs
-
-typeStructure :: TSType ('Just as) n a -> NP Key as
-typeStructure = \case
-    TSObject ts -> keyChainKeys ts
-    TSIntersection ts -> intersectionsKeys ts
-    TSNamed _ t -> typeStructure t
-
-assocConcat
-    :: forall as bs cs p. ()
-    => NP p as
-    -> ((as ++ bs) ++ cs) :~: (as ++ (bs ++ cs))
-assocConcat = \case
-    Nil -> Refl
-    _ :* ps -> case assocConcat @_ @bs @cs ps of
-      Refl -> Refl
-
-appendNil
-    :: NP p as
-    -> (as ++ '[]) :~: as
-appendNil = \case
-    Nil -> Refl
-    _ :* ps -> case appendNil ps of
-      Refl -> Refl
-
-concatNotElem'
-    :: forall js ks as p. ()
-    => NP p js
-    -> NP ((Not :.: Elem js) :*: (Not :.: Elem ks)) as
-    -> NP (Not :.: Elem (js ++ ks)) as
-concatNotElem' js = hmap $ \(Comp (Not ns) :*: Comp (Not ms)) ->
-    Comp $ Not $ concatNotElem js ns ms
 
 data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ListOf (TSType ks n) a -> TSType 'Nothing n a
@@ -432,16 +321,6 @@ ppPrim = \case
     TSNull         -> "null"
     TSNever        -> "never"
 
-data Mapping k v = k :-> v
-
-data MapElem :: [Mapping k v] -> k -> v -> Type where
-    MEZ :: MapElem ((k ':-> v) ': kvs) k v
-    MES :: !(MapElem kvs k v) -> MapElem (kv ': kvs) k v
-
-data MapChange :: [Mapping k v] -> [Mapping k v] -> k -> v -> v -> Type where
-    MCZ :: MapChange ((k ':-> v) ': kvs) ((k ':-> u) ': kvs) k v u
-    MCS :: !(MapChange kvs kus k v u) -> MapChange (kv ': kvs) (ku ': kus) k v u
-
 ppType
     :: TSType ks Void a
     -> PP.Doc x
@@ -487,18 +366,18 @@ objTypeToValue = \case
     TSIntersection ts -> getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSNamed      _ t  -> objTypeToValue t
 
-nonObjTypeToValue
-    :: TSType 'Nothing n a -> a -> A.Value
-nonObjTypeToValue = \case
-    TSArray ts  -> A.Array
-                 . V.fromList
-                 . getOp (interpretListOf (\t -> Op (map (typeToValue t))) ts)
-    TSTuple ts  -> A.Array
-                 . V.fromList
-                 . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
-    TSUnion ts  -> iapply (withTSType_ typeToValue) ts
-    TSNamed _ t -> typeToValue t
-    TSPrimType PS{..} -> primToValue psItem . psSerializer
+-- nonObjTypeToValue
+--     :: TSType 'Nothing n a -> a -> A.Value
+-- nonObjTypeToValue = \case
+--     TSArray ts  -> A.Array
+--                  . V.fromList
+--                  . getOp (interpretListOf (\t -> Op (map (typeToValue t))) ts)
+--     TSTuple ts  -> A.Array
+--                  . V.fromList
+--                  . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
+--     TSUnion ts  -> iapply (withTSType_ typeToValue) ts
+--     TSNamed _ t -> typeToValue t
+--     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
 typeToValue
     :: TSType ks n a -> a -> A.Value
@@ -569,43 +448,38 @@ parseType = \case
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive) pure . psParser
                      =<< parsePrim psItem
 
-npToList :: (forall x. f x -> b) -> NP f as -> [b]
-npToList f = \case
-    Nil -> []
-    x :* xs -> f x : npToList f xs
+-- npToList :: (forall x. f x -> b) -> NP f as -> [b]
+-- npToList f = \case
+--     Nil -> []
+--     x :* xs -> f x : npToList f xs
 
-npToList2 :: (forall x. f x -> g x -> b) -> NP f as -> NP g as -> [b]
-npToList2 f = \case
-    Nil -> \case
-      Nil -> []
-    x :* xs -> \case
-      y :* ys -> f x y : npToList2 f xs ys
+-- npToList2 :: (forall x. f x -> g x -> b) -> NP f as -> NP g as -> [b]
+-- npToList2 f = \case
+--     Nil -> \case
+--       Nil -> []
+--     x :* xs -> \case
+--       y :* ys -> f x y : npToList2 f xs ys
 
-zipPS :: (forall x. f x -> g x -> b) -> NP f as -> NS g as -> b
-zipPS f = \case
-    Nil -> \case {}
-    x :* xs -> \case
-      Z y  -> f x y
-      S ys -> zipPS f xs ys
+-- zipPS :: (forall x. f x -> g x -> b) -> NP f as -> NS g as -> b
+-- zipPS f = \case
+--     Nil -> \case {}
+--     x :* xs -> \case
+--       Z y  -> f x y
+--       S ys -> zipPS f xs ys
 
-appendNP :: NP f as -> NP f bs -> NP f (as ++ bs)
-appendNP = \case
-    Nil -> id
-    x :* xs -> (x :*) . appendNP xs
+-- traverseNP
+--     :: Applicative h
+--     => (forall x. f x -> h (g x))
+--     -> NP f as
+--     -> h (NP g as)
+-- traverseNP f = \case
+--     Nil -> pure Nil
+--     x :* xs -> (:*) <$> f x <*> traverseNP f xs
 
-traverseNP
-    :: Applicative h
-    => (forall x. f x -> h (g x))
-    -> NP f as
-    -> h (NP g as)
-traverseNP f = \case
-    Nil -> pure Nil
-    x :* xs -> (:*) <$> f x <*> traverseNP f xs
-
-imapNP
-    :: (forall x. (h x -> NS h as) -> f x -> g x)
-    -> NP f as
-    -> NP g as
-imapNP f = \case
-    Nil -> Nil
-    x :* xs -> f Z x :* imapNP (f . (S .)) xs
+-- imapNP
+--     :: (forall x. (h x -> NS h as) -> f x -> g x)
+--     -> NP f as
+--     -> NP g as
+-- imapNP f = \case
+--     Nil -> Nil
+--     x :* xs -> f Z x :* imapNP (f . (S .)) xs
