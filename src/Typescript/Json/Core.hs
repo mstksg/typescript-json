@@ -51,8 +51,8 @@ module Typescript.Json.Core (
   , Key(..)
   , Keyed(..)
   , PS(..)
-  , ListOf(..)
   , Elem(..)
+  , ILan(..)
   ) where
 
 import           Control.Applicative
@@ -68,6 +68,7 @@ import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
+import           Data.Functor.Contravariant.Decide
 import           Data.IntMap                               (IntMap)
 import           Data.Kind
 import           Data.Map                                  (Map)
@@ -132,27 +133,20 @@ type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[]     ++ bs = bs
     (a':as) ++ bs = a':(as ++ bs)
 
-data ListOf f a = forall x. ListOf
-    (f x)
-    (a -> (forall r. (x -> r -> r) -> r -> r))
-    ((forall r. (x -> r -> r) -> r -> r) -> a)
+data ILan g h a = forall x. ILan (g x -> a) (a -> g x) (h x)
 
-instance Invariant (ListOf f) where
-    invmap f g (ListOf x toBuild fromBuild) =
-      ListOf x (\xs -> toBuild (g xs)) (\h -> f (fromBuild h))
+instance Invariant (ILan g h) where
+    invmap f g (ILan h k x) = ILan (f . h) (k . g) x
 
-instance HFunctor ListOf where
-    hmap f (ListOf x g h) = ListOf (f x) g h
+instance HFunctor (ILan g) where
+    hmap f (ILan h k x) = ILan h k (f x)
 
-interpretListOf
-    :: Invariant g
-    => (forall x. f x -> g [x])
-    -> ListOf f a
-    -> g a
-interpretListOf f (ListOf x g h) = invmap
-    (\xs -> h (\cons nil -> foldr cons nil xs))
-    (\y -> g y (:) [])
-    (f x)
+interpretILan
+    :: Invariant f
+    => (forall x. h x -> f (g x))
+    -> ILan g h a
+    -> f a
+interpretILan f (ILan g h x) = invmap g h (f x)
 
 data TSType_ n a = forall ks. TSType_ { unTSType_ :: TSType ks n a }
 
@@ -179,6 +173,22 @@ data Keyed k f a = Keyed
     { keyedKey  :: Key k
     , keyedItem :: f a
     }
+  deriving Functor
+
+instance Contravariant f => Contravariant (Keyed k f) where
+    contramap f (Keyed k x) = Keyed k (contramap f x)
+
+instance Invariant f => Invariant (Keyed k f) where
+    invmap f g (Keyed k x) = Keyed k (invmap f g x)
+
+instance HFunctor (Keyed k) where
+    hmap f (Keyed k x) = Keyed k (f x)
+
+instance KnownSymbol k => Inject (Keyed k) where
+    inject x = Keyed Key x
+
+instance KnownSymbol k => Interpret (Keyed k) f where
+    interpret f (Keyed _ x) = f x
 
 data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
     KCNil  :: a -> KeyChain '[] f a
@@ -188,16 +198,24 @@ data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
            -> Keyed k f a
            -> KeyChain ks f b
            -> KeyChain (k ': ks) f c
+    KCOCons :: (a -> b -> c)
+           -> (c -> (a, b))
+           -> (Elem ks k -> Void)
+           -> Keyed k (ILan Maybe f) a
+           -> KeyChain ks f b
+           -> KeyChain (k ': ks) f c
 
 instance Invariant (KeyChain ks f) where
     invmap f g = \case
       KCNil x -> KCNil (f x)
       KCCons h k e x xs -> KCCons (\r -> f . h r) (k . g) e x xs
+      KCOCons h k e x xs -> KCOCons (\r -> f . h r) (k . g) e x xs
 
 instance HFunctor (KeyChain ks) where
     hmap f = \case
       KCNil x -> KCNil x
-      KCCons g h n (Keyed k x) xs -> KCCons g h n (Keyed k (f x)) (hmap f xs)
+      KCCons g h n x xs -> KCCons g h n (hmap f x) (hmap f xs)
+      KCOCons g h n x xs -> KCOCons g h n (hmap (hmap f) x) (hmap f xs)
 
 injectKC :: Key k -> f a -> KeyChain '[k] f a
 injectKC k x = KCCons const (,()) (\case {}) (Keyed k x) (KCNil ())
@@ -208,24 +226,36 @@ instance KnownSymbol k => Inject (KeyChain '[k]) where
 runCoKeyChain
     :: forall ks f g. Applicative g
     => (Text -> f ~> g)
+    -> (forall x. Text -> f x -> g (Maybe x))
     -> KeyChain ks f ~> g
-runCoKeyChain f = go
+runCoKeyChain f h = go
   where
     go :: KeyChain js f ~> g
     go = \case
       KCNil x -> pure x
-      KCCons g _ _ (Keyed k x) xs -> liftA2 g (f (keyText k) x) (go xs)
+      KCCons  g _ _ (Keyed k x) xs -> liftA2 g (f (keyText k) x) (go xs)
+      KCOCons g _ _ (Keyed k x) xs -> liftA2 g
+        (unwrapFunctor $
+           interpretILan (\y -> WrapFunctor $ h (keyText k) y) x
+        )
+        (go xs)
 
 runContraKeyChain
     :: forall ks f g. Divisible g
     => (Text -> f ~> g)
+    -> (forall x. Text -> f x -> g (Maybe x))
     -> KeyChain ks f ~> g
-runContraKeyChain f = go
+runContraKeyChain f h = go
   where
     go :: KeyChain js f ~> g
     go = \case
       KCNil _ -> conquer
       KCCons _ g _ (Keyed k x) xs -> divide g (f (keyText k) x) (go xs)
+      KCOCons _ g _ (Keyed k x) xs -> divide g
+        (unwrapContravariant $
+           interpretILan (\y -> WrapContravariant $ h (keyText k) y) x
+        )
+        (go xs)
 
 _testChain :: KeyChain '[ "hello", "world" ] Identity (Int, Bool)
 _testChain = KCCons (,)   id    (\case {}) (Keyed #hello (Identity 10))
@@ -269,10 +299,11 @@ runContraIntersections f = go
       ICons _ g _ t ts -> divide g (f t) (go ts)
 
 data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
-    TSArray        :: ListOf (TSType ks n) a -> TSType 'Nothing n a
+    TSArray        :: ILan [] (TSType ks n) a -> TSType 'Nothing n a
     TSTuple        :: PreT Ap (TSType_ n) a -> TSType 'Nothing n a
     TSObject       :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
     TSUnion        :: PostT Dec (TSType_ n) a -> TSType 'Nothing n a
+    -- TODO: interfaces?
     TSNamed        :: n -> TSType ks n a -> TSType ks n a
     -- either we:
     --
@@ -325,10 +356,13 @@ ppType
     :: TSType ks Void a
     -> PP.Doc x
 ppType = \case
-    TSArray t   -> getConst (interpretListOf (Const . ppType) t) PP.<+> "[]"
+    TSArray t   -> getConst (interpretILan (Const . ppType) t) PP.<+> "[]"
     TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect (withTSType_ ppType) ts)
     TSObject ts -> PP.encloseSep "{" "}" "," . getConst $
-      runCoKeyChain (\k x -> Const [PP.pretty k PP.<+> ": " PP.<+> withTSType_ ppType x]) ts
+      runCoKeyChain
+        (\k x -> Const [PP.pretty k PP.<+> ": " PP.<+> withTSType_ ppType x])
+        (\k x -> Const [PP.pretty k PP.<+> "?: " PP.<+> withTSType_ ppType x])
+        ts
     TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ ppType) ts)
     TSNamed v _ -> absurd v
     TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
@@ -362,7 +396,11 @@ primToValue = \case
 
 objTypeToValue :: TSType ('Just ks) n a -> a -> [A.Pair]
 objTypeToValue = \case
-    TSObject       ts -> getOp (runContraKeyChain (\k t -> Op $ \x -> [k A..= withTSType_ typeToValue t x]) ts)
+    TSObject       ts -> getOp $
+      runContraKeyChain
+        (\k t -> Op           $ \x -> [k A..= withTSType_ typeToValue t x])
+        (\k t -> Op . foldMap $ \x -> [k A..= withTSType_ typeToValue t x])
+        ts
     TSIntersection ts -> getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSNamed      _ t  -> objTypeToValue t
 
@@ -384,12 +422,11 @@ typeToValue
 typeToValue = \case
     TSArray ts  -> A.Array
                  . V.fromList
-                 . getOp (interpretListOf (\t -> Op (map (typeToValue t))) ts)
+                 . getOp (interpretILan (\t -> Op (map (typeToValue t))) ts)
     TSTuple ts  -> A.Array
                  . V.fromList
                  . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
-    TSObject ts -> A.object
-                 . getOp (runContraKeyChain (\k t -> Op $ \x -> [k A..= withTSType_ typeToValue t x]) ts)
+    TSObject ts -> A.object . objTypeToValue (TSObject ts)
     TSUnion ts  -> iapply (withTSType_ typeToValue) ts
     TSNamed _ t -> typeToValue t
     TSIntersection ts -> A.object
@@ -437,10 +474,13 @@ parseType
     :: TSType ks n a
     -> ABE.Parse ParseErr a
 parseType = \case
-    TSArray ts -> unwrapFunctor $ interpretListOf (WrapFunctor . ABE.eachInArray . parseType) ts
+    TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType) ts
     TSTuple ts -> flip evalStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
       (,i+1) <$> ABE.nth i (withTSType_ parseType t)
-    TSObject ts -> (`runCoKeyChain` ts) $ \k t -> ABE.key k (withTSType_ parseType t)
+    TSObject ts -> runCoKeyChain
+      (\k -> ABE.key    k . withTSType_ parseType)
+      (\k -> ABE.keyMay k . withTSType_ parseType)
+      ts
     TSUnion ts -> foldr @[] (ABE.<|>) (ABE.throwCustomError PENever) $
         icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t

@@ -24,10 +24,9 @@ import           GHC.TypeLits
 import           Typescript.Json.Core
 import qualified Data.Bifunctor.Assoc           as B
 
-listOf :: f a -> ListOf f [a]
-listOf x = ListOf x
-        (\xs cons nil -> foldr cons nil xs)
-        (\f -> f (:) [])
+ilan :: h a -> ILan g h (g a)
+ilan x = ILan id id x
+
 
 class KnownNotElem ks k where
     knownNotElem :: Elem ks k -> Void
@@ -81,6 +80,9 @@ appendKeyChain f g = \case
       KCCons h k m x xs ->
          KCCons         (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
        . appendKeyChain (,)                        id                      ns                      xs
+      KCOCons h k m x xs ->
+         KCOCons        (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
+       . appendKeyChain (,)                        id                      ns                      xs
 
 takeNP
     :: forall as bs p q. ()
@@ -119,7 +121,8 @@ keyChainKeys
     -> NP Key ks
 keyChainKeys = \case
     KCNil _ -> Nil
-    KCCons _ _ _ (Keyed k _) xs -> k :* keyChainKeys xs
+    KCCons _ _ _  (Keyed k _) xs -> k :* keyChainKeys xs
+    KCOCons _ _ _ (Keyed k _) xs -> k :* keyChainKeys xs
 
 intersectionsKeys
     :: Intersections ks n a
