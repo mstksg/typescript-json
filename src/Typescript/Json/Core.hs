@@ -36,6 +36,7 @@ module Typescript.Json.Core (
   , ppEnumLit
   , ppPrim
   , ppType
+  , ppTypeWith
   -- * to value
   , enumLitToValue
   , primToValue
@@ -46,6 +47,7 @@ module Typescript.Json.Core (
   , parseType
   -- * utility func
   , injectKC
+  , keyChainKeys
   , type (++)
   -- * utility types
   , Key(..)
@@ -61,14 +63,15 @@ import           Data.Bifunctor
 import           Data.Dependent.Sum                        (DSum)
 import           Data.Fin                                  (Fin)
 import           Data.Foldable
+import           Data.Functor
 import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant
+import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Contravariant.Divisible
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
-import           Data.Functor.Contravariant.Decide
 import           Data.IntMap                               (IntMap)
 import           Data.Kind
 import           Data.Map                                  (Map)
@@ -89,6 +92,8 @@ import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Types                          as A
 import qualified Data.Bifunctor.Assoc                      as B
+import qualified Data.HashMap.Strict                       as HM
+import qualified Data.HashSet                              as HS
 import qualified Data.SOP                                  as SOP
 import qualified Data.SOP.NP                               as NP
 import qualified Data.Text                                 as T
@@ -148,6 +153,21 @@ interpretILan
     -> f a
 interpretILan f (ILan g h x) = invmap g h (f x)
 
+interpretCoILan
+    :: Functor f
+    => (forall x. h x -> f (g x))
+    -> ILan g h a
+    -> f a
+interpretCoILan f = unwrapFunctor . interpretILan (WrapFunctor . f)
+
+interpretContraILan
+    :: Contravariant f
+    => (forall x. h x -> f (g x))
+    -> ILan g h a
+    -> f a
+interpretContraILan f = unwrapContravariant . interpretILan (WrapContravariant . f)
+
+
 data TSType_ n a = forall ks. TSType_ { unTSType_ :: TSType ks n a }
 
 withTSType_
@@ -195,33 +215,42 @@ data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
     KCCons :: (a -> b -> c)
            -> (c -> (a, b))
            -> (Elem ks k -> Void)
-           -> Keyed k f a
+           -> Keyed k (f :+: ILan Maybe f) a
            -> KeyChain ks f b
            -> KeyChain (k ': ks) f c
-    KCOCons :: (a -> b -> c)
-           -> (c -> (a, b))
-           -> (Elem ks k -> Void)
-           -> Keyed k (ILan Maybe f) a
-           -> KeyChain ks f b
-           -> KeyChain (k ': ks) f c
+    -- KCOCons :: (a -> b -> c)
+    --        -> (c -> (a, b))
+    --        -> (Elem ks k -> Void)
+    --        -> Keyed k (ILan Maybe f) a
+    --        -> KeyChain ks f b
+    --        -> KeyChain (k ': ks) f c
 
 instance Invariant (KeyChain ks f) where
     invmap f g = \case
       KCNil x -> KCNil (f x)
       KCCons h k e x xs -> KCCons (\r -> f . h r) (k . g) e x xs
-      KCOCons h k e x xs -> KCOCons (\r -> f . h r) (k . g) e x xs
+      -- KCOCons h k e x xs -> KCOCons (\r -> f . h r) (k . g) e x xs
 
 instance HFunctor (KeyChain ks) where
     hmap f = \case
       KCNil x -> KCNil x
-      KCCons g h n x xs -> KCCons g h n (hmap f x) (hmap f xs)
-      KCOCons g h n x xs -> KCOCons g h n (hmap (hmap f) x) (hmap f xs)
+      KCCons g h n x xs -> KCCons g h n (hmap (hbimap f (hmap f)) x) (hmap f xs)
+      -- KCOCons g h n x xs -> KCOCons g h n (hmap (hmap f) x) (hmap f xs)
 
 injectKC :: Key k -> f a -> KeyChain '[k] f a
-injectKC k x = KCCons const (,()) (\case {}) (Keyed k x) (KCNil ())
+injectKC k x = KCCons const (,()) (\case {}) (Keyed k (L1 x)) (KCNil ())
 
 instance KnownSymbol k => Inject (KeyChain '[k]) where
     inject = injectKC Key
+
+keyChainKeys
+    :: KeyChain ks f a
+    -> NP Key ks
+keyChainKeys = \case
+    KCNil _ -> Nil
+    KCCons _ _ _  (Keyed k _) xs -> k :* keyChainKeys xs
+    -- KCOCons _ _ _ (Keyed k _) xs -> k :* keyChainKeys xs
+
 
 runCoKeyChain
     :: forall ks f g. Applicative g
@@ -233,12 +262,11 @@ runCoKeyChain f h = go
     go :: KeyChain js f ~> g
     go = \case
       KCNil x -> pure x
-      KCCons  g _ _ (Keyed k x) xs -> liftA2 g (f (keyText k) x) (go xs)
-      KCOCons g _ _ (Keyed k x) xs -> liftA2 g
-        (unwrapFunctor $
-           interpretILan (\y -> WrapFunctor $ h (keyText k) y) x
-        )
-        (go xs)
+      KCCons  g _ _ (Keyed k x) xs ->
+        let runner :: f :+: ILan Maybe f ~> g
+            runner = f (keyText k)
+                 !*! interpretCoILan (h (keyText k))
+        in  liftA2 g (runner x) (go xs)
 
 runContraKeyChain
     :: forall ks f g. Divisible g
@@ -250,17 +278,16 @@ runContraKeyChain f h = go
     go :: KeyChain js f ~> g
     go = \case
       KCNil _ -> conquer
-      KCCons _ g _ (Keyed k x) xs -> divide g (f (keyText k) x) (go xs)
-      KCOCons _ g _ (Keyed k x) xs -> divide g
-        (unwrapContravariant $
-           interpretILan (\y -> WrapContravariant $ h (keyText k) y) x
-        )
-        (go xs)
+      KCCons _ g _ (Keyed k x) xs ->
+        let runner :: f :+: ILan Maybe f ~> g
+            runner = f (keyText k)
+                 !*! interpretContraILan (h (keyText k))
+        in  divide g (runner x) (go xs)
 
 _testChain :: KeyChain '[ "hello", "world" ] Identity (Int, Bool)
-_testChain = KCCons (,)   id    (\case {}) (Keyed #hello (Identity 10))
-          . KCCons const (,()) (\case {}) (Keyed #world (Identity True))
-          $ KCNil  ()
+_testChain = KCCons (,)   id    (\case {}) (Keyed #hello (L1 $ Identity 10 ))
+           . KCCons const (,()) (\case {}) (Keyed #world (L1 $ Identity True))
+           $ KCNil  ()
 
 data Intersections :: [Symbol] -> Type -> Type -> Type where
     INil  :: a -> Intersections '[] n a
@@ -298,12 +325,13 @@ runContraIntersections f = go
       INil _           -> conquer
       ICons _ g _ t ts -> divide g (f t) (go ts)
 
+data IsInterface = NotInterface | IsInterface
+
 data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ILan [] (TSType ks n) a -> TSType 'Nothing n a
     TSTuple        :: PreT Ap (TSType_ n) a -> TSType 'Nothing n a
-    TSObject       :: KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
+    TSObject       :: IsInterface -> KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
     TSUnion        :: PostT Dec (TSType_ n) a -> TSType 'Nothing n a
-    -- TODO: interfaces?
     TSNamed        :: n -> TSType ks n a -> TSType ks n a
     -- either we:
     --
@@ -353,21 +381,35 @@ ppPrim = \case
     TSNever        -> "never"
 
 ppType
-    :: TSType ks Void a
+    :: PP.Pretty n
+    => TSType ks n a
     -> PP.Doc x
-ppType = \case
-    TSArray t   -> getConst (interpretILan (Const . ppType) t) PP.<+> "[]"
-    TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect (withTSType_ ppType) ts)
-    TSObject ts -> PP.encloseSep "{" "}" "," . getConst $
-      runCoKeyChain
-        (\k x -> Const [PP.pretty k PP.<+> ": " PP.<+> withTSType_ ppType x])
-        (\k x -> Const [PP.pretty k PP.<+> "?: " PP.<+> withTSType_ ppType x])
-        ts
-    TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ ppType) ts)
-    TSNamed v _ -> absurd v
-    TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
-      runCoIntersections (\x -> Const [ppType x]) ts
-    TSPrimType PS{..} -> ppPrim psItem
+ppType = ppTypeWith PP.pretty
+
+ppTypeWith
+    :: forall ks n a x. ()
+    => (n -> PP.Doc x)
+    -> TSType ks n a
+    -> PP.Doc x
+ppTypeWith f = go
+  where
+    go :: TSType us n b -> PP.Doc x
+    go = \case
+      TSArray t   -> getConst (interpretILan (Const . go) t) PP.<+> "[]"
+      TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect (withTSType_ go) ts)
+      TSObject ii ts -> mkInter ii . PP.encloseSep "{" "}" "," . getConst $
+        runCoKeyChain
+          (\k x -> Const [PP.pretty k PP.<+> ": " PP.<+> withTSType_ go x])
+          (\k x -> Const [PP.pretty k PP.<+> "?: " PP.<+> withTSType_ go x])
+          ts
+      TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ go) ts)
+      TSNamed n _ -> f n
+      TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
+        runCoIntersections (\x -> Const [go x]) ts
+      TSPrimType PS{..} -> ppPrim psItem
+    mkInter = \case
+      NotInterface -> id
+      IsInterface  -> ("interface " PP.<+>)
 
 enumLitToValue :: EnumLit -> A.Value
 enumLitToValue = \case
@@ -396,7 +438,7 @@ primToValue = \case
 
 objTypeToValue :: TSType ('Just ks) n a -> a -> [A.Pair]
 objTypeToValue = \case
-    TSObject       ts -> getOp $
+    TSObject     _ ts -> getOp $
       runContraKeyChain
         (\k t -> Op           $ \x -> [k A..= withTSType_ typeToValue t x])
         (\k t -> Op . foldMap $ \x -> [k A..= withTSType_ typeToValue t x])
@@ -420,24 +462,26 @@ objTypeToValue = \case
 typeToValue
     :: TSType ks n a -> a -> A.Value
 typeToValue = \case
-    TSArray ts  -> A.Array
-                 . V.fromList
-                 . getOp (interpretILan (\t -> Op (map (typeToValue t))) ts)
-    TSTuple ts  -> A.Array
-                 . V.fromList
-                 . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
-    TSObject ts -> A.object . objTypeToValue (TSObject ts)
-    TSUnion ts  -> iapply (withTSType_ typeToValue) ts
-    TSNamed _ t -> typeToValue t
-    TSIntersection ts -> A.object
-                       . getOp (runContraIntersections (Op . objTypeToValue) ts)
+    TSArray ts        -> A.Array
+                       . V.fromList
+                       . getOp (interpretILan (\t -> Op (map (typeToValue t))) ts)
+    TSTuple ts        -> A.Array
+                       . V.fromList
+                       . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
+    TSObject ii ts    -> A.object . objTypeToValue (TSObject ii ts)
+    TSUnion ts        -> iapply (withTSType_ typeToValue) ts
+    TSNamed _ t       -> typeToValue t
+    TSIntersection ts -> A.object . getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
-data ParseErr = PEInvalidEnum [(Text, EnumLit)]
-              | PEInvalidString Text Text
+data ParseErr = PEInvalidEnum   [(Text, EnumLit)]
+              | PEInvalidString Text       Text
               | PEInvalidNumber Scientific Scientific
-              | PEInvalidBigInt Integer Integer
-              | PEPrimitive Text
+              | PEInvalidBigInt Integer    Integer
+              | PEPrimitive     Text
+              | PEExtraTuple    Int Int
+              | PENotInUnion    [PP.Doc ()]
+              | PEExtraKeys     (HS.HashSet Text)
               | PENever
 
 parseEnumLit :: EnumLit -> ABE.Parse () ()
@@ -471,27 +515,45 @@ parsePrim = \case
     TSNever -> ABE.throwCustomError PENever
 
 parseType
-    :: TSType ks n a
+    :: PP.Pretty n
+    => TSType ks n a
     -> ABE.Parse ParseErr a
 parseType = \case
     TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType) ts
-    TSTuple ts -> flip evalStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
-      (,i+1) <$> ABE.nth i (withTSType_ parseType t)
-    TSObject ts -> runCoKeyChain
-      (\k -> ABE.key    k . withTSType_ parseType)
-      (\k -> ABE.keyMay k . withTSType_ parseType)
-      ts
-    TSUnion ts -> foldr @[] (ABE.<|>) (ABE.throwCustomError PENever) $
-        icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
+    TSTuple ts -> do
+      (res, n) <- flip runStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
+        (,i+1) <$> ABE.nth i (withTSType_ parseType t)
+      ABE.withArray $ \xs ->
+        if V.length xs > n
+          then Left $ PEExtraTuple n (V.length xs)
+          else pure res
+    TSObject ii ts -> do
+      res <- runCoKeyChain
+        (\k -> ABE.key    k . withTSType_ parseType)
+        (\k -> ABE.keyMay k . withTSType_ parseType)
+        ts
+      case ii of
+        NotInterface -> ABE.withObject $ \os ->
+          let expecteds   = HS.fromList $ npToList keyText (keyChainKeys ts)
+              unexpecteds = HS.fromMap (void os) `HS.difference` expecteds
+          in  if HS.null unexpecteds
+                then Right res
+                else Left (PEExtraKeys unexpecteds)
+        -- should this be allowed?
+        IsInterface -> pure res
+    TSUnion ts ->
+      let us = icollect (withTSType_ ppType) ts
+      in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
+            icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t
     TSIntersection ts -> runCoIntersections parseType ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive) pure . psParser
                      =<< parsePrim psItem
 
--- npToList :: (forall x. f x -> b) -> NP f as -> [b]
--- npToList f = \case
---     Nil -> []
---     x :* xs -> f x : npToList f xs
+npToList :: (forall x. f x -> b) -> NP f as -> [b]
+npToList f = \case
+    Nil -> []
+    x :* xs -> f x : npToList f xs
 
 -- npToList2 :: (forall x. f x -> g x -> b) -> NP f as -> NP g as -> [b]
 -- npToList2 f = \case

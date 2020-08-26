@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE EmptyCase             #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -17,12 +18,14 @@ module Typescript.Json where
 import           Data.Bifunctor
 import           Data.Functor.Combinator hiding (Comp(..))
 import           Data.Functor.Invariant
+import           Data.Proxy
 import           Data.SOP                       (NP(..), NS(..), I(..), K(..), (:.:)(..))
 import           Data.Type.Equality
 import           Data.Void
 import           GHC.TypeLits
 import           Typescript.Json.Core
 import qualified Data.Bifunctor.Assoc           as B
+import qualified Data.SOP                       as SOP
 
 ilan :: h a -> ILan g h (g a)
 ilan x = ILan id id x
@@ -43,6 +46,16 @@ instance (CmpEq (CmpSymbol k j) ~ 'False, KnownNotElem ks j) => KnownNotElem (k 
     knownNotElem = \case
       ES x -> knownNotElem x
 
+instance (CmpEq (CmpNat k j) ~ 'False, KnownNotElem ks j) => KnownNotElem (k ': ks) j where
+    knownNotElem = \case
+      ES x -> knownNotElem x
+
+knownNotElems :: forall js ks. SOP.All (KnownNotElem js) ks => NP (Not :.: Elem js) ks
+knownNotElems = SOP.hcpure (Proxy @(KnownNotElem js)) $ Comp (Not knownNotElem)
+
+injectKCO :: Key k -> f a -> KeyChain '[k] f (Maybe a)
+injectKCO k x = KCCons const (,()) (\case {}) (Keyed k (R1 (ilan x))) (KCNil ())
+
 kcCons
     :: KnownNotElem ks k
     => Key k
@@ -51,7 +64,7 @@ kcCons
     -> f a
     -> KeyChain ks f b
     -> KeyChain (k ': ks) f c
-kcCons k f g x = KCCons f g knownNotElem (Keyed k x)
+kcCons k f g x = KCCons f g knownNotElem (Keyed k (L1 x))
 
 concatNotElem
     :: forall js ks a p. ()
@@ -79,9 +92,6 @@ appendKeyChain f g = \case
     Comp (Not n) :* ns -> \case
       KCCons h k m x xs ->
          KCCons         (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
-       . appendKeyChain (,)                        id                      ns                      xs
-      KCOCons h k m x xs ->
-         KCOCons        (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem ns m n)  x
        . appendKeyChain (,)                        id                      ns                      xs
 
 takeNP
@@ -116,14 +126,6 @@ injectIntersection x = case appendNil ks of
   where
     ks = typeStructure x
 
-keyChainKeys
-    :: KeyChain ks f a
-    -> NP Key ks
-keyChainKeys = \case
-    KCNil _ -> Nil
-    KCCons _ _ _  (Keyed k _) xs -> k :* keyChainKeys xs
-    KCOCons _ _ _ (Keyed k _) xs -> k :* keyChainKeys xs
-
 intersectionsKeys
     :: Intersections ks n a
     -> NP Key ks
@@ -133,7 +135,7 @@ intersectionsKeys = \case
 
 typeStructure :: TSType ('Just as) n a -> NP Key as
 typeStructure = \case
-    TSObject ts -> keyChainKeys ts
+    TSObject _ ts -> keyChainKeys ts
     TSIntersection ts -> intersectionsKeys ts
     TSNamed _ t -> typeStructure t
 

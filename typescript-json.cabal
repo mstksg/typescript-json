@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6f45cc4876b34c1b67a286542e651f52ef83bd1d145a36fd4cc2512b780cc76d
+-- hash: dceb358d248c5208be6846ee848efd4e935f5fb5458c29dd96b58df2dab180ac
 
 name:           typescript-json
 version:        0.1.0.0
@@ -53,6 +53,7 @@ library
     , sop-core
     , text
     , transformers
+    , unordered-containers
     , vec
     , vector
   default-language: Haskell2010

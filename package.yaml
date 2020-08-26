@@ -26,26 +26,27 @@ ghc-options:
 description:         Please see the README on GitHub.
 
 dependencies:
-- base >= 4.7 && < 5
-- text
-- containers
-- scientific
-- functor-combinators >= 0.3.5.1
-- recursion-schemes
 - aeson
-- invariant
-- semigroupoids
+- aeson-better-errors
+- assoc
+- base >= 4.7 && < 5
+- containers
+- contravariant
 - dependent-sum
+- fin
+- functor-combinators >= 0.3.5.1
+- invariant
+- prettyprinter >= 1.7
+- recursion-schemes
+- scientific
+- semigroupoids
 - some
 - sop-core
-- contravariant
-- assoc
-- vector
-- prettyprinter >= 1.7
-- fin
-- vec
-- aeson-better-errors
+- text
 - transformers
+- unordered-containers
+- vec
+- vector
 
 
 library:
