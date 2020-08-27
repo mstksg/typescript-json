@@ -74,6 +74,7 @@ import           Data.Functor.Contravariant.Divisible
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
+import           Data.GADT.Show
 import           Data.HFunctor.Route
 import           Data.IntMap                               (IntMap)
 import           Data.Kind
@@ -121,6 +122,7 @@ instance Inject PS where
     inject x = PS x Right id
 
 data EnumLit = ELString Text | ELNumber Scientific
+  deriving (Show, Eq, Ord)
 
 data TSPrim :: Type -> Type where
     TSBoolean    :: TSPrim Bool
@@ -137,6 +139,13 @@ data TSPrim :: Type -> Type where
     TSUndefined  :: TSPrim ()
     TSNull       :: TSPrim ()
     TSNever      :: TSPrim Void
+
+deriving instance Show (TSPrim a)
+deriving instance Eq (TSPrim a)
+deriving instance Ord (TSPrim a)
+
+instance GShow TSPrim where
+    gshowsPrec = showsPrec
 
 type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[]     ++ bs = bs
@@ -366,12 +375,13 @@ runContraIntersections f = go
       INil _           -> conquer
       ICons _ g _ t ts -> divide g (f t) (go ts)
 
-data IsInterface = NotInterface | IsInterface
+data IsInterface n = NotInterface | IsInterface n
+  deriving (Show, Eq, Ord, Functor)
 
 data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ILan [] (TSType ks n) a -> TSType 'Nothing n a
     TSTuple        :: PreT Ap (TSType_ n) a -> TSType 'Nothing n a
-    TSObject       :: IsInterface -> KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
+    TSObject       :: IsInterface n -> KeyChain ks (TSType_ n) a -> TSType ('Just ks) n a
     TSUnion        :: PostT Dec (TSType_ n) a -> TSType 'Nothing n a
     TSNamed        :: n -> TSType ks n a -> TSType ks n a
     -- either we:
@@ -394,7 +404,7 @@ mapName f = go
     go = \case
       TSArray l         -> TSArray (hmap go l)
       TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
-      TSObject ii ts    -> TSObject ii (hmap (mapTSType_ go) ts)
+      TSObject ii ts    -> TSObject (fmap f ii) (hmap (mapTSType_ go) ts)
       TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
       TSNamed n t       -> TSNamed (f n) (go t)
       TSIntersection ts -> TSIntersection (hoistIntersections go ts)
@@ -450,55 +460,68 @@ ppTypeWith f = go
   where
     go :: TSType us n b -> PP.Doc x
     go = \case
-      TSArray t   -> getConst (interpretILan (Const . go) t) PP.<+> "[]"
+      TSArray t   -> getConst (interpretILan (Const . go) t) <> "[]"
       TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect (withTSType_ go) ts)
-      TSObject ii ts -> mkInter ii . PP.encloseSep "{" "}" "," . getConst $
+      TSObject NotInterface ts -> PP.encloseSep "{" "}" "," . getConst $
         runCoKeyChain
-          (\k x -> Const [PP.pretty k PP.<+> ": " PP.<+> withTSType_ go x])
-          (\k x -> Const [PP.pretty k PP.<+> "?: " PP.<+> withTSType_ go x])
+          (\k x -> Const [PP.pretty k <> ":" PP.<+> withTSType_ go x])
+          (\k x -> Const [PP.pretty k <> "?:" PP.<+> withTSType_ go x])
           ts
+      TSObject (IsInterface n) _ -> f n
       TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ go) ts)
       TSNamed n _ -> f n
       TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
         runCoIntersections (\x -> Const [go x]) ts
       TSPrimType PS{..} -> ppPrim psItem
-    mkInter = \case
-      NotInterface -> id
-      IsInterface  -> ("interface " PP.<+>)
 
 typeExports
     :: (Ord n, PP.Pretty n)
-    => n                    -- ^ top-level name
+    => Maybe (IsInterface (), n)    -- ^ top-level name and interface, if meant to be included
     -> TSType ks n a
     -> PP.Doc x
-typeExports n0 ts = PP.vcat
-    [ "export type " PP.<+> PP.pretty n PP.<+> " = " PP.<+> ppType t
-    | (n, Some (TSType_ t)) <- M.toList tmap
+typeExports iin0 ts = PP.vcat
+    [ PP.vsep [
+        "export"
+      , iiString ii
+      , PP.pretty n
+      , "="
+      , ppType t
+      ]
+    | ((ii, n), Some (TSType_ t)) <- M.toList tmap
     ]
   where
     (t0, tmap0) = flattenType ts
-    tmap = M.insert n0 (Some (TSType_ t0)) tmap0
+    tmap = maybe id (`M.insert` Some (TSType_ t0)) iin0 tmap0
+    iiString = \case
+      NotInterface  -> "type"
+      IsInterface _ -> "interface"
 
 -- | Pull out all of the named types to be top-level type declarations, and
 -- have create a map of all of those declarations.
 flattenType
     :: Ord n
     => TSType ks n a
-    -> (TSType ks Void a, Map n (Some (TSType_ Void)))
+    -> (TSType ks Void a, Map (IsInterface (), n) (Some (TSType_ Void)))
 flattenType t = runState (flattenType_ t) M.empty
 
 flattenType_
     :: Ord n
     => TSType ks n a
-    -> State (Map n (Some (TSType_ Void))) (TSType ks Void a)
+    -> State (Map (IsInterface (), n) (Some (TSType_ Void))) (TSType ks Void a)
 flattenType_ = \case
     TSArray t  -> TSArray <$> htraverse flattenType_ t
     TSTuple ts -> TSTuple <$> htraverse (traverseTSType_ flattenType_) ts
-    TSObject ii ts -> TSObject ii <$> htraverse (traverseTSType_ flattenType_) ts
+    TSObject ii ts -> do
+      res <- TSObject NotInterface <$> htraverse (traverseTSType_ flattenType_) ts
+      case ii of
+        NotInterface  -> pure res
+        IsInterface n -> do
+          modify $ M.insert (IsInterface(), n) (Some (TSType_ res))
+          pure res
     TSUnion ts -> TSUnion <$> htraverse (traverseTSType_ flattenType_) ts
     TSNamed n t -> do
       res <- flattenType_ t
-      modify $ M.insert n (Some (TSType_ res))
+      modify $ M.insert (NotInterface, n) (Some (TSType_ res))
       pure res
     TSIntersection ts -> TSIntersection <$> traverseIntersections flattenType_ ts
     TSPrimType p -> pure $ TSPrimType p
@@ -557,10 +580,11 @@ data ParseErr = PEInvalidEnum   [(Text, EnumLit)]
               | PEInvalidString Text       Text
               | PEInvalidNumber Scientific Scientific
               | PEInvalidBigInt Integer    Integer
-              | PEPrimitive     Text
-              | PEExtraTuple    Int Int
+              | PEPrimitive     (Some TSPrim) Text
+              | PEExtraTuple    Int        Int
               | PENotInUnion    [PP.Doc ()]
               | PENever
+  deriving (Show)
 
 parseEnumLit :: EnumLit -> ABE.Parse () ()
 parseEnumLit = \case
@@ -615,7 +639,7 @@ parseType = \case
             icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t
     TSIntersection ts -> runCoIntersections parseType ts
-    TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive) pure . psParser
+    TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
 
 -- npToList :: (forall x. f x -> b) -> NP f as -> [b]
