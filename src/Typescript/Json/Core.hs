@@ -32,11 +32,13 @@ module Typescript.Json.Core (
   , TSType_(..)
   , KeyChain(..)
   , Intersections(..)
+  , mapName
   -- * prettyprint
   , ppEnumLit
   , ppPrim
   , ppType
   , ppTypeWith
+  , typeExports
   -- * to value
   , enumLitToValue
   , primToValue
@@ -59,6 +61,7 @@ module Typescript.Json.Core (
 
 import           Control.Applicative
 import           Control.Monad.Trans.State
+import           Control.Monad.Trans.Writer
 import           Data.Bifunctor
 import           Data.Dependent.Sum                        (DSum)
 import           Data.Fin                                  (Fin)
@@ -94,6 +97,7 @@ import qualified Data.Aeson.Types                          as A
 import qualified Data.Bifunctor.Assoc                      as B
 import qualified Data.HashMap.Strict                       as HM
 import qualified Data.HashSet                              as HS
+import qualified Data.Map                                  as M
 import qualified Data.SOP                                  as SOP
 import qualified Data.SOP.NP                               as NP
 import qualified Data.Text                                 as T
@@ -146,6 +150,12 @@ instance Invariant (ILan g h) where
 instance HFunctor (ILan g) where
     hmap f (ILan h k x) = ILan h k (f x)
 
+instance HTraversable (ILan g) where
+    htraverse f (ILan g h x) = ILan g h <$> f x
+
+instance HTraversable1 (ILan g) where
+    htraverse1 f (ILan g h x) = ILan g h <$> f x
+
 interpretILan
     :: Invariant f
     => (forall x. h x -> f (g x))
@@ -176,6 +186,20 @@ withTSType_
     -> r
 withTSType_ f (TSType_ t) = f t
 
+mapTSType_
+    :: (forall ks. TSType ks n a -> TSType ks m b)
+    -> TSType_ n a
+    -> TSType_ m b
+mapTSType_ f (TSType_ t) = TSType_ (f t)
+
+traverseTSType_
+    :: Functor f
+    => (forall ks. TSType ks n a -> f (TSType ks m b))
+    -> TSType_ n a
+    -> f (TSType_ m b)
+traverseTSType_ f (TSType_ t) = TSType_ <$> f t
+
+
 data Elem :: [k] -> k -> Type where
     EZ :: Elem (a ': as) a
     ES :: !(Elem as a) -> Elem (b ': as) a
@@ -204,6 +228,9 @@ instance Invariant f => Invariant (Keyed k f) where
 instance HFunctor (Keyed k) where
     hmap f (Keyed k x) = Keyed k (f x)
 
+instance HTraversable (Keyed k) where
+    htraverse f (Keyed k x) = Keyed k <$> f x
+
 instance KnownSymbol k => Inject (Keyed k) where
     inject x = Keyed Key x
 
@@ -218,24 +245,23 @@ data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
            -> Keyed k (f :+: ILan Maybe f) a
            -> KeyChain ks f b
            -> KeyChain (k ': ks) f c
-    -- KCOCons :: (a -> b -> c)
-    --        -> (c -> (a, b))
-    --        -> (Elem ks k -> Void)
-    --        -> Keyed k (ILan Maybe f) a
-    --        -> KeyChain ks f b
-    --        -> KeyChain (k ': ks) f c
 
 instance Invariant (KeyChain ks f) where
     invmap f g = \case
       KCNil x -> KCNil (f x)
       KCCons h k e x xs -> KCCons (\r -> f . h r) (k . g) e x xs
-      -- KCOCons h k e x xs -> KCOCons (\r -> f . h r) (k . g) e x xs
 
 instance HFunctor (KeyChain ks) where
     hmap f = \case
       KCNil x -> KCNil x
       KCCons g h n x xs -> KCCons g h n (hmap (hbimap f (hmap f)) x) (hmap f xs)
-      -- KCOCons g h n x xs -> KCOCons g h n (hmap (hmap f) x) (hmap f xs)
+
+instance HTraversable (KeyChain ks) where
+    htraverse f = \case
+      KCNil x -> pure (KCNil x)
+      KCCons g h n x xs -> KCCons g h n
+        <$> htraverse (\case L1 y -> L1 <$> f y; R1 z -> R1 <$> htraverse f z) x
+        <*> htraverse f xs
 
 injectKC :: Key k -> f a -> KeyChain '[k] f a
 injectKC k x = KCCons const (,()) (\case {}) (Keyed k (L1 x)) (KCNil ())
@@ -249,8 +275,6 @@ keyChainKeys
 keyChainKeys = \case
     KCNil _ -> Nil
     KCCons _ _ _  (Keyed k _) xs -> k :* keyChainKeys xs
-    -- KCOCons _ _ _ (Keyed k _) xs -> k :* keyChainKeys xs
-
 
 runCoKeyChain
     :: forall ks f g. Applicative g
@@ -298,10 +322,27 @@ data Intersections :: [Symbol] -> Type -> Type -> Type where
           -> Intersections js n b
           -> Intersections (ks ++ js) n c
 
-instance Invariant (Intersections ks f) where
+instance Invariant (Intersections ks n) where
     invmap f g = \case
       INil x -> INil (f x)
       ICons h j ns x xs -> ICons (\r -> f . h r) (j . g) ns x xs
+
+hoistIntersections
+    :: (forall ks. TSType ('Just ks) n ~> TSType ('Just ks) m)
+    -> Intersections kss n ~> Intersections kss m
+hoistIntersections f = \case
+    INil x -> INil x
+    ICons h g ns x xs -> ICons h g ns (f x) (hoistIntersections f xs)
+
+traverseIntersections
+    :: Applicative h
+    => (forall ks x. TSType ('Just ks) n x -> h (TSType ('Just ks) m x))
+    -> Intersections kss n a
+    -> h (Intersections kss m a)
+traverseIntersections f = \case
+    INil x -> pure (INil x)
+    ICons h g ns x xs -> ICons h g ns <$> f x <*> traverseIntersections f xs
+
 
 runCoIntersections
     :: forall kss n f. Applicative f
@@ -345,6 +386,20 @@ data TSType :: Maybe [Symbol] -> Type -> Type -> Type where
     -- type system
     TSIntersection :: Intersections ks n a -> TSType ('Just ks) n a
     TSPrimType     :: PS TSPrim a -> TSType 'Nothing n a
+
+mapName :: forall ks n m. (n -> m) -> TSType ks n ~> TSType ks m
+mapName f = go
+  where
+    go :: TSType js n ~> TSType js m
+    go = \case
+      TSArray l         -> TSArray (hmap go l)
+      TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
+      TSObject ii ts    -> TSObject ii (hmap (mapTSType_ go) ts)
+      TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
+      TSNamed n t       -> TSNamed (f n) (go t)
+      TSIntersection ts -> TSIntersection (hoistIntersections go ts)
+      TSPrimType t      -> TSPrimType t
+
 
 ppScientific :: Scientific -> PP.Doc x
 ppScientific n = maybe (PP.pretty (show n)) PP.pretty
@@ -411,6 +466,43 @@ ppTypeWith f = go
       NotInterface -> id
       IsInterface  -> ("interface " PP.<+>)
 
+typeExports
+    :: (Ord n, PP.Pretty n)
+    => n                    -- ^ top-level name
+    -> TSType ks n a
+    -> PP.Doc x
+typeExports n0 ts = PP.vcat
+    [ "export type " PP.<+> PP.pretty n PP.<+> " = " PP.<+> ppType t
+    | (n, Some (TSType_ t)) <- M.toList tmap
+    ]
+  where
+    (t0, tmap0) = flattenType ts
+    tmap = M.insert n0 (Some (TSType_ t0)) tmap0
+
+-- | Pull out all of the named types to be top-level type declarations, and
+-- have create a map of all of those declarations.
+flattenType
+    :: Ord n
+    => TSType ks n a
+    -> (TSType ks Void a, Map n (Some (TSType_ Void)))
+flattenType t = runState (flattenType_ t) M.empty
+
+flattenType_
+    :: Ord n
+    => TSType ks n a
+    -> State (Map n (Some (TSType_ Void))) (TSType ks Void a)
+flattenType_ = \case
+    TSArray t  -> TSArray <$> htraverse flattenType_ t
+    TSTuple ts -> TSTuple <$> htraverse (traverseTSType_ flattenType_) ts
+    TSObject ii ts -> TSObject ii <$> htraverse (traverseTSType_ flattenType_) ts
+    TSUnion ts -> TSUnion <$> htraverse (traverseTSType_ flattenType_) ts
+    TSNamed n t -> do
+      res <- flattenType_ t
+      modify $ M.insert n (Some (TSType_ res))
+      pure res
+    TSIntersection ts -> TSIntersection <$> traverseIntersections flattenType_ ts
+    TSPrimType p -> pure $ TSPrimType p
+
 enumLitToValue :: EnumLit -> A.Value
 enumLitToValue = \case
     ELString t -> A.String t
@@ -446,19 +538,6 @@ objTypeToValue = \case
     TSIntersection ts -> getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSNamed      _ t  -> objTypeToValue t
 
--- nonObjTypeToValue
---     :: TSType 'Nothing n a -> a -> A.Value
--- nonObjTypeToValue = \case
---     TSArray ts  -> A.Array
---                  . V.fromList
---                  . getOp (interpretListOf (\t -> Op (map (typeToValue t))) ts)
---     TSTuple ts  -> A.Array
---                  . V.fromList
---                  . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
---     TSUnion ts  -> iapply (withTSType_ typeToValue) ts
---     TSNamed _ t -> typeToValue t
---     TSPrimType PS{..} -> primToValue psItem . psSerializer
-
 typeToValue
     :: TSType ks n a -> a -> A.Value
 typeToValue = \case
@@ -481,7 +560,6 @@ data ParseErr = PEInvalidEnum   [(Text, EnumLit)]
               | PEPrimitive     Text
               | PEExtraTuple    Int Int
               | PENotInUnion    [PP.Doc ()]
-              | PEExtraKeys     (HS.HashSet Text)
               | PENever
 
 parseEnumLit :: EnumLit -> ABE.Parse () ()
@@ -527,20 +605,10 @@ parseType = \case
         if V.length xs > n
           then Left $ PEExtraTuple n (V.length xs)
           else pure res
-    TSObject ii ts -> do
-      res <- runCoKeyChain
+    TSObject _ ts -> runCoKeyChain
         (\k -> ABE.key    k . withTSType_ parseType)
         (\k -> ABE.keyMay k . withTSType_ parseType)
         ts
-      case ii of
-        NotInterface -> ABE.withObject $ \os ->
-          let expecteds   = HS.fromList $ npToList keyText (keyChainKeys ts)
-              unexpecteds = HS.fromMap (void os) `HS.difference` expecteds
-          in  if HS.null unexpecteds
-                then Right res
-                else Left (PEExtraKeys unexpecteds)
-        -- should this be allowed?
-        IsInterface -> pure res
     TSUnion ts ->
       let us = icollect (withTSType_ ppType) ts
       in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
@@ -550,10 +618,10 @@ parseType = \case
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive) pure . psParser
                      =<< parsePrim psItem
 
-npToList :: (forall x. f x -> b) -> NP f as -> [b]
-npToList f = \case
-    Nil -> []
-    x :* xs -> f x : npToList f xs
+-- npToList :: (forall x. f x -> b) -> NP f as -> [b]
+-- npToList f = \case
+--     Nil -> []
+--     x :* xs -> f x : npToList f xs
 
 -- npToList2 :: (forall x. f x -> g x -> b) -> NP f as -> NP g as -> [b]
 -- npToList2 f = \case

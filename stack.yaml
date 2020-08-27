@@ -43,7 +43,7 @@ extra-deps:
 - dependent-sum-0.7.1.0
 - constraints-extras-0.3.0.2
 - prettyprinter-1.7.0
-- functor-combinators-0.3.5.1
+- functor-combinators-0.3.6.0
 - vinyl-0.13.0
 # - type-level-sets-0.8.9.0
 
