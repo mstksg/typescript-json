@@ -14,6 +14,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedLabels           #-}
+{-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -59,6 +60,7 @@ module Typescript.Json.Core (
   , PS(..)
   , Elem(..)
   , ILan(..)
+  , ilan
   ) where
 
 import           Control.Applicative
@@ -68,6 +70,7 @@ import           Data.Bifunctor
 import           Data.Dependent.Sum                        (DSum)
 import           Data.Fin                                  (Fin)
 import           Data.Foldable
+import           Numeric.Natural
 import           Data.Functor
 import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant
@@ -155,6 +158,9 @@ type family (as :: [k]) ++ (bs :: [k]) :: [k] where
 
 data ILan g h a = forall x. ILan (g x -> a) (a -> g x) (h x)
 
+ilan :: h a -> ILan g h (g a)
+ilan x = ILan id id x
+
 instance Invariant (ILan g h) where
     invmap f g (ILan h k x) = ILan (f . h) (k . g) x
 
@@ -198,9 +204,9 @@ withTSType_
 withTSType_ f (TSType_ t) = f t
 
 mapTSType_
-    :: (forall ks. TSType ps ks n a -> TSType ps ks m b)
+    :: (forall ks. TSType ps ks n a -> TSType us ks m b)
     -> TSType_ ps n a
-    -> TSType_ ps m b
+    -> TSType_ us m b
 mapTSType_ f (TSType_ t) = TSType_ (f t)
 
 traverseTSType_
@@ -332,7 +338,7 @@ _testChain = KCCons (,)   id    (\case {}) (Keyed #hello (L1 $ Identity 10 ))
            . KCCons const (,()) (\case {}) (Keyed #world (L1 $ Identity True))
            $ KCNil  ()
 
-data Intersections :: [Type] -> [Symbol] -> Type -> Type -> Type where
+data Intersections :: [Symbol] -> [Symbol] -> Type -> Type -> Type where
     INil  :: a -> Intersections ps '[] n a
     ICons :: (a -> b -> c)
           -> (c -> (a, b))
@@ -399,12 +405,30 @@ paramText p@Param = T.pack (symbolVal p)
 
 newtype Fun a b = Fun (a -> b)
 
-data TSType :: [Type] -> Maybe [Symbol] -> Type -> Type -> Type where
+data TSType :: [Symbol] -> Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ILan [] (TSType ps ks n) a -> TSType ps 'Nothing n a
     TSTuple        :: PreT Ap (TSType_ ps n) a -> TSType ps 'Nothing n a
     TSObject       :: IsInterface n -> KeyChain ks (TSType_ ps n) a -> TSType ps ('Just ks) n a
     TSUnion        :: PostT Dec (TSType_ ps n) a -> TSType ps 'Nothing n a
     TSNamed        :: n -> TSType ps ks n a -> TSType ps ks n a
+    -- TSApply        :: TSType ps ks n (Fun p a) -> TSType ps ks n p -> TSType ps ks n a
+    TSApply        :: TSTypeF ps n f -> TSType ps ks n a -> TSType ps ks n (f a)
+    -- this is a problem: what should the 'a' be?
+    TSVar          :: Elem ps p -> TSType ps ks n (Param p)
+    -- either we:
+    --
+    -- 1. do not allow duplicates, in which case we disallow some potential
+    --    useful types that people would want to use intersections for in
+    --    the first place
+    -- 2. allow duplicates, but somehow find a way to make sure 'a' is
+    --    Void
+    --
+    -- #2 seems pretty much impossible without a full impelemntation of the
+    -- type system
+    TSIntersection :: Intersections ps ks n a -> TSType ps ('Just ks) n a
+    TSPrimType     :: PS TSPrim a -> TSType ps 'Nothing n a
+
+    -- Generics
     -- okay, let's think about what kind of interface we actually want
     --
     -- should we be able to actually parse an unapplied generic?
@@ -426,21 +450,97 @@ data TSType :: [Type] -> Maybe [Symbol] -> Type -> Type -> Type where
     -- ah. we want to be able to document it maybe?  but... this can't be
     -- *.  maybe there should be a TSType2, for * -> * generics types?  how
     -- would that even work?  would we need a full on type system?
-    TSGeneric      :: n -> Text -> TSType (p ': ps) ks n a -> TSType ps ks n (Fun p a)
-    TSApply        :: TSType ps ks n (Fun p a) -> TSType ps ks n p -> TSType ps ks n a
-    TSVar          :: Elem ps a -> TSType ps ks n a
-    -- either we:
-    --
-    -- 1. do not allow duplicates, in which case we disallow some potential
-    --    useful types that people would want to use intersections for in
-    --    the first place
-    -- 2. allow duplicates, but somehow find a way to make sure 'a' is
-    --    Void
-    --
-    -- #2 seems pretty much impossible without a full impelemntation of the
-    -- type system
-    TSIntersection :: Intersections ps ks n a -> TSType ps ('Just ks) n a
-    TSPrimType     :: PS TSPrim a -> TSType ps 'Nothing n a
+
+type family SubParam p a b where
+    SubParam p (Param p) b = b
+    SubParam p a         b = a
+
+substitute
+    :: TSType (p ': ps) ks n a
+    -> TSType ps js n b
+    -> TSType_ ps n (SubParam p a b)
+substitute = \case
+    -- TSTuple ts -> \x -> TSTuple $ hmap (mapTSType_ (`substitute` x)) ts
+    TSVar EZ -> TSType_
+    -- TSVar          :: Elem ps p -> TSType ps ks n (Param p)
+    -- TSTuple        :: PreT Ap (TSType_ ps n) a -> TSType ps 'Nothing n a
+    -- TSApply _ _ ->
+
+    -- TSApply        :: Functor f => TSTypeF ps n f -> TSType ps ks n a -> TSType ps ks n (f a)
+
+data TSTypeF :: [Symbol] -> Type -> (Type -> Type) -> Type where
+    TSGeneric :: n
+              -> Param p
+              -> TSType (p ': ps) ks n (f (Param p))
+              -> TSTypeF ps n f
+
+tsMaybeInt :: TSType '[] 'Nothing Text (Maybe Bool)
+tsMaybeInt = TSApply tsMaybe (TSPrimType (PS TSBoolean Right id))
+
+tsMaybe :: TSTypeF '[] Text Maybe
+tsMaybe = TSGeneric "Maybe" (Param @"T") $
+    TSUnion . PostT $ 
+        decide (maybe (Left ()) Right)
+          (injectPost (const Nothing) (TSType_ nothin))
+          (injectPost Just (TSType_ justin))
+
+
+nothin :: TSType ps ('Just '["tag"]) n ()
+nothin = TSObject NotInterface $
+    KCCons const (,()) (\case {}) (Keyed (Key @"tag") (L1 (TSType_ $ TSPrimType primTag)))
+      $ KCNil ()
+  where
+    primTag = PS (TSStringLit "Nothing") Right id
+
+justin :: TSType ("T" ': ps) ('Just '["tag", "contents"]) n (Param "T")
+justin = TSObject NotInterface $
+    KCCons (const id) ((),) (\case {}) (Keyed (Key @"tag") (L1 (TSType_ $ TSPrimType primTag)))
+      . KCCons const (,()) (\case {}) (Keyed (Key @"contents") (L1 (TSType_ $ TSVar EZ)))
+      $ KCNil ()
+  where
+    primTag = PS (TSStringLit "Just") Right id
+
+-- justin :: TSType ("T" ': ps) 'Nothing n (Maybe a)
+-- justin = TSPrimType (PS (TSStringLit "Nothing") (const (Right Nothing)) (const ()))
+        
+    -- TSStringLit  :: Text -> TSPrim ()
+
+-- injectKC :: Key k -> f a -> KeyChain '[k] f a
+-- injectKC k x = KCCons const (,()) (\case {}) (Keyed k (L1 x)) (KCNil ())
+
+    -- KCCons :: (a -> b -> c)
+    --        -> (c -> (a, b))
+    --        -> (Elem ks k -> Void)
+    --        -> Keyed k (f :+: ILan Maybe f) a
+    --        -> KeyChain ks f b
+    --        -> KeyChain (k ': ks) f c
+
+            -- KCCons  _ _ _
+      -- PostT $
+
+    ---- okay, let's think about what kind of interface we actually want
+    ----
+    ---- should we be able to actually parse an unapplied generic?
+    ---- a `Foo<T>`?  like
+    ----
+    ---- TSGeneric "Foo" "T" (TSObject NoInterface ("hello" := TSVar IZ, "goodbye" := Number))
+    ----
+    ---- what should that be parsed as?
+    ----
+    ---- If the final data type is something like
+    ----
+    ---- data Foo a = Foo { hello :: a, goodbye :: Int }
+    ----
+    ---- it would really only make sense to parse a "Foo a".  never a "Foo".
+    ---- Since these are all *-kinded types.
+    ----
+    ---- If that's the case then how do we want to express Foo a as a typescript type?
+    ----
+    ---- ah. we want to be able to document it maybe?  but... this can't be
+    ---- *.  maybe there should be a TSType2, for * -> * generics types?  how
+    ---- would that even work?  would we need a full on type system?
+    --TSGeneric      :: n -> Text -> TSType (p ': ps) ks n a -> TSType ps ks n (Fun p a)
+
 
 mapName :: forall ps ks n m. (n -> m) -> TSType ps ks n ~> TSType ps ks m
 mapName f = go
@@ -452,8 +552,8 @@ mapName f = go
       TSObject ii ts    -> TSObject (fmap f ii) (hmap (mapTSType_ go) ts)
       TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
       TSNamed n t       -> TSNamed (f n) (go t)
-      TSGeneric n p t   -> TSGeneric (f n) p (go t)
-      TSVar i           -> TSVar i
+      -- TSGeneric n p t   -> TSGeneric (f n) p (go t)
+      -- TSVar i           -> TSVar i
       TSIntersection ts -> TSIntersection (hoistIntersections go ts)
       TSPrimType t      -> TSPrimType t
 
@@ -519,8 +619,8 @@ ppTypeWith f = go
       TSObject (IsInterface n) _ -> f n
       TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ (go ps)) ts)
       TSNamed n t -> f n
-      TSGeneric n p _ -> f n PP.<+> ("<" <> PP.pretty p <> ">")
-      TSVar i -> PP.pretty (SOP.unK (ps `ixNP` i))
+      -- TSGeneric n p _ -> f n PP.<+> ("<" <> PP.pretty p <> ">")
+      -- TSVar i -> PP.pretty (SOP.unK (ps `ixNP` i))
       TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
         runCoIntersections (\x -> Const [go ps x]) ts
       TSPrimType PS{..} -> ppPrim psItem
@@ -612,7 +712,7 @@ objTypeToValue = \case
     TSIntersection ts -> getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSNamed      _   t -> objTypeToValue t
     -- TSGeneric    _ _ t -> objTypeToValue t
-    TSVar        i     -> undefined
+    -- TSVar        i     -> undefined
 
 typeToValue
     :: TSType ps ks n a -> a -> A.Value
@@ -627,7 +727,7 @@ typeToValue = \case
     TSUnion ts        -> iapply (withTSType_ typeToValue) ts
     TSNamed _ t       -> typeToValue t
     -- TSGeneric _ _ t   -> typeToValue t
-    TSVar     i       -> undefined
+    -- TSVar     i       -> undefined
     TSIntersection ts -> A.object . getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
@@ -671,10 +771,10 @@ parsePrim = \case
     TSNull -> ABE.asNull
     TSNever -> ABE.throwCustomError PENever
 
-newtype ToParser a = ToParser { runToParser :: forall ps ks n a. TSType ps ks n a -> ABE.Parse ParseErr a }
+-- newtype ToParser a = ToParser { runToParser :: forall ps ks n a. TSType ps ks n a -> ABE.Parse ParseErr a }
 type Parse = ABE.ParseT ParseErr Identity
-newtype ParseWithEnv ps a = ParseWithEnv { runParseWithEnv :: NP Parse ps -> Parse a }
-  deriving (Functor, Applicative, Monad) via ReaderT (NP Parse ps) Parse
+-- newtype ParseWithEnv ps a = ParseWithEnv { runParseWithEnv :: NP Parse ps -> Parse a }
+--   deriving (Functor, Applicative, Monad) via ReaderT (NP Parse ps) Parse
 
 -- parseType
 --     :: PP.Pretty n
@@ -686,44 +786,51 @@ newtype ParseWithEnv ps a = ParseWithEnv { runParseWithEnv :: NP Parse ps -> Par
 --       pure $ _ res
 --       -- parseT
 
--- parseType
---     :: PP.Pretty n
---     => NP (K Text) ps
---     -> TSType ps ks n a
---     -> Parse a
--- parseType ps = \case
---     TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType ps) ts
---     TSTuple ts -> do
---       (res, n) <- flip runStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
---         (,i+1) <$> ABE.nth i (withTSType_ (parseType ps) t)
---       ABE.withArray $ \xs ->
---         if V.length xs > n
---           then Left $ PEExtraTuple n (V.length xs)
---           else pure res
---     TSObject _ ts -> runCoKeyChain
---         (\k -> ABE.key    k . withTSType_ (parseType ps))
---         (\k -> ABE.keyMay k . withTSType_ (parseType ps))
---         ts
---     TSUnion ts ->
---       let us = icollect (withTSType_ (ppType ps)) ts
---       -- let us = icollect (withTSType_ (ppType (hmap (\(p :*: _) -> p) ps))) ts
---       in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
---             icollect (interpretPost (withTSType_ (parseType ps))) (unPostT ts)
---     TSNamed _ t -> parseType ps t
---     TSGeneric _ p t -> do
---       res <- parseType (K p :* ps) t
---       Fun <$> _ res
---     TSApply tf tx -> do
---       Fun f <- parseType ps tf
---       x <- parseType ps tx
---       pure $ f x
---     -- TSGeneric _ p t -> parseType ((K p :*: undefined) :* ps) t
---     TSVar     i     -> undefined
---     -- (\(_ :*: p) -> p) (ps `ixNP` i)
---     -- TSVar     i     -> (\(_ :*: p) -> p) (ps `ixNP` i)
---     TSIntersection ts -> runCoIntersections (parseType ps) ts
---     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
---                      =<< parsePrim psItem
+parseType
+    :: PP.Pretty n
+    => NP (K (Some Parse)) ps
+    -> TSType ps ks n a
+    -> Parse a
+parseType ps = \case
+    TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType ps) ts
+    TSTuple ts -> do
+      (res, n) <- flip runStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
+        (,i+1) <$> ABE.nth i (withTSType_ (parseType ps) t)
+      ABE.withArray $ \xs ->
+        if V.length xs > n
+          then Left $ PEExtraTuple n (V.length xs)
+          else pure res
+    TSObject _ ts -> runCoKeyChain
+        (\k -> ABE.key    k . withTSType_ (parseType ps))
+        (\k -> ABE.keyMay k . withTSType_ (parseType ps))
+        ts
+    TSUnion ts -> undefined
+      -- let us = icollect (withTSType_ (ppType ps)) ts
+      -- -- let us = icollect (withTSType_ (ppType (hmap (\(p :*: _) -> p) ps))) ts
+      -- in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
+      --       icollect (interpretPost (withTSType_ (parseType ps))) (unPostT ts)
+    TSNamed _ t -> parseType ps t
+    -- TSApply (TSGeneric _ p tf) tx -> parseType (K (Some (parseType ps tx)) :* ps) tf
+
+    -- TSApply        :: TSTypeF ps n f -> TSType ps ks n a -> TSType ps ks n (f a)
+-- data TSTypeF :: [Symbol] -> Type -> (Type -> Type) -> Type where
+--     TSGeneric :: n -> Param p -> ILan f (TSType (p ': ps) ks n) a -> TSTypeF ps n f
+
+    -- TSGeneric _ p t -> do
+    --   res <- parseType (K p :* ps) t
+    --   Fun <$> _ res
+    -- TSApply tf tx -> do
+    --   Fun f <- parseType ps tf
+    --   x <- parseType ps tx
+    --   pure $ f x
+    -- -- TSGeneric _ p t -> parseType ((K p :*: undefined) :* ps) t
+    -- TSVar     i     -> undefined
+    -- (\(_ :*: p) -> p) (ps `ixNP` i)
+    TSVar     i     -> undefined -- free variable? _ (ps `ixNP` i)
+    -- (\(_ :*: p) -> p)
+    TSIntersection ts -> runCoIntersections (parseType ps) ts
+    TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
+                     =<< parsePrim psItem
 
 -- parseType
 --     :: PP.Pretty n

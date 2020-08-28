@@ -27,10 +27,6 @@ import           Typescript.Json.Core
 import qualified Data.Bifunctor.Assoc           as B
 import qualified Data.SOP                       as SOP
 
-ilan :: h a -> ILan g h (g a)
-ilan x = ILan id id x
-
-
 class KnownNotElem ks k where
     knownNotElem :: Elem ks k -> Void
 
