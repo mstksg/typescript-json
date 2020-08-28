@@ -105,39 +105,40 @@ takeNP = \case
       y :* ys -> first ((x :*: y) :*) (takeNP xs ys)
 
 appendIntersections
-    :: forall a b c n ks js. ()
+    :: forall a b c n ks js ps. ()
     => (a -> b -> c)
     -> (c -> (a, b))
     -> NP (Not :.: Elem js) ks
-    -> Intersections ks n a
-    -> Intersections js n b
-    -> Intersections (ks ++ js) n c
+    -> Intersections ps ks n a
+    -> Intersections ps js n b
+    -> Intersections ps (ks ++ js) n c
 appendIntersections f g ns = \case
     INil x -> invmap (f x) (snd . g)
-    ICons h k ms (x :: TSType ('Just as) n q) (xs :: Intersections bs n r) -> case takeNP @as @bs ms ns of
+    ICons h k ms (x :: TSType ps ('Just as) n q) (xs :: Intersections ps bs n r) -> case takeNP @as @bs ms ns of
       (here, there) ->
         case assocConcat @as @bs @js here of
           Refl -> ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem' there here) x
                 . appendIntersections (,) id there xs
 
-injectIntersection :: TSType ('Just as) n a -> Intersections as n a
+injectIntersection :: TSType ps ('Just as) n a -> Intersections ps as n a
 injectIntersection x = case appendNil ks of
     Refl -> ICons const (,()) (hmap (\_ -> Comp (Not (\case {}))) ks) x (INil ())
   where
     ks = typeStructure x
 
 intersectionsKeys
-    :: Intersections ks n a
+    :: Intersections ps ks n a
     -> NP Key ks
 intersectionsKeys = \case
     INil _ -> Nil
     ICons _ _ _ x xs -> typeStructure x `appendNP` intersectionsKeys xs
 
-typeStructure :: TSType ('Just as) n a -> NP Key as
+typeStructure :: TSType ps ('Just as) n a -> NP Key as
 typeStructure = \case
     TSObject _ ts -> keyChainKeys ts
     TSIntersection ts -> intersectionsKeys ts
     TSNamed _ t -> typeStructure t
+    TSGeneric _ _ t -> typeStructure t
 
 assocConcat
     :: forall as bs cs p. ()
