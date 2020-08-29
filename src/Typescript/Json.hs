@@ -136,23 +136,6 @@ typeStructure = \case
     TSNamed _ t -> typeStructure t
     TSGeneric _ _ t -> typeStructure t
 
-assocConcat
-    :: forall as bs cs p. ()
-    => NP p as
-    -> ((as ++ bs) ++ cs) :~: (as ++ (bs ++ cs))
-assocConcat = \case
-    Nil -> Refl
-    _ :* ps -> case assocConcat @_ @bs @cs ps of
-      Refl -> Refl
-
-appendNil
-    :: NP p as
-    -> (as ++ '[]) :~: as
-appendNil = \case
-    Nil -> Refl
-    _ :* ps -> case appendNil ps of
-      Refl -> Refl
-
 concatNotElem'
     :: forall js ks as p. ()
     => NP p js
@@ -160,9 +143,4 @@ concatNotElem'
     -> NP (Not :.: Elem (js ++ ks)) as
 concatNotElem' js = hmap $ \(Comp (Not ns) :*: Comp (Not ms)) ->
     Comp $ Not $ concatNotElem js ns ms
-
-appendNP :: NP f as -> NP f bs -> NP f (as ++ bs)
-appendNP = \case
-    Nil -> id
-    x :* xs -> (x :*) . appendNP xs
 
