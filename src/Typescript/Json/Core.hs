@@ -35,7 +35,7 @@ module Typescript.Json.Core (
   , TSType_(..)
   , KeyChain(..)
   , Intersections(..)
-  , mapName
+  -- , mapName
   -- * prettyprint
   , ppEnumLit
   , ppPrim
@@ -417,9 +417,7 @@ data TSType :: [Symbol] -> Maybe [Symbol] -> Type -> Type -> Type where
     TSObject       :: IsInterface n -> KeyChain ks (TSType_ ps n) a -> TSType ps ('Just ks) n a
     TSUnion        :: PostT Dec (TSType_ ps n) a -> TSType ps 'Nothing n a
     TSNamed        :: n -> TSType ps ks n a -> TSType ps ks n a
-    -- TSApply        :: TSType ps ks n (Fun p a) -> TSType ps ks n p -> TSType ps ks n a
-    -- TSApply        :: TSTypeF ps n f -> TSType ps ks n a -> TSType ps ks n (f a)
-    -- this is a problem: what should the 'a' be?
+    TSApply        :: TSTypeF ps ks n as b -> NP (TSType_ ps n) as -> TSType ps ks n b
     TSVar          :: !(Elem ps p) -> TSType ps ks n a
     -- either we:
     --
@@ -499,7 +497,7 @@ tsApply
     :: TSTypeF ps ks n as b      -- ^ type function
     -> NP (TSType_ ps n) as         -- ^ thing to apply
     -> TSType ps ks n b
-tsApply (TSGeneric _ p f) t = f Nil t
+tsApply (TSGeneric _ _ f) t = f Nil t
 
 tsApply1
     :: TSTypeF ps ks n '[a] b      -- ^ type function
@@ -613,79 +611,21 @@ justin t = TSObject NotInterface $
   where
     primTag = PS (TSStringLit "Just") Right id
 
--- justin2 :: TSType ps ks n a -> TSType ps ('Just '["tag", "contents"]) n a
--- justin2 t = TSObject NotInterface $
---     KCCons (const id) ((),) (\case {}) (Keyed (Key @"tag") (L1 (TSType_ $ TSPrimType primTag)))
---       . KCCons const (,()) (\case {}) (Keyed (Key @"contents") (L1 (TSType_ t)))
---       $ KCNil ()
+-- mapName :: forall ps ks n m. (n -> m) -> TSType ps ks n ~> TSType ps ks m
+-- mapName f = go
 --   where
---     primTag = PS (TSStringLit "Just") Right id
-
-
--- justin :: TSType ("T" ': ps) ('Just '["tag", "contents"]) n Void
--- justin = TSObject NotInterface $
---     KCCons (const id) ((),) (\case {}) (Keyed (Key @"tag") (L1 (TSType_ $ TSPrimType primTag)))
---       . KCCons const (,()) (\case {}) (Keyed (Key @"contents") (L1 (TSType_ $ TSVar EZ)))
---       $ KCNil ()
---   where
---     primTag = PS (TSStringLit "Just") Right id
-
--- justin :: TSType ("T" ': ps) 'Nothing n (Maybe a)
--- justin = TSPrimType (PS (TSStringLit "Nothing") (const (Right Nothing)) (const ()))
-
-    -- TSStringLit  :: Text -> TSPrim ()
-
--- injectKC :: Key k -> f a -> KeyChain '[k] f a
--- injectKC k x = KCCons const (,()) (\case {}) (Keyed k (L1 x)) (KCNil ())
-
-    -- KCCons :: (a -> b -> c)
-    --        -> (c -> (a, b))
-    --        -> (Elem ks k -> Void)
-    --        -> Keyed k (f :+: ILan Maybe f) a
-    --        -> KeyChain ks f b
-    --        -> KeyChain (k ': ks) f c
-
-            -- KCCons  _ _ _
-      -- PostT $
-
-    ---- okay, let's think about what kind of interface we actually want
-    ----
-    ---- should we be able to actually parse an unapplied generic?
-    ---- a `Foo<T>`?  like
-    ----
-    ---- TSGeneric "Foo" "T" (TSObject NoInterface ("hello" := TSVar IZ, "goodbye" := Number))
-    ----
-    ---- what should that be parsed as?
-    ----
-    ---- If the final data type is something like
-    ----
-    ---- data Foo a = Foo { hello :: a, goodbye :: Int }
-    ----
-    ---- it would really only make sense to parse a "Foo a".  never a "Foo".
-    ---- Since these are all *-kinded types.
-    ----
-    ---- If that's the case then how do we want to express Foo a as a typescript type?
-    ----
-    ---- ah. we want to be able to document it maybe?  but... this can't be
-    ---- *.  maybe there should be a TSType2, for * -> * generics types?  how
-    ---- would that even work?  would we need a full on type system?
-    --TSGeneric      :: n -> Text -> TSType (p ': ps) ks n a -> TSType ps ks n (Fun p a)
-
-
-mapName :: forall ps ks n m. (n -> m) -> TSType ps ks n ~> TSType ps ks m
-mapName f = go
-  where
-    go :: TSType us js n ~> TSType us js m
-    go = \case
-      TSArray l         -> TSArray (hmap go l)
-      TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
-      TSObject ii ts    -> TSObject (fmap f ii) (hmap (mapTSType_ go) ts)
-      TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
-      TSNamed n t       -> TSNamed (f n) (go t)
-      -- TSGeneric n p t   -> TSGeneric (f n) p (go t)
-      TSVar i           -> TSVar i
-      TSIntersection ts -> TSIntersection (hoistIntersections go ts)
-      TSPrimType t      -> TSPrimType t
+--     go :: TSType us js n ~> TSType us js m
+--     go = \case
+--       TSArray l         -> TSArray (hmap go l)
+--       TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
+--       TSObject ii ts    -> TSObject (fmap f ii) (hmap (mapTSType_ go) ts)
+--       TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
+--       TSNamed n t       -> TSNamed (f n) (go t)
+--       -- TSApply (TSGeneric n p g) t -> TSApply (TSGeneric (f n) p (\q -> _ . g q . _)) (hmap (mapTSType_ go) t)
+--       -- TSGeneric n p t   -> TSGeneric (f n) p (go t)
+--       TSVar i           -> TSVar i
+--       TSIntersection ts -> TSIntersection (hoistIntersections go ts)
+--       TSPrimType t      -> TSPrimType t
 
 
 ppScientific :: Scientific -> PP.Doc x
@@ -749,6 +689,9 @@ ppTypeWith f = go
       TSObject (IsInterface n) _ -> f n
       TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ (go ps)) ts)
       TSNamed n _ -> f n
+      -- this is the benefit of delaying application
+      TSApply (TSGeneric n _ _) xs -> f n <> PP.encloseSep "<" ">" ","
+        (htoList (withTSType_ (go ps)) xs)
       TSVar i -> PP.pretty (paramText (ps `ixNP` i))
       TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
         runCoIntersections (\x -> Const [go ps x]) ts
@@ -757,10 +700,10 @@ ppTypeWith f = go
 ppTypeFWith
     :: forall ps ks n a b x. ()
     => (n -> PP.Doc x)
-    -> NP Param ps
     -> TSTypeF ps ks n a b
     -> PP.Doc x
-ppTypeFWith f ps tf = tsApplyVar tf (\rs t -> ppTypeWith f (appendNP rs ps) t)
+ppTypeFWith f tf@(TSGeneric n rs _) =
+    f n PP.<> PP.encloseSep "<" ">" "," (htoList (PP.pretty . SOP.unK) rs)
 
 typeExports
     :: (Ord n, PP.Pretty n)
@@ -768,80 +711,92 @@ typeExports
     -> Maybe (IsInterface (), n)    -- ^ top-level name and interface, if meant to be included
     -> TSType ps ks n a
     -> PP.Doc x
-typeExports ps iin0 ts = PP.vcat
-    [ PP.vsep [
-        "export"
-      , iiString ii
-      , PP.pretty n
-      , "="
-      , ppType ps t
-      ]
-    | ((ii, n), Some (TSType_ t)) <- M.toList tmap
-    ]
+typeExports ps iin0 ts =
+      ppMap
+    . maybe id (`M.insert` (params0, ppType ps t0)) iin0
+    $ tmap0
   where
-    (t0, tmap0) = flattenType ts
-    tmap = maybe id (`M.insert` Some (TSType_ t0)) iin0 tmap0
-    iiString = \case
-      NotInterface  -> "type"
-      IsInterface _ -> "interface"
--- to avoid inlining all types, maybe we can have an application thing to
--- freeze inlining
+    ((params0, t0), tmap0) = flattenType (\qs -> ppType (qs `appendNP` ps)) ts
 
--- -- need to add the <T> somehow
+-- meh i can't really do this without extensive testing
 -- typeFExports
 --     :: (Ord n, PP.Pretty n)
 --     => NP Param ps
---     -> Maybe (IsInterface (), n)    -- ^ top-level name and interface, if meant to be included
 --     -> TSTypeF ps ks n a b
 --     -> PP.Doc x
--- typeFExports ps iin0 tf = tsApplyVar tf $ \rs t ->
---     let (t0, tmap0) = flattenType ts
---         tmap = maybe id (`M.insert` Some (TSType_ t0)) iin0 tmap0
---     in  PP.vcat
---           [ PP.vsep [
---               "export"
---             , iiString ii
---             , PP.pretty n
---             , "="
---             , ppType ps t
---             ]
---           | ((ii, n), Some (TSType_ t)) <- M.toList tmap
---           ]
---   where
---     iiString = \case
---       NotInterface  -> "type"
---       IsInterface _ -> "interface"
+-- typeFExports ps tf@(TSGeneric n gs _) = tsApplyVar tf $ \rs ts ->
+--     let ((params0, t0), tmap0) = flattenType (\qs -> ppType (qs `appendNP` (rs `appendNP` ps))) ts
+--     in  ppMap
+--           . M.insert (NotInterface(), n) (htoList _ p, ppType (rs `appendNP` ps) t0)
+--           -- . maybe id (`M.insert` (params0, ppType (rs `appendNP` ps) t0)) iin0
+--           -- . maybe id (`M.insert` (params0, ppType (rs `appendNP` ps) t0)) iin0
+--           $ tmap0
+
+ppMap
+    :: PP.Pretty n
+    => Map (IsInterface (), n) ([Text], PP.Doc x)
+    -> PP.Doc x
+ppMap mp = PP.vcat
+    [ PP.vsep [
+        "export"
+      , iiString ii
+      , PP.pretty n <> PP.encloseSep "<" ">" "," (PP.pretty <$> params)
+      , "="
+      , tDoc
+      ]
+    | ((ii, n), (params, tDoc)) <- M.toList mp
+    ]
+  where
+    iiString = \case
+      NotInterface  -> "type"
+      IsInterface _ -> "interface"
 
 -- | Pull out all of the named types to be top-level type declarations, and
 -- have create a map of all of those declarations.
 flattenType
     :: Ord n
-    => TSType ps ks n a
-    -> (TSType ps ks Void a, Map (IsInterface (), n) (Some (TSType_ ps Void)))
-flattenType t = runState (flattenType_ t) M.empty
+    => (forall qs js b. NP Param qs -> TSType (qs ++ ps) js Void b -> r)
+    -> TSType ps ks n a
+    -> (([Text], TSType ps ks Void a), Map (IsInterface (), n) ([Text], r))
+flattenType f t = runState (flattenType_ f t) M.empty
 
 flattenType_
-    :: Ord n
-    => TSType ps ks n a
-    -> State (Map (IsInterface (), n) (Some (TSType_ ps Void))) (TSType ps ks Void a)
-flattenType_ = \case
-    TSArray t  -> TSArray <$> htraverse flattenType_ t
-    TSTuple ts -> TSTuple <$> htraverse (traverseTSType_ flattenType_) ts
-    TSObject ii ts -> do
-      res <- TSObject NotInterface <$> htraverse (traverseTSType_ flattenType_) ts
-      case ii of
-        NotInterface  -> pure res
-        IsInterface n -> do
-          modify $ M.insert (IsInterface(), n) (Some (TSType_ res))
-          pure res
-    TSUnion ts -> TSUnion <$> htraverse (traverseTSType_ flattenType_) ts
-    TSNamed n t -> do
-      res <- flattenType_ t
-      modify $ M.insert (NotInterface, n) (Some (TSType_ res))
-      pure res
-    TSVar i -> pure (TSVar i)
-    TSIntersection ts -> TSIntersection <$> traverseIntersections flattenType_ ts
-    TSPrimType p -> pure $ TSPrimType p
+    :: forall ps ks n a r. Ord n
+    => (forall qs js b. NP Param qs -> TSType (qs ++ ps) js Void b -> r)
+    -> TSType ps ks n a
+    -> State (Map (IsInterface (), n) ([Text], r)) ([Text], TSType ps ks Void a)
+flattenType_ f = go Nil
+  where
+    go  :: forall qs js b. ()
+        => NP Param qs
+        -> TSType (qs ++ ps) js n b
+        -> State (Map (IsInterface (), n) ([Text], r)) ([Text], TSType (qs ++ ps) js Void b)
+    go qs = \case
+      TSArray t  -> ([],) . TSArray <$> htraverse (fmap snd . go qs) t
+      TSTuple ts -> ([],) . TSTuple <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
+      TSObject ii ts -> do
+        res <- TSObject NotInterface <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
+        case ii of
+          NotInterface  -> pure ([], res)
+          IsInterface n -> do
+            modify $ M.insert (IsInterface(), n) ([], f qs res)
+            pure ([], res)
+      TSUnion ts -> ([],) . TSUnion <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
+      TSApply tf@(TSGeneric n ps _) t -> do
+        tsApplyVar @_ @_ @_ @_ @_ @(State _ ()) tf $ \(rs :: NP Param rs) tv -> case assocConcat @rs @qs @ps rs of
+          Refl -> do
+            (_, res) <- go (rs `appendNP` qs) tv
+            modify $ M.insert (NotInterface, n)
+              (htoList SOP.unK ps, f (rs `appendNP` qs) res)
+        -- is this right?
+        gets $ evalState (go qs (tsApply tf t))
+      TSNamed n t -> do
+        (_, res) <- go qs t
+        modify $ M.insert (NotInterface, n) ([], f qs res)
+        pure ([], res)
+      TSVar i -> pure ([], TSVar i)
+      TSIntersection ts -> ([],) . TSIntersection <$> traverseIntersections (fmap snd . go qs) ts
+      TSPrimType p -> pure ([], TSPrimType p)
 
 enumLitToValue :: EnumLit -> A.Value
 enumLitToValue = \case
@@ -877,8 +832,7 @@ objTypeToValue = \case
         ts
     TSIntersection ts -> getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSNamed      _   t -> objTypeToValue t
-    -- TSGeneric    _ _ t -> objTypeToValue t
-    -- TSVar        i     -> undefined
+    TSApply      f   t -> objTypeToValue (tsApply f t)
 
 typeToValue
     :: TSType '[] ks n a -> a -> A.Value
@@ -892,8 +846,7 @@ typeToValue = \case
     TSObject ii ts    -> A.object . objTypeToValue (TSObject ii ts)
     TSUnion ts        -> iapply (withTSType_ typeToValue) ts
     TSNamed _ t       -> typeToValue t
-    -- TSGeneric _ _ t   -> typeToValue t
-    -- TSVar     i       -> undefined
+    TSApply f t       -> typeToValue (tsApply f t)
     TSIntersection ts -> A.object . getOp (runContraIntersections (Op . objTypeToValue) ts)
     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
@@ -937,20 +890,7 @@ parsePrim = \case
     TSNull -> ABE.asNull
     TSNever -> ABE.throwCustomError PENever
 
--- newtype ToParser a = ToParser { runToParser :: forall ps ks n a. TSType ps ks n a -> ABE.Parse ParseErr a }
 type Parse = ABE.ParseT ParseErr Identity
--- newtype ParseWithEnv ps a = ParseWithEnv { runParseWithEnv :: NP Parse ps -> Parse a }
---   deriving (Functor, Applicative, Monad) via ReaderT (NP Parse ps) Parse
-
--- parseType
---     :: PP.Pretty n
---     => TSType ps ks n a
---     -> ParseWithEnv ps a
--- parseType = \case
---     TSGeneric _ p t -> ParseWithEnv $ \ps -> do
---       res <- runParseWithEnv (parseType t) _
---       pure $ _ res
---       -- parseT
 
 parseType
     :: PP.Pretty n
@@ -974,6 +914,7 @@ parseType = \case
       in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
             icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t
+    TSApply t f -> parseType (tsApply t f)
     TSIntersection ts -> runCoIntersections parseType ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
