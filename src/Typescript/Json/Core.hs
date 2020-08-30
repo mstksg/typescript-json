@@ -69,7 +69,7 @@ import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import           Data.Bifunctor
 import           Data.Dependent.Sum                        (DSum)
-import           Data.Fin                                  (Fin)
+import           Data.Fin                                  (Fin(..))
 import           Data.Foldable
 import           Data.Functor
 import           Data.Functor.Combinator hiding            (Comp(..))
@@ -91,24 +91,26 @@ import           Data.Scientific                           (Scientific, toBounde
 import           Data.Some                                 (Some(..), withSome, foldSome, mapSome)
 import           Data.Text                                 (Text)
 import           Data.Type.Equality
+import           Data.Type.Nat
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Vector                               (Vector)
 import           Data.Void
 import           GHC.Generics                              (Generic, (:*:)(..))
 import           GHC.OverloadedLabels
-import           GHC.TypeLits
-import           Numeric.Natural
+import           GHC.TypeLits hiding                       (Nat)
 import           Unsafe.Coerce
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Types                          as A
 import qualified Data.Bifunctor.Assoc                      as B
+import qualified Data.Fin                                  as Fin
 import qualified Data.HashMap.Strict                       as HM
 import qualified Data.HashSet                              as HS
 import qualified Data.Map                                  as M
 import qualified Data.SOP                                  as SOP
 import qualified Data.SOP.NP                               as NP
 import qualified Data.Text                                 as T
+import qualified Data.Type.Nat                             as Nat
 import qualified Data.Vec.Lazy                             as Vec
 import qualified Data.Vector                               as V
 import qualified Prettyprinter                             as PP
@@ -340,7 +342,7 @@ _testChain = KCCons (,)   id    (\case {}) (Keyed #hello (L1 $ Identity 10 ))
            . KCCons const (,()) (\case {}) (Keyed #world (L1 $ Identity True))
            $ KCNil  ()
 
-data Intersections :: [Symbol] -> [Symbol] -> Type -> Type -> Type where
+data Intersections :: Nat -> [Symbol] -> Type -> Type -> Type where
     INil  :: a -> Intersections ps '[] n a
     ICons :: (a -> b -> c)
           -> (c -> (a, b))
@@ -411,14 +413,14 @@ textParam t = case someSymbolVal (T.unpack t) of
 
 newtype Fun a b = Fun (a -> b)
 
-data TSType :: [Symbol] -> Maybe [Symbol] -> Type -> Type -> Type where
+data TSType :: Nat -> Maybe [Symbol] -> Type -> Type -> Type where
     TSArray        :: ILan [] (TSType ps ks n) a -> TSType ps 'Nothing n a
     TSTuple        :: PreT Ap (TSType_ ps n) a -> TSType ps 'Nothing n a
     TSObject       :: IsInterface n -> KeyChain ks (TSType_ ps n) a -> TSType ps ('Just ks) n a
     TSUnion        :: PostT Dec (TSType_ ps n) a -> TSType ps 'Nothing n a
     TSNamed        :: n -> TSType ps ks n a -> TSType ps ks n a
     TSApply        :: TSTypeF ps ks n as b -> NP (TSType_ ps n) as -> TSType ps ks n b
-    TSVar          :: !(Elem ps p) -> TSType ps ks n a
+    TSVar          :: !(Fin ps) -> TSType ps ks n a
     -- either we:
     --
     -- 1. do not allow duplicates, in which case we disallow some potential
@@ -432,34 +434,11 @@ data TSType :: [Symbol] -> Maybe [Symbol] -> Type -> Type -> Type where
     TSIntersection :: Intersections ps ks n a -> TSType ps ('Just ks) n a
     TSPrimType     :: PS TSPrim a -> TSType ps 'Nothing n a
 
-    -- Generics
-    -- okay, let's think about what kind of interface we actually want
-    --
-    -- should we be able to actually parse an unapplied generic?
-    -- a `Foo<T>`?  like
-    --
-    -- TSGeneric "Foo" "T" (TSObject NoInterface ("hello" := TSVar IZ, "goodbye" := Number))
-    --
-    -- what should that be parsed as?
-    --
-    -- If the final data type is something like
-    --
-    -- data Foo a = Foo { hello :: a, goodbye :: Int }
-    --
-    -- it would really only make sense to parse a "Foo a".  never a "Foo".
-    -- Since these are all *-kinded types.
-    --
-    -- If that's the case then how do we want to express Foo a as a typescript type?
-    --
-    -- ah. we want to be able to document it maybe?  but... this can't be
-    -- *.  maybe there should be a TSType2, for * -> * generics types?  how
-    -- would that even work?  would we need a full on type system?
-
-data TSTypeF :: [Symbol] -> Maybe [Symbol] -> Type -> [Type] -> Type -> Type where
+data TSTypeF :: Nat -> Maybe [Symbol] -> Type -> [Type] -> Type -> Type where
     TSGeneric
         :: n
         -> NP (K Text) as
-        -> (forall rs. NP Param rs -> NP (TSType_ (rs ++ ps) n) as -> TSType (rs ++ ps) ks n b)
+        -> (forall rs. SNat rs -> NP (TSType_ (Plus rs ps) n) as -> TSType (Plus rs ps) ks n b)
         -> TSTypeF ps ks n as b
 
 data Maybe_ :: (k -> Type) -> Maybe k -> Type where
@@ -471,74 +450,78 @@ type family CatMaybes (as :: [Maybe k]) :: [k] where
     CatMaybes ('Nothing ': as) = CatMaybes as
     CatMaybes ('Just a  ': as) = a ': CatMaybes as
 
-tsSplit
-    :: TSType (p ': ps) ks n a
-    -> MaybeF (TSType ps ks n) a
-tsSplit = \case
-    TSVar EZ     -> MaybeF Nothing
-    TSVar (ES e) -> MaybeF $ Just (TSVar e)
+-- tsSplit
+--     :: TSType (p ': ps) ks n a
+--     -> MaybeF (TSType ps ks n) a
+-- tsSplit = \case
+--     TSVar EZ     -> MaybeF Nothing
+--     TSVar (ES e) -> MaybeF $ Just (TSVar e)
 
-tsShift
-    :: forall p ps ks n a. ()
-    => TSType ps ks n a
-    -> TSType (p ': ps) ks n a
-tsShift = \case
-    TSVar e -> TSVar (ES e)
+-- tsShift
+--     :: forall p ps ks n a. ()
+--     => TSType ps ks n a
+--     -> TSType (p ': ps) ks n a
+-- tsShift = \case
+--     TSVar e -> TSVar (ES e)
 
-withSplit
-    :: (TSType ps ks n a -> TSType us js m a)
-    -> TSType (p ': ps) ks n a
-    -> TSType (p ': us) js m a
-withSplit f = \case
-    TSVar EZ     -> TSVar EZ
-    TSVar (ES e) -> tsShift (f (TSVar e))
+-- withSplit
+--     :: (TSType ps ks n a -> TSType us js m a)
+--     -> TSType (p ': ps) ks n a
+--     -> TSType (p ': us) js m a
+-- withSplit f = \case
+--     TSVar EZ     -> TSVar EZ
+--     TSVar (ES e) -> tsShift (f (TSVar e))
 
 tsApply
     :: TSTypeF ps ks n as b      -- ^ type function
     -> NP (TSType_ ps n) as         -- ^ thing to apply
     -> TSType ps ks n b
-tsApply (TSGeneric _ _ f) t = f Nil t
+tsApply (TSGeneric _ _ f) t = f Nat.SZ t
 
 tsApply1
     :: TSTypeF ps ks n '[a] b      -- ^ type function
     -> TSType ps js n a         -- ^ thing to apply
     -> TSType ps ks n b
-tsApply1 (TSGeneric _ p f) t = f Nil (TSType_ t :* Nil)
+tsApply1 (TSGeneric _ p f) t = f Nat.SZ (TSType_ t :* Nil)
 
 withParams
     :: NP (K Text) as
-    -> (forall bs. NP Param bs -> NP (K (Some (Elem bs))) as -> r)
+    -> (forall bs. Vec bs Text -> NP (K (Fin bs)) as -> r)
     -> r
 withParams = \case
-    Nil -> \f -> f Nil Nil
-    K p :* ps -> \f -> textParam p $ \pp ->
-      withParams ps $ \pps ees ->
-        f (pp :* pps) (K (Some EZ) :* hmap (K . mapSome ES . SOP.unK) ees)
+    Nil -> \f -> f Vec.VNil Nil
+    K p :* ps -> \f -> withParams ps $ \bs (es :: NP (K (Fin bs)) as) ->
+      f (p Vec.::: bs) (K FZ :* hmap (K . FS . SOP.unK) es)
 
-weaken
-    :: forall as bs a. ()
-    => Elem as a
-    -> Elem (as ++ bs) a
-weaken = \case
-    EZ   -> EZ
-    ES e -> ES (weaken @_ @bs e)
-
+weakenFin
+    :: forall as bs. ()
+    => Fin as
+    -> Fin (Plus as bs)
+weakenFin = \case
+    FZ   -> FZ
+    FS i -> FS (weakenFin @_ @bs i)
 
 tsApplyVar1
-    :: TSTypeF ps ks n '[a] b
-    -> (forall q. Param q -> TSType (q ': ps) ks n b -> r)
+    :: forall ps ks n a b r. ()
+    => TSTypeF ps ks n '[a] b
+    -> (TSType ('Nat.S ps) ks n b -> r)
     -> r
-tsApplyVar1 (TSGeneric _ (K t :* Nil) g) f = textParam t $ \q ->
-    f q (g (q :* Nil) (TSType_ (TSVar EZ) :* Nil))
+tsApplyVar1 (TSGeneric _ _ g) f = 
+    f (g (Nat.SS @'Nat.Z) (TSType_ (TSVar FZ) :* Nil))
 
 tsApplyVar
     :: forall ps ks n as b r. ()
     => TSTypeF ps ks n as b
-    -> (forall rs. NP Param rs -> TSType (rs ++ ps) ks n b -> r)
+    -> (forall rs. Vec rs Text -> TSType (Plus rs ps) ks n b -> r)
     -> r
-tsApplyVar (TSGeneric _ ps g) f = withParams ps $ \qs es ->
-        f qs (g qs (hmap (\(K (Some i)) -> TSType_ (TSVar (weaken @_ @ps i))) es))
+tsApplyVar (TSGeneric _ ps g) f = withParams ps $ \rs es ->
+     f rs (g (vecToSNat rs) (hmap (TSType_ . TSVar . weakenFin @_ @ps . SOP.unK) es))
 
+vecToSNat :: forall n b. Vec n b -> SNat n
+vecToSNat = \case
+    Vec.VNil -> Nat.SZ
+    _ Vec.::: (xs :: Vec m b) -> case vecToSNat xs of Nat.SS -> Nat.SS @m
+        
 takeNP
     :: forall as bs p q. ()
     => NP p as
@@ -578,18 +561,25 @@ imapNP f = \case
     Nil -> Nil
     x :* xs -> f EZ x :* imapNP (f . ES) xs
 
+-- tsGeneric1
+--     :: n
+--     -> Text
+--     -> (forall r. Param r -> TSType_ (r ': ps) n a -> TSType (r ': ps) ks n b)
+--     -> TSTypeF ps ks n '[a] b
+-- tsGeneric1 n p f = TSGeneric n (K p :* Nil) (\(mp :* Nil) (t :* Nil) -> f mp t)
+
 tsGeneric1
     :: n
     -> Text
-    -> (forall r. Param r -> TSType_ (r ': ps) n a -> TSType (r ': ps) ks n b)
+    -> (forall rs js. SNat rs -> TSType (Plus rs ps) js n a -> TSType (Plus rs ps) ks n b)
     -> TSTypeF ps ks n '[a] b
-tsGeneric1 n p f = TSGeneric n (K p :* Nil) (\(mp :* Nil) (t :* Nil) -> f mp t)
+tsGeneric1 n p f = TSGeneric n (K p :* Nil) (\rs (TSType_ t :* Nil) -> f rs t)
 
-tsMaybeBool :: TSType '[] 'Nothing Text (Maybe Bool)
+tsMaybeBool :: TSType 'Nat.Z 'Nothing Text (Maybe Bool)
 tsMaybeBool = tsApply1 tsMaybe (TSPrimType (PS TSBoolean Right id))
 
-tsMaybe :: TSTypeF '[] 'Nothing Text '[a] (Maybe a)
-tsMaybe = tsGeneric1 "Maybe" "T" $ \_ (TSType_ t) ->
+tsMaybe :: TSTypeF 'Nat.Z 'Nothing Text '[a] (Maybe a)
+tsMaybe = tsGeneric1 "Maybe" "T" $ \_ t ->
     TSUnion . PostT $
         decide (maybe (Left ()) Right)
           (injectPost (const Nothing) (TSType_ nothin))
@@ -664,7 +654,7 @@ ppPrim = \case
 
 ppType
     :: PP.Pretty n
-    => NP Param ps
+    => Vec ps Text
     -> TSType ps ks n a
     -> PP.Doc x
 ppType = ppTypeWith PP.pretty
@@ -672,12 +662,12 @@ ppType = ppTypeWith PP.pretty
 ppTypeWith
     :: forall ps ks n a x. ()
     => (n -> PP.Doc x)
-    -> NP Param ps
+    -> Vec ps Text
     -> TSType ps ks n a
     -> PP.Doc x
 ppTypeWith f = go
   where
-    go :: NP Param qs -> TSType qs js n b -> PP.Doc x
+    go :: Vec qs Text -> TSType qs js n b -> PP.Doc x
     go ps = \case
       TSArray t   -> getConst (interpretILan (Const . go ps) t) <> "[]"
       TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect (withTSType_ (go ps)) ts)
@@ -692,7 +682,7 @@ ppTypeWith f = go
       -- this is the benefit of delaying application
       TSApply (TSGeneric n _ _) xs -> f n <> PP.encloseSep "<" ">" ","
         (htoList (withTSType_ (go ps)) xs)
-      TSVar i -> PP.pretty (paramText (ps `ixNP` i))
+      TSVar i -> PP.pretty (ps Vec.! i)
       TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
         runCoIntersections (\x -> Const [go ps x]) ts
       TSPrimType PS{..} -> ppPrim psItem
@@ -702,12 +692,12 @@ ppTypeFWith
     => (n -> PP.Doc x)
     -> TSTypeF ps ks n a b
     -> PP.Doc x
-ppTypeFWith f tf@(TSGeneric n rs _) =
+ppTypeFWith f (TSGeneric n rs _) =
     f n PP.<> PP.encloseSep "<" ">" "," (htoList (PP.pretty . SOP.unK) rs)
 
 typeExports
     :: (Ord n, PP.Pretty n)
-    => NP Param ps
+    => Vec ps Text
     -> Maybe (IsInterface (), n)    -- ^ top-level name and interface, if meant to be included
     -> TSType ps ks n a
     -> PP.Doc x
@@ -716,12 +706,12 @@ typeExports ps iin0 ts =
     . maybe id (`M.insert` (params0, ppType ps t0)) iin0
     $ tmap0
   where
-    ((params0, t0), tmap0) = flattenType (\qs -> ppType (qs `appendNP` ps)) ts
+    ((params0, t0), tmap0) = flattenType (\qs -> ppType (qs Vec.++ ps)) ts
 
 -- meh i can't really do this without extensive testing
 -- typeFExports
 --     :: (Ord n, PP.Pretty n)
---     => NP Param ps
+--     => SNat ps
 --     -> TSTypeF ps ks n a b
 --     -> PP.Doc x
 -- typeFExports ps tf@(TSGeneric n gs _) = tsApplyVar tf $ \rs ts ->
@@ -755,22 +745,22 @@ ppMap mp = PP.vcat
 -- have create a map of all of those declarations.
 flattenType
     :: Ord n
-    => (forall qs js b. NP Param qs -> TSType (qs ++ ps) js Void b -> r)
+    => (forall qs js b. Vec qs Text -> TSType (Plus qs ps) js Void b -> r)
     -> TSType ps ks n a
     -> (([Text], TSType ps ks Void a), Map (IsInterface (), n) ([Text], r))
 flattenType f t = runState (flattenType_ f t) M.empty
 
 flattenType_
     :: forall ps ks n a r. Ord n
-    => (forall qs js b. NP Param qs -> TSType (qs ++ ps) js Void b -> r)
+    => (forall qs js b. Vec qs Text -> TSType (Plus qs ps) js Void b -> r)
     -> TSType ps ks n a
     -> State (Map (IsInterface (), n) ([Text], r)) ([Text], TSType ps ks Void a)
-flattenType_ f = go Nil
+flattenType_ f = go Vec.VNil
   where
     go  :: forall qs js b. ()
-        => NP Param qs
-        -> TSType (qs ++ ps) js n b
-        -> State (Map (IsInterface (), n) ([Text], r)) ([Text], TSType (qs ++ ps) js Void b)
+        => Vec qs Text
+        -> TSType (Plus qs ps) js n b
+        -> State (Map (IsInterface (), n) ([Text], r)) ([Text], TSType (Plus qs ps) js Void b)
     go qs = \case
       TSArray t  -> ([],) . TSArray <$> htraverse (fmap snd . go qs) t
       TSTuple ts -> ([],) . TSTuple <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
@@ -783,11 +773,12 @@ flattenType_ f = go Nil
             pure ([], res)
       TSUnion ts -> ([],) . TSUnion <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
       TSApply tf@(TSGeneric n ps _) t -> do
-        tsApplyVar @_ @_ @_ @_ @_ @(State _ ()) tf $ \(rs :: NP Param rs) tv -> case assocConcat @rs @qs @ps rs of
-          Refl -> do
-            (_, res) <- go (rs `appendNP` qs) tv
-            modify $ M.insert (NotInterface, n)
-              (htoList SOP.unK ps, f (rs `appendNP` qs) res)
+        tsApplyVar @_ @_ @_ @_ @_ @(State _ ()) tf $ \(rs :: Vec rs Text) tv -> do
+          case assocPlus @rs @qs @ps (vecToSNat rs) of
+            Refl -> do
+              (_, res) <- go (rs Vec.++ qs) tv
+              modify $ M.insert (NotInterface, n)
+                (htoList SOP.unK ps, f (rs Vec.++ qs) res)
         -- is this right?
         gets $ evalState (go qs (tsApply tf t))
       TSNamed n t -> do
@@ -797,6 +788,15 @@ flattenType_ f = go Nil
       TSVar i -> pure ([], TSVar i)
       TSIntersection ts -> ([],) . TSIntersection <$> traverseIntersections (fmap snd . go qs) ts
       TSPrimType p -> pure ([], TSPrimType p)
+
+assocPlus
+    :: forall a b c. ()
+    => SNat a
+    -> Plus a (Plus b c) :~: Plus (Plus a b) c
+assocPlus = \case
+    Nat.SZ -> Refl
+    (Nat.SS :: SNat q) -> case assocPlus @q @b @c snat of
+      Refl -> Refl
 
 enumLitToValue :: EnumLit -> A.Value
 enumLitToValue = \case
@@ -823,7 +823,7 @@ primToValue = \case
     TSNull -> \_ -> A.Null
     TSNever -> absurd
 
-objTypeToValue :: TSType '[] ('Just ks) n a -> a -> [A.Pair]
+objTypeToValue :: TSType 'Nat.Z ('Just ks) n a -> a -> [A.Pair]
 objTypeToValue = \case
     TSObject     _ ts -> getOp $
       runContraKeyChain
@@ -835,7 +835,7 @@ objTypeToValue = \case
     TSApply      f   t -> objTypeToValue (tsApply f t)
 
 typeToValue
-    :: TSType '[] ks n a -> a -> A.Value
+    :: TSType 'Nat.Z ks n a -> a -> A.Value
 typeToValue = \case
     TSArray ts        -> A.Array
                        . V.fromList
@@ -894,7 +894,7 @@ type Parse = ABE.ParseT ParseErr Identity
 
 parseType
     :: PP.Pretty n
-    => TSType '[] ks n a
+    => TSType 'Nat.Z ks n a
     -> Parse a
 parseType = \case
     TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType) ts
@@ -910,7 +910,7 @@ parseType = \case
         (\k -> ABE.keyMay k . withTSType_ parseType)
         ts
     TSUnion ts ->
-      let us = icollect (withTSType_ (ppType Nil)) ts
+      let us = icollect (withTSType_ (ppType Vec.VNil)) ts
       in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
             icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t
