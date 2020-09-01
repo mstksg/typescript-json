@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -13,7 +14,17 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 
-module Typescript.Json where
+module Typescript.Json.KeyChain (
+    KnownNotElem(..)
+  , KnownNotElems
+  , knownNotElems
+  , injectKCO
+  , injectKC
+  , kcCons
+  , appendKeyChain
+  , injectIntersections
+  , appendIntersections
+  ) where
 
 import           Data.Bifunctor
 import           Data.Functor.Combinator hiding (Comp(..))
@@ -29,6 +40,8 @@ import qualified Data.SOP                       as SOP
 
 class KnownNotElem ks k where
     knownNotElem :: Elem ks k -> Void
+
+type KnownNotElems ks = SOP.All (KnownNotElem ks)
 
 instance KnownNotElem '[] k where
     knownNotElem = \case{}
@@ -46,7 +59,7 @@ instance (CmpEq (CmpNat k j) ~ 'False, KnownNotElem ks j) => KnownNotElem (k ': 
     knownNotElem = \case
       ES x -> knownNotElem x
 
-knownNotElems :: forall js ks. SOP.All (KnownNotElem js) ks => NP (Not :.: Elem js) ks
+knownNotElems :: forall js ks. KnownNotElems js ks => NP (Not :.: Elem js) ks
 knownNotElems = SOP.hcpure (Proxy @(KnownNotElem js)) $ Comp (Not knownNotElem)
 
 injectKCO :: Key k -> f a -> KeyChain '[k] f (Maybe a)
@@ -116,8 +129,8 @@ appendIntersections f g ns = \case
           Refl -> ICons               (\a (b, c) -> f (h a b) c) (B.assoc . first k . g) (concatNotElem' there here) x
                 . appendIntersections (,) id there xs
 
-injectIntersection :: TSType ps ('Just as) n a -> Intersections ps as n a
-injectIntersection x = case appendNil ks of
+injectIntersections :: TSType ps ('Just as) n a -> Intersections ps as n a
+injectIntersections x = case appendNil ks of
     Refl -> ICons const (,()) (hmap (\_ -> Comp (Not (\case {}))) ks) x (INil ())
   where
     ks = typeStructure x
@@ -134,7 +147,7 @@ typeStructure = \case
     TSObject _ ts -> keyChainKeys ts
     TSIntersection ts -> intersectionsKeys ts
     TSNamed _ t -> typeStructure t
-    TSGeneric _ _ t -> typeStructure t
+    TSApply f t -> typeStructure (tsApply f t)
 
 concatNotElem'
     :: forall js ks as p. ()
@@ -143,4 +156,26 @@ concatNotElem'
     -> NP (Not :.: Elem (js ++ ks)) as
 concatNotElem' js = hmap $ \(Comp (Not ns) :*: Comp (Not ms)) ->
     Comp $ Not $ concatNotElem js ns ms
+
+assocConcat
+    :: forall as bs cs p. ()
+    => NP p as
+    -> ((as ++ bs) ++ cs) :~: (as ++ (bs ++ cs))
+assocConcat = \case
+    Nil -> Refl
+    _ :* ps -> case assocConcat @_ @bs @cs ps of
+      Refl -> Refl
+
+appendNil
+    :: NP p as
+    -> (as ++ '[]) :~: as
+appendNil = \case
+    Nil -> Refl
+    _ :* ps -> case appendNil ps of
+      Refl -> Refl
+
+appendNP :: NP f as -> NP f bs -> NP f (as ++ bs)
+appendNP = \case
+    Nil -> id
+    x :* xs -> (x :*) . appendNP xs
 
