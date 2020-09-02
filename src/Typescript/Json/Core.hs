@@ -10,6 +10,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -33,9 +34,14 @@ module Typescript.Json.Core (
   , EnumLit(..)
   , TSType(..)
   , TSType_(..)
-  , KeyChain(..)
-  , Intersections(..)
+  , ObjMember(..)
+  , TSKeyVal
   , mapName
+  , onTSType_
+  , mapTSType_
+  , withTSType_
+  , IsObjType(..)
+  , SIsObjType(..)
   -- * Generics
   , tsApply
   , tsApply1
@@ -58,16 +64,7 @@ module Typescript.Json.Core (
   , parsePrim
   , parseType
   -- * utility func
-  , injectKC
-  , keyChainKeys
-  , type (++)
-  -- * utility types
-  , Key(..)
-  , Keyed(..)
-  , PS(..)
-  , Elem(..)
-  , ILan(..)
-  , ilan
+  , interpretObjMember
   ) where
 
 import           Control.Applicative
@@ -148,12 +145,10 @@ deriving instance Ord (TSPrim a)
 instance GShow TSPrim where
     gshowsPrec = showsPrec
 
-type family (as :: [k]) ++ (bs :: [k]) :: [k] where
-    '[]     ++ bs = bs
-    (a':as) ++ bs = a':(as ++ bs)
-
-
 data TSType_ ps n a = forall ks. TSType_ { unTSType_ :: TSType ps ks n a }
+
+instance Invariant (TSType_ ps n) where
+    invmap f g = mapTSType_ (invmap f g)
 
 withTSType_
     :: (forall ks. TSType ps ks n a -> r)
@@ -174,191 +169,52 @@ traverseTSType_
     -> f (TSType_ ps m b)
 traverseTSType_ f (TSType_ t) = TSType_ <$> f t
 
-
-data Elem :: [k] -> k -> Type where
-    EZ :: Elem (a ': as) a
-    ES :: !(Elem as a) -> Elem (b ': as) a
-
--- ixNP :: NP f as -> Elem as a -> f a
--- ixNP = \case
---     Nil -> \case {}
---     x :* xs -> \case
---       EZ   -> x
---       ES i -> ixNP xs i
-
-data Key :: Symbol -> Type where
-    Key :: KnownSymbol k => Key k
-
-instance KnownSymbol k => IsLabel k (Key k) where
-    fromLabel = Key
-
-keyText :: Key k -> Text
-keyText k@Key = T.pack (symbolVal k)
-
-data Keyed k f a = Keyed
-    { keyedKey  :: Key k
-    , keyedItem :: f a
-    }
-  deriving Functor
-
-instance Contravariant f => Contravariant (Keyed k f) where
-    contramap f (Keyed k x) = Keyed k (contramap f x)
-
-instance Invariant f => Invariant (Keyed k f) where
-    invmap f g (Keyed k x) = Keyed k (invmap f g x)
-
-instance HFunctor (Keyed k) where
-    hmap f (Keyed k x) = Keyed k (f x)
-
-instance HTraversable (Keyed k) where
-    htraverse f (Keyed k x) = Keyed k <$> f x
-
-instance KnownSymbol k => Inject (Keyed k) where
-    inject x = Keyed Key x
-
-instance KnownSymbol k => Interpret (Keyed k) f where
-    interpret f (Keyed _ x) = f x
-
-data KeyChain :: [Symbol] -> (Type -> Type) -> Type -> Type where
-    KCNil  :: a -> KeyChain '[] f a
-    KCCons :: (a -> b -> c)
-           -> (c -> (a, b))
-           -> (Elem ks k -> Void)
-           -> Keyed k (f :+: ILan Maybe f) a
-           -> KeyChain ks f b
-           -> KeyChain (k ': ks) f c
-
-instance Invariant (KeyChain ks f) where
-    invmap f g = \case
-      KCNil x -> KCNil (f x)
-      KCCons h k e x xs -> KCCons (\r -> f . h r) (k . g) e x xs
-
-instance HFunctor (KeyChain ks) where
-    hmap f = \case
-      KCNil x -> KCNil x
-      KCCons g h n x xs -> KCCons g h n (hmap (hbimap f (hmap f)) x) (hmap f xs)
-
-instance HTraversable (KeyChain ks) where
-    htraverse f = \case
-      KCNil x -> pure (KCNil x)
-      KCCons g h n x xs -> KCCons g h n
-        <$> htraverse (\case L1 y -> L1 <$> f y; R1 z -> R1 <$> htraverse f z) x
-        <*> htraverse f xs
-
-injectKC :: Key k -> f a -> KeyChain '[k] f a
-injectKC k x = KCCons const (,()) (\case {}) (Keyed k (L1 x)) (KCNil ())
-
-instance KnownSymbol k => Inject (KeyChain '[k]) where
-    inject = injectKC Key
-
-keyChainKeys
-    :: KeyChain ks f a
-    -> NP Key ks
-keyChainKeys = \case
-    KCNil _ -> Nil
-    KCCons _ _ _  (Keyed k _) xs -> k :* keyChainKeys xs
-
-runCoKeyChain
-    :: forall ks f g. Applicative g
-    => (Text -> f ~> g)
-    -> (forall x. Text -> f x -> g (Maybe x))
-    -> KeyChain ks f ~> g
-runCoKeyChain f h = go
-  where
-    go :: KeyChain js f ~> g
-    go = \case
-      KCNil x -> pure x
-      KCCons  g _ _ (Keyed k x) xs ->
-        let runner :: f :+: ILan Maybe f ~> g
-            runner = f (keyText k)
-                 !*! interpretCoILan (h (keyText k))
-        in  liftA2 g (runner x) (go xs)
-
-runContraKeyChain
-    :: forall ks f g. Divisible g
-    => (Text -> f ~> g)
-    -> (forall x. Text -> f x -> g (Maybe x))
-    -> KeyChain ks f ~> g
-runContraKeyChain f h = go
-  where
-    go :: KeyChain js f ~> g
-    go = \case
-      KCNil _ -> conquer
-      KCCons _ g _ (Keyed k x) xs ->
-        let runner :: f :+: ILan Maybe f ~> g
-            runner = f (keyText k)
-                 !*! interpretContraILan (h (keyText k))
-        in  divide g (runner x) (go xs)
-
-_testChain :: KeyChain '[ "hello", "world" ] Identity (Int, Bool)
-_testChain = KCCons (,)   id    (\case {}) (Keyed #hello (L1 $ Identity 10 ))
-           . KCCons const (,()) (\case {}) (Keyed #world (L1 $ Identity True))
-           $ KCNil  ()
-
-data Intersections :: Nat -> [Symbol] -> Type -> Type -> Type where
-    INil  :: a -> Intersections ps '[] n a
-    ICons :: (a -> b -> c)
-          -> (c -> (a, b))
-          -> NP (Not :.: Elem js) ks
-          -> TSType ps ('Just ks) n a
-          -> Intersections ps js n b
-          -> Intersections ps (ks ++ js) n c
-
-instance Invariant (Intersections ps ks n) where
-    invmap f g = \case
-      INil x -> INil (f x)
-      ICons h j ns x xs -> ICons (\r -> f . h r) (j . g) ns x xs
-
-hoistIntersections
-    :: (forall ks. TSType ps ('Just ks) n ~> TSType qs ('Just ks) m)
-    -> Intersections ps kss n ~> Intersections qs kss m
-hoistIntersections f = \case
-    INil x -> INil x
-    ICons h g ns x xs -> ICons h g ns (f x) (hoistIntersections f xs)
-
-traverseIntersections
-    :: Applicative h
-    => (forall ks x. TSType ps ('Just ks) n x -> h (TSType qs ('Just ks) m x))
-    -> Intersections ps kss n a
-    -> h (Intersections qs kss m a)
-traverseIntersections f = \case
-    INil x -> pure (INil x)
-    ICons h g ns x xs -> ICons h g ns <$> f x <*> traverseIntersections f xs
-
-
-runCoIntersections
-    :: forall kss ps n f. Applicative f
-    => (forall ks. TSType ps ('Just ks) n ~> f)
-    -> Intersections ps kss n ~> f
-runCoIntersections f = go
-  where
-    go :: Intersections ps jss n ~> f
-    go = \case
-      INil x -> pure x
-      ICons g _ _ t ts -> liftA2 g (f t) (go ts)
-
-runContraIntersections
-    :: forall kss ps n f. Divisible f
-    => (forall ks. TSType ps ('Just ks) n ~> f)
-    -> Intersections ps kss n ~> f
-runContraIntersections f = go
-  where
-    go :: Intersections ps jss n ~> f
-    go = \case
-      INil _           -> conquer
-      ICons _ g _ t ts -> divide g (f t) (go ts)
-
 data IsInterface n = NotInterface | IsInterface n
   deriving (Show, Eq, Ord, Functor)
 
-data TSType :: Nat -> Maybe [Symbol] -> Type -> Type -> Type where
-    TSArray        :: ILan [] (TSType ps ks n) a -> TSType ps 'Nothing n a
-    TSTuple        :: PreT Ap (TSType_ ps n) a -> TSType ps 'Nothing n a
-    TSObject       :: IsInterface n -> KeyChain ks (TSType_ ps n) a -> TSType ps ('Just ks) n a
-    TSUnion        :: PostT Dec (TSType_ ps n) a -> TSType ps 'Nothing n a
+data ObjMember f a = ObjMember
+    { objMemberKey :: Text
+    , objMemberVal :: (f :+: ILan Maybe f) a
+    }
+
+instance HFunctor ObjMember where
+    hmap f (ObjMember k v) = ObjMember k (hbimap f (hmap f) v)
+
+instance HTraversable ObjMember where
+    htraverse f (ObjMember k v) = ObjMember k <$>
+      case v of
+        L1 x -> L1 <$> f x
+        R1 y -> R1 <$> htraverse f y
+
+interpretObjMember
+    :: Invariant g
+    => (Text -> f ~> g)
+    -> (forall x. Text -> f x -> g (Maybe x))
+    -> ObjMember f ~> g
+interpretObjMember f g (ObjMember k v) = case v of
+    L1 x -> f k x
+    R1 y -> interpretILan (g k) y
+
+instance Invariant f => Invariant (ObjMember f) where
+    invmap f g (ObjMember x y) = ObjMember x (invmap f g y)
+
+data IsObjType = NotObj | IsObj
+
+data SIsObjType :: IsObjType -> Type where
+    SNotObj :: SIsObjType 'NotObj
+    SIsObj  :: SIsObjType 'IsObj
+
+type TSKeyVal ps n = PreT Ap (ObjMember (TSType_ ps n))
+
+data TSType :: Nat -> IsObjType -> Type -> Type -> Type where
+    TSArray        :: ILan [] (TSType ps ks n) a -> TSType ps 'NotObj n a
+    TSTuple        :: PreT Ap (TSType_ ps n) a -> TSType ps 'NotObj n a
+    TSObject       :: TSKeyVal ps n a -> TSType ps 'IsObj n a
+    TSUnion        :: PostT Dec (TSType_ ps n) a -> TSType ps 'NotObj n a
     TSNamed        :: n -> TSType ps ks n a -> TSType ps ks n a
+    TSInterface    :: n -> TSKeyVal ps n a  -> TSType ps 'IsObj n a
     TSApply        :: TSTypeF ps ks n as b -> NP (TSType_ ps n) as -> TSType ps ks n b
-    TSVar          :: !(Fin ps) -> TSType ps 'Nothing n a   -- is Nothing right?
+    TSVar          :: !(Fin ps) -> TSType ps 'NotObj n a   -- is NotObj right?
     -- either we:
     --
     -- 1. do not allow duplicates, in which case we disallow some potential
@@ -369,28 +225,34 @@ data TSType :: Nat -> Maybe [Symbol] -> Type -> Type -> Type where
     --
     -- #2 seems pretty much impossible without a full impelemntation of the
     -- type system
-    TSIntersection :: Intersections ps ks n a -> TSType ps ('Just ks) n a
-    TSPrimType     :: PS TSPrim a -> TSType ps 'Nothing n a
+    TSIntersection :: PreT Ap (TSType ps 'IsObj n) a -> TSType ps 'IsObj n a
+    TSPrimType     :: PS TSPrim a -> TSType ps 'NotObj n a
 
 -- TODO: this could be an interface, but only if it is an object literal
-data TSTypeF :: Nat -> Maybe [Symbol] -> Type -> [Type] -> Type -> Type where
+data TSTypeF :: Nat -> IsObjType -> Type -> [Type] -> Type -> Type where
     TSGeneric
         :: n
+        -> SIsObjType ks
         -> NP (K Text) as
         -> (forall rs. SNat rs -> NP (TSType_ (Plus rs ps) n) as -> TSType (Plus rs ps) ks n b)
         -> TSTypeF ps ks n as b
+
+instance Invariant (TSTypeF ps ks n as) where
+    invmap f g (TSGeneric n o xs h) =
+        TSGeneric n o xs (\q -> invmap f g . h q)
+            
 
 tsApply
     :: TSTypeF ps ks n as b      -- ^ type function
     -> NP (TSType_ ps n) as         -- ^ thing to apply
     -> TSType ps ks n b
-tsApply (TSGeneric _ _ f) t = f Nat.SZ t
+tsApply (TSGeneric _ _ _ f) t = f Nat.SZ t
 
 tsApply1
     :: TSTypeF ps ks n '[a] b      -- ^ type function
     -> TSType ps js n a         -- ^ thing to apply
     -> TSType ps ks n b
-tsApply1 (TSGeneric _ _ f) t = f Nat.SZ (TSType_ t :* Nil)
+tsApply1 (TSGeneric _ _ _ f) t = f Nat.SZ (TSType_ t :* Nil)
 
 withParams
     :: NP (K Text) as
@@ -414,7 +276,7 @@ tsApplyVar1
     => TSTypeF ps ks n '[a] b
     -> (TSType ('Nat.S ps) ks n b -> r)
     -> r
-tsApplyVar1 (TSGeneric _ _ g) f = 
+tsApplyVar1 (TSGeneric _ _ _ g) f =
     f (g (Nat.SS @'Nat.Z) (TSType_ (TSVar FZ) :* Nil))
 
 tsApplyVar
@@ -422,7 +284,7 @@ tsApplyVar
     => TSTypeF ps ks n as b
     -> (forall rs. Vec rs Text -> TSType (Plus rs ps) ks n b -> r)
     -> r
-tsApplyVar (TSGeneric _ ps g) f = withParams ps $ \rs es ->
+tsApplyVar (TSGeneric _ _ ps g) f = withParams ps $ \rs es ->
      f rs (g (vecToSNat rs) (hmap (TSType_ . TSVar . weakenFin @_ @ps . SOP.unK) es))
 
 vecToSNat :: forall n b. Vec n b -> SNat n
@@ -431,35 +293,27 @@ vecToSNat = \case
     _ Vec.::: (xs :: Vec m b) -> case vecToSNat xs of
       Nat.SS -> Nat.SS @m
       Nat.SZ -> Nat.SS
-        
--- takeNP
---     :: forall as bs p q. ()
---     => NP p as
---     -> NP q (as ++ bs)
---     -> (NP (p :*: q) as, NP q bs)
--- takeNP = \case
---     Nil -> (Nil,)
---     x :* xs -> \case
---       y :* ys -> first ((x :*: y) :*) (takeNP xs ys)
-
 
 instance Invariant (TSType ps ks n) where
-    invmap = undefined
-
--- imapNP
---     :: (forall a. Elem as a -> f a -> g a)
---     -> NP f as
---     -> NP g as
--- imapNP f = \case
---     Nil -> Nil
---     x :* xs -> f EZ x :* imapNP (f . ES) xs
+    invmap f g = \case
+      TSArray  t  -> TSArray (invmap f g t )
+      TSTuple  ts -> TSTuple (invmap f g ts)
+      TSObject ts -> TSObject (invmap f g ts)
+      TSUnion  ts -> TSUnion (invmap f g ts)
+      TSNamed n t -> TSNamed n (invmap f g t)
+      TSInterface n t -> TSInterface n (invmap f g t)
+      TSApply tf tx -> TSApply (invmap f g tf) tx
+      TSVar i -> TSVar i
+      TSIntersection ts -> TSIntersection (invmap f g ts)
+      TSPrimType p -> TSPrimType (invmap f g p)
 
 tsGeneric1
     :: n
+    -> SIsObjType ks
     -> Text
     -> (forall rs js. SNat rs -> TSType (Plus rs ps) js n a -> TSType (Plus rs ps) ks n b)
     -> TSTypeF ps ks n '[a] b
-tsGeneric1 n p f = TSGeneric n (K p :* Nil) (\rs (TSType_ t :* Nil) -> f rs t)
+tsGeneric1 n o p f = TSGeneric n o (K p :* Nil) (\rs (TSType_ t :* Nil) -> f rs t)
 
 -- tsMaybeBool :: TSType 'Nat.Z 'Nothing Text (Maybe Bool)
 -- tsMaybeBool = tsApply1 tsMaybe (TSPrimType (inject TSBoolean))
@@ -487,6 +341,24 @@ tsGeneric1 n p f = TSGeneric n (K p :* Nil) (\rs (TSType_ t :* Nil) -> f rs t)
 --   where
 --     primTag = inject (TSStringLit "Just")
 
+onTSType_
+    :: (TSType ps 'NotObj n a -> r)
+    -> (TSType ps 'IsObj n a -> r)
+    -> TSType_ ps n a
+    -> r
+onTSType_ f g (TSType_ t) = case t of
+    TSArray  _ -> f t
+    TSTuple  _ -> f t
+    TSObject _ -> g t
+    TSUnion  _ -> f t
+    TSNamed n s -> onTSType_ (f . TSNamed n) (g . TSNamed n) (TSType_ s)
+    TSInterface _ _ -> g t
+    TSApply (TSGeneric _ SNotObj _ _) _ -> f t
+    TSApply (TSGeneric _ SIsObj  _ _) _ -> g t
+    TSVar _ -> f t
+    TSIntersection _ -> g t
+    TSPrimType _ -> f t
+
 mapName :: forall ps ks n m. (m -> n) -> (n -> m) -> TSType ps ks n ~> TSType ps ks m
 mapName f g = go
   where
@@ -494,14 +366,15 @@ mapName f g = go
     go = \case
       TSArray l         -> TSArray (hmap go l)
       TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
-      TSObject ii ts    -> TSObject (fmap g ii) (hmap (mapTSType_ go) ts)
+      TSObject ts       -> TSObject (hmap (hmap (mapTSType_ go)) ts)
       TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
       TSNamed n t       -> TSNamed (g n) (go t)
-      TSApply (TSGeneric n p h) t -> TSApply
-        (TSGeneric (g n) p (\q -> go . h q . hmap (mapTSType_ (mapName g f))))
+      TSInterface n t   -> TSInterface (g n) (hmap (hmap (mapTSType_ go)) t)
+      TSApply (TSGeneric n o p h) t -> TSApply
+        (TSGeneric (g n) o p (\q -> go . h q . hmap (mapTSType_ (mapName g f))))
         (hmap (mapTSType_ go) t)
       TSVar i           -> TSVar i
-      TSIntersection ts -> TSIntersection (hoistIntersections go ts)
+      TSIntersection ts -> TSIntersection (hmap go ts)
       TSPrimType t      -> TSPrimType t
 
 
@@ -557,21 +430,22 @@ ppTypeWith f = go
     go :: Vec qs Text -> TSType qs js n b -> PP.Doc x
     go ps = \case
       TSArray t   -> getConst (interpretILan (Const . go ps) t) <> "[]"
-      TSTuple ts  -> PP.encloseSep "[" "]" ", " (icollect (withTSType_ (go ps)) ts)
-      TSObject NotInterface ts -> PP.encloseSep "{" "}" "," . getConst $
-        runCoKeyChain
-          (\k x -> Const [PP.pretty k <> ":" PP.<+> withTSType_ (go ps) x])
-          (\k x -> Const [PP.pretty k <> "?:" PP.<+> withTSType_ (go ps) x])
+      TSTuple ts  -> PP.encloseSep "[ " " ]" ", " (htoList (withTSType_ (go ps)) ts)
+      TSObject ts -> PP.encloseSep "{ " " }" ", " $
+        htoList
+          ( getConst . interpretObjMember
+              (\k x -> Const (PP.pretty k <> ":"  PP.<+> withTSType_ (go ps) x ))
+              (\k x -> Const (PP.pretty k <> "?:" PP.<+> withTSType_ (go ps) x))
+          )
           ts
-      TSObject (IsInterface n) _ -> f n
-      TSUnion ts  -> PP.encloseSep "" "" " | " (icollect (withTSType_ (go ps)) ts)
+      TSUnion ts  -> PP.encloseSep "" "" " | " (htoList (withTSType_ (go ps)) ts)
       TSNamed n _ -> f n
+      TSInterface n _ -> f n
       -- this is the benefit of delaying application
-      TSApply (TSGeneric n _ _) xs -> f n <> PP.encloseSep "<" ">" ","
+      TSApply (TSGeneric n _ _ _) xs -> f n <> PP.encloseSep "<" ">" ","
         (htoList (withTSType_ (go ps)) xs)
       TSVar i -> PP.pretty (ps Vec.! i)
-      TSIntersection ts  -> PP.encloseSep "" "" " & " . getConst $
-        runCoIntersections (\x -> Const [go ps x]) ts
+      TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
       TSPrimType PS{..} -> ppPrim psItem
 
 ppTypeFWith
@@ -579,7 +453,7 @@ ppTypeFWith
     => (n -> PP.Doc x)
     -> TSTypeF ps ks n a b
     -> PP.Doc x
-ppTypeFWith f (TSGeneric n rs _) =
+ppTypeFWith f (TSGeneric n _ rs _) =
     f n PP.<> PP.encloseSep "<" ">" "," (htoList (PP.pretty . SOP.unK) rs)
 
 typeExports
@@ -614,10 +488,14 @@ ppMap
     => Map (IsInterface (), n) ([Text], PP.Doc x)
     -> PP.Doc x
 ppMap mp = PP.vcat
-    [ PP.vsep [
+    [ PP.hsep [
         "export"
       , iiString ii
-      , PP.pretty n <> PP.encloseSep "<" ">" "," (PP.pretty <$> params)
+      , PP.pretty n <>
+          (if null params
+              then mempty
+              else PP.encloseSep "<" ">" "," (PP.pretty <$> params)
+          )
       , "="
       , tDoc
       ]
@@ -651,15 +529,10 @@ flattenType_ f = go Vec.VNil
     go qs = \case
       TSArray t  -> ([],) . TSArray <$> htraverse (fmap snd . go qs) t
       TSTuple ts -> ([],) . TSTuple <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
-      TSObject ii ts -> do
-        res <- TSObject NotInterface <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
-        case ii of
-          NotInterface  -> pure ([], res)
-          IsInterface n -> do
-            modify $ M.insert (IsInterface(), n) ([], f qs res)
-            pure ([], res)
+      TSObject ts -> do
+        ([],) . TSObject <$> htraverse (htraverse (traverseTSType_ (fmap snd . go qs))) ts
       TSUnion ts -> ([],) . TSUnion <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
-      TSApply tf@(TSGeneric n ps _) t -> do
+      TSApply tf@(TSGeneric n _ ps _) t -> do
         tsApplyVar @_ @_ @_ @_ @_ @(State _ ()) tf $ \(rs :: Vec rs Text) tv -> do
           case assocPlus @rs @qs @ps (vecToSNat rs) of
             Refl -> do
@@ -672,8 +545,12 @@ flattenType_ f = go Vec.VNil
         (_, res) <- go qs t
         modify $ M.insert (NotInterface, n) ([], f qs res)
         pure ([], res)
+      TSInterface n ts -> do
+        res <- TSObject <$> htraverse (htraverse (traverseTSType_ (fmap snd . go qs))) ts
+        modify $ M.insert (IsInterface(), n) ([], f qs res)
+        pure ([], res)
       TSVar i -> pure ([], TSVar i)
-      TSIntersection ts -> ([],) . TSIntersection <$> traverseIntersections (fmap snd . go qs) ts
+      TSIntersection ts -> ([],) . TSIntersection <$> htraverse (fmap snd . go qs) ts
       TSPrimType p -> pure ([], TSPrimType p)
 
 assocPlus
@@ -710,16 +587,20 @@ primToValue = \case
     TSNull -> \_ -> A.Null
     TSNever -> absurd
 
-objTypeToValue :: TSType 'Nat.Z ('Just ks) n a -> a -> [A.Pair]
+objTypeToValue :: TSType 'Nat.Z 'IsObj n a -> Op [A.Pair] a
 objTypeToValue = \case
-    TSObject     _ ts -> getOp $
-      runContraKeyChain
-        (\k t -> Op           $ \x -> [k A..= withTSType_ typeToValue t x])
-        (\k t -> Op . foldMap $ \x -> [k A..= withTSType_ typeToValue t x])
-        ts
-    TSIntersection ts -> getOp (runContraIntersections (Op . objTypeToValue) ts)
-    TSNamed      _   t -> objTypeToValue t
-    TSApply      f   t -> objTypeToValue (tsApply f t)
+    TSObject       ts -> keyValToValue ts
+    TSIntersection ts -> preDivisibleT objTypeToValue ts
+    TSInterface _ ts  -> keyValToValue ts
+    TSNamed     _   t -> objTypeToValue t
+    TSApply     f   t -> objTypeToValue (tsApply f t)
+  where
+    keyValToValue :: TSKeyVal 'Nat.Z n ~> Op [A.Pair]
+    keyValToValue = preDivisibleT
+        ( interpretObjMember
+            (\k t -> Op           $ \x -> [k A..= withTSType_ typeToValue t x])
+            (\k t -> Op . foldMap $ \x -> [k A..= withTSType_ typeToValue t x])
+        )
 
 typeToValue
     :: TSType 'Nat.Z ks n a -> a -> A.Value
@@ -730,11 +611,12 @@ typeToValue = \case
     TSTuple ts        -> A.Array
                        . V.fromList
                        . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
-    TSObject ii ts    -> A.object . objTypeToValue (TSObject ii ts)
+    TSObject    ts    -> A.object . getOp (objTypeToValue (TSObject ts))
     TSUnion ts        -> iapply (withTSType_ typeToValue) ts
     TSNamed _ t       -> typeToValue t
+    TSInterface n ts  -> A.object . getOp (objTypeToValue (TSInterface n ts))
     TSApply f t       -> typeToValue (tsApply f t)
-    TSIntersection ts -> A.object . getOp (runContraIntersections (Op . objTypeToValue) ts)
+    TSIntersection ts -> A.object . getOp (objTypeToValue (TSIntersection ts))
     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
 data ParseErr = PEInvalidEnum   [(Text, EnumLit)]
@@ -780,7 +662,7 @@ parsePrim = \case
 type Parse = ABE.ParseT ParseErr Identity
 
 parseType
-    :: PP.Pretty n
+    :: forall ks n a. PP.Pretty n
     => TSType 'Nat.Z ks n a
     -> Parse a
 parseType = \case
@@ -792,17 +674,22 @@ parseType = \case
         if V.length xs > n
           then Left $ PEExtraTuple n (V.length xs)
           else pure res
-    TSObject _ ts -> runCoKeyChain
-        (\k -> ABE.key    k . withTSType_ parseType)
-        (\k -> ABE.keyMay k . withTSType_ parseType)
-        ts
+    TSObject ts -> parseKeyVal ts
     TSUnion ts ->
       let us = icollect (withTSType_ (ppType Vec.VNil)) ts
       in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
             icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t
+    TSInterface _ ts -> parseKeyVal ts
     TSApply t f -> parseType (tsApply t f)
-    TSIntersection ts -> runCoIntersections parseType ts
+    TSIntersection ts -> interpret parseType ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
+  where
+    parseKeyVal :: TSKeyVal 'Nat.Z n ~> Parse
+    parseKeyVal = interpret
+        ( unwrapFunctor . interpretObjMember
+            (\k -> WrapFunctor . ABE.key    k . withTSType_ parseType)
+            (\k -> WrapFunctor . ABE.keyMay k . withTSType_ parseType)
+        )
 

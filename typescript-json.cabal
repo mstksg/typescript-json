@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 417b86f3f2a066f15d0d913b04e67b00bb4bc50aa26add3afe54cea074adf7ca
+-- hash: 3de418898850ba000eb00e41cbd1fa3af926098843a6d5311ff8b530c8dd6aca
 
 name:           typescript-json
 version:        0.1.0.0
@@ -29,7 +29,7 @@ library
   exposed-modules:
       Typescript.Json.Core
       Typescript.Json.Core.Combinators
-      Typescript.Json.KeyChain
+      Typescript.Json.Generics
   other-modules:
       Paths_typescript_json
   hs-source-dirs:
