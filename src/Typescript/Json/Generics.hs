@@ -49,7 +49,7 @@ type NotEqSym a b = WarnIfEq (CmpSymbol a b)
                 )
 
 class ToTSType a where
-    toTSType :: TSType_ ps Text a
+    toTSType :: TSType_ ps n a
 
 instance ToTSType Int where
     toTSType = TSType_ . TSPrimType $
@@ -69,7 +69,7 @@ instance ToTSType Bool where
     toTSType = TSType_ . TSPrimType $ inject TSBoolean
 
 class GTSType (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
-    gtoTSType :: TSType_ ps Text (f x)
+    gtoTSType :: TSType_ ps n (f x)
 
 instance (KnownSymbol nm, GTSType tag val f) => GTSType tag val (M1 D ('MetaData nm a b c) f) where
     gtoTSType = mapTSType_
@@ -107,7 +107,7 @@ instance GTSType tag val U1 where
     gtoTSType = TSType_ . invmap (const U1) (const ()) $ TSPrimType (inject TSVoid)
 
 class GTSSum (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
-    gtsSum :: PostT Dec (TSType_ ps Text) (f x)
+    gtsSum :: PostT Dec (TSType_ ps n) (f x)
 
 instance (GTSSum tag val f, GTSSum tag val g) => GTSSum tag val (f :+: g) where
     gtsSum = PostT $
@@ -148,7 +148,7 @@ instance (KnownSymbol tag, KnownSymbol conts, KnownSymbol constr, NotEqSym tag c
           )
           (invmap M1 unM1 (gtoTSType @tag @val @f))
       where
-        tagObj :: forall x ps. Ap (Pre x (ObjMember (TSType_ ps Text))) ()
+        tagObj :: forall x ps n. Ap (Pre x (ObjMember (TSType_ ps n))) ()
         tagObj = injectPre (const ()) $ ObjMember
             { objMemberKey = knownSymbolText @tag
             , objMemberVal = L1 . TSType_ . TSPrimType $
@@ -156,24 +156,24 @@ instance (KnownSymbol tag, KnownSymbol conts, KnownSymbol constr, NotEqSym tag c
             }
 
 mergeUnion
-    :: PostT Dec (TSType_ ps Text) (f x)
-    -> PostT Dec (TSType_ ps Text) (g x)
-    -> PostT Dec (TSType_ ps Text) ((f :+: g) x)
+    :: PostT Dec (TSType_ ps n) (f x)
+    -> PostT Dec (TSType_ ps n) (g x)
+    -> PostT Dec (TSType_ ps n) ((f :+: g) x)
 mergeUnion (PostT oX) (PostT oY) = PostT $
         decide (\case L1 x -> Left x; R1 y -> Right y)
           (hmap (mapPost L1) oX)
           (hmap (mapPost R1) oY)
 
 class GTSObject (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
-    gtsObject :: TSKeyVal ps Text (f x)
+    gtsObject :: TSKeyVal ps n (f x)
 
 instance (GTSObject tag val f, GTSObject tag val g) => GTSObject tag val (f :*: g) where
     gtsObject = mergeObjProd (gtsObject @tag @val @f) (gtsObject @tag @val @g)
 
 mergeObjProd
-    :: TSKeyVal ps Text (f x)
-    -> TSKeyVal ps Text (g x)
-    -> TSKeyVal ps Text ((f :*: g) x)
+    :: TSKeyVal ps n (f x)
+    -> TSKeyVal ps n (g x)
+    -> TSKeyVal ps n ((f :*: g) x)
 mergeObjProd (PreT oX) (PreT oY) = PreT $
     (:*:) <$> hmap (mapPre (\(x :*: _) -> x)) oX
           <*> hmap (mapPre (\(_ :*: y) -> y)) oY
@@ -186,7 +186,7 @@ instance (KnownSymbol k, GTSType tag val f) => GTSObject tag val (M1 S ('MetaSel
         }
 
 class GTSTuple (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
-    gtsTuple :: PreT Ap (TSType_ ps Text) (f x)
+    gtsTuple :: PreT Ap (TSType_ ps n) (f x)
 
 instance (GTSTuple tag val f, GTSTuple tag val g) => GTSTuple tag val (f :*: g) where
     gtsTuple = mergeTupProd (gtsTuple @tag @val @f) (gtsTuple @tag @val @g)
@@ -197,9 +197,9 @@ instance GTSType tag val f => GTSTuple tag val (M1 S ('MetaSel 'Nothing a b c) f
         invmap M1 unM1 (gtoTSType @tag @val @f)
 
 mergeTupProd
-    :: PreT Ap (TSType_ ps Text) (f x)
-    -> PreT Ap (TSType_ ps Text) (g x)
-    -> PreT Ap (TSType_ ps Text) ((f :*: g) x)
+    :: PreT Ap (TSType_ ps n) (f x)
+    -> PreT Ap (TSType_ ps n) (g x)
+    -> PreT Ap (TSType_ ps n) ((f :*: g) x)
 mergeTupProd (PreT oX) (PreT oY) = PreT $
     (:*:) <$> hmap (mapPre (\(x :*: _) -> x)) oX
           <*> hmap (mapPre (\(_ :*: y) -> y)) oY
