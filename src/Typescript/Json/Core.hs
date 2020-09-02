@@ -17,6 +17,7 @@
 {-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -28,6 +29,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 module Typescript.Json.Core (
     TSPrim(..)
@@ -42,17 +44,25 @@ module Typescript.Json.Core (
   , withTSType_
   , IsObjType(..)
   , SIsObjType(..)
+  , tsObjType
+  , tsShift
+  , SNat_(..)
   -- * Generics
+  , TSTypeF(..)
+  , TSTypeF_(..)
+  , mapTSTypeF_
   , tsApply
   , tsApply1
   , tsGeneric1
   , tsApplyVar
   , tsApplyVar1
+  , compGeneric
   -- * prettyprint
   , ppEnumLit
   , ppPrim
   , ppType
   , ppTypeWith
+  , ppTypeF
   , ppTypeFWith
   , typeExports
   -- * to value
@@ -210,6 +220,7 @@ data TSType :: Nat -> IsObjType -> Type -> Type -> Type where
     TSArray        :: ILan [] (TSType ps ks n) a -> TSType ps 'NotObj n a
     TSTuple        :: PreT Ap (TSType_ ps n) a -> TSType ps 'NotObj n a
     TSObject       :: TSKeyVal ps n a -> TSType ps 'IsObj n a
+    TSSingle       :: TSType ps 'IsObj n a -> TSType ps 'NotObj n a
     TSUnion        :: PostT Dec (TSType_ ps n) a -> TSType ps 'NotObj n a
     TSNamed        :: Text -> TSType ps ks n a -> TSType ps ks n a
     TSInterface    :: Text -> TSKeyVal ps n a  -> TSType ps 'IsObj n a
@@ -232,21 +243,34 @@ data TSType :: Nat -> IsObjType -> Type -> Type -> Type where
 -- TODO: this could be an interface, but only if it is an object literal
 data TSTypeF :: Nat -> IsObjType -> Type -> [Type] -> Type -> Type where
     TSGeneric
-        :: Text
-        -> SIsObjType ks
-        -> NP (K Text) as
-        -> (forall rs. SNat rs -> NP (TSType_ (Plus rs ps) n) as -> TSType (Plus rs ps) ks n b)
-        -> TSTypeF ps ks n as b
+        :: { tsgName    :: Text
+           , tsgObjType :: SIsObjType ks
+           , tsgParams  :: NP (K Text) as
+           , tsgFunc    :: forall rs. SNat_ rs -> NP (TSType_ (Plus rs ps) n) as -> TSType (Plus rs ps) ks n b
+           } -> TSTypeF ps ks n as b
+
+compGeneric
+    :: (forall rs. SNat_ rs -> TSType (Plus rs ps) ks n b -> TSType (Plus rs ps) ks n c)
+    -> TSTypeF ps ks n as b
+    -> TSTypeF ps ks n as c
+compGeneric f (TSGeneric t o p g) =
+    TSGeneric t o p (\q -> f q . g q)
 
 instance Invariant (TSTypeF ps ks n as) where
     invmap f g (TSGeneric n o xs h) =
         TSGeneric n o xs (\q -> invmap f g . h q)
+
+data TSTypeF_ ps n as b = forall ks. TSTypeF_ { unTSTypeF_ :: TSTypeF ps ks n as b }
+
+instance Invariant (TSTypeF_ ps n as) where
+    invmap f g (TSTypeF_ x) = TSTypeF_ (invmap f g x)
 
 instance Invariant (TSType ps ks n) where
     invmap f g = \case
       TSArray  t  -> TSArray (invmap f g t )
       TSTuple  ts -> TSTuple (invmap f g ts)
       TSObject ts -> TSObject (invmap f g ts)
+      TSSingle ts -> TSSingle (invmap f g ts)
       TSUnion  ts -> TSUnion (invmap f g ts)
       TSNamed n t -> TSNamed n (invmap f g t)
       TSInterface n t -> TSInterface n (invmap f g t)
@@ -256,17 +280,23 @@ instance Invariant (TSType ps ks n) where
       TSExternal o e -> TSExternal o e
       TSPrimType p -> TSPrimType (invmap f g p)
 
+mapTSTypeF_
+    :: (forall ks. TSTypeF ps ks n as b -> TSTypeF qs ks m as' b')
+    -> TSTypeF_ ps n as  b
+    -> TSTypeF_ qs m as' b'
+mapTSTypeF_ f (TSTypeF_ x) = TSTypeF_ (f x)
+
 tsApply
     :: TSTypeF ps ks n as b      -- ^ type function
     -> NP (TSType_ ps n) as         -- ^ thing to apply
     -> TSType ps ks n b
-tsApply (TSGeneric _ _ _ f) t = f Nat.SZ t
+tsApply (TSGeneric _ _ _ f) t = f SZ_ t
 
 tsApply1
     :: TSTypeF ps ks n '[a] b      -- ^ type function
     -> TSType ps js n a         -- ^ thing to apply
     -> TSType ps ks n b
-tsApply1 (TSGeneric _ _ _ f) t = f Nat.SZ (TSType_ t :* Nil)
+tsApply1 (TSGeneric _ _ _ f) t = f SZ_ (TSType_ t :* Nil)
 
 withParams
     :: NP (K Text) as
@@ -291,7 +321,7 @@ tsApplyVar1
     -> (TSType ('Nat.S ps) ks n b -> r)
     -> r
 tsApplyVar1 (TSGeneric _ _ _ g) f =
-    f (g (Nat.SS @'Nat.Z) (TSType_ (TSVar FZ) :* Nil))
+    f (g (SS_ SZ_) (TSType_ (TSVar FZ) :* Nil))
 
 tsApplyVar
     :: forall ps ks n as b r. ()
@@ -299,22 +329,76 @@ tsApplyVar
     -> (forall rs. Vec rs Text -> TSType (Plus rs ps) ks n b -> r)
     -> r
 tsApplyVar (TSGeneric _ _ ps g) f = withParams ps $ \rs es ->
-     f rs (g (vecToSNat rs) (hmap (TSType_ . TSVar . weakenFin @_ @ps . SOP.unK) es))
+     f rs (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @ps . SOP.unK) es))
 
-vecToSNat :: forall n b. Vec n b -> SNat n
-vecToSNat = \case
-    Vec.VNil -> Nat.SZ
-    _ Vec.::: (xs :: Vec m b) -> case vecToSNat xs of
-      Nat.SS -> Nat.SS @m
-      Nat.SZ -> Nat.SS
+vecToSNat_ :: forall n b. Vec n b -> SNat_ n
+vecToSNat_ = \case
+    Vec.VNil     -> SZ_
+    _ Vec.::: xs -> SS_ (vecToSNat_ xs)
 
 tsGeneric1
     :: Text
     -> SIsObjType ks
     -> Text
-    -> (forall rs js. SNat rs -> TSType (Plus rs ps) js n a -> TSType (Plus rs ps) ks n b)
+    -> (forall rs js. SNat_ rs -> TSType (Plus rs ps) js n a -> TSType (Plus rs ps) ks n b)
     -> TSTypeF ps ks n '[a] b
 tsGeneric1 n o p f = TSGeneric n o (K p :* Nil) (\rs (TSType_ t :* Nil) -> f rs t)
+
+tsShift
+    :: forall rs ps ks n a. ()
+    => SNat_ rs
+    -> TSType ps ks n a
+    -> TSType (Plus rs ps) ks n a
+tsShift n = go
+  where
+    go :: forall qs js b. TSType qs js n b -> TSType (Plus rs qs) js n b
+    go = \case
+      TSArray ts -> TSArray (hmap go ts)
+      TSTuple ts -> TSTuple (hmap (mapTSType_ go) ts)
+      TSUnion ts -> TSUnion (hmap (mapTSType_ go) ts)
+      TSObject ts -> TSObject (hmap (hmap (mapTSType_ go)) ts)
+      TSSingle t  -> TSSingle (go t)
+      TSNamed m t -> TSNamed m (go t)
+      TSInterface m t -> TSInterface m (hmap (hmap (mapTSType_ go)) t)
+      TSApply (TSGeneric m o ps tf) txs ->
+            TSApply
+              (TSGeneric m o ps $ \q ->
+                case assocPlus @_ @rs @qs q of
+                  Refl -> tf (plusNat q n)
+              )
+              (hmap (mapTSType_ go) txs)
+      TSIntersection t -> TSIntersection (hmap go t)
+      TSExternal m t -> TSExternal m t
+      TSVar i    -> TSVar (shiftFin n i)
+      TSPrimType t -> TSPrimType t
+
+toSNat_
+    :: SNat n
+    -> SNat_ n
+toSNat_  = \case
+    Nat.SZ -> SZ_
+    Nat.SS -> SS_ (toSNat_ Nat.snat)
+
+shiftFin
+    :: forall as bs. ()
+    => SNat_ as
+    -> Fin bs
+    -> Fin (Plus as bs)
+shiftFin = \case
+    SZ_ -> id
+    SS_ n -> FS . shiftFin n
+
+plusNat
+    :: SNat_ as
+    -> SNat_ bs
+    -> SNat_ (Plus as bs)
+plusNat = \case
+    SZ_ -> id
+    SS_ n -> SS_ . plusNat n
+      
+data SNat_ :: Nat -> Type where
+    SZ_ :: SNat_ 'Nat.Z
+    SS_ :: SNat_ n -> SNat_ ('Nat.S n)
 
 -- tsMaybeBool :: TSType 'Nat.Z 'Nothing Text (Maybe Bool)
 -- tsMaybeBool = tsApply1 tsMaybe (TSPrimType (inject TSBoolean))
@@ -349,6 +433,7 @@ tsObjType = \case
     TSArray  _                    -> SNotObj
     TSTuple  _                    -> SNotObj
     TSObject _                    -> SIsObj
+    TSSingle _                    -> SNotObj
     TSUnion  _                    -> SNotObj
     TSNamed _ t                   -> tsObjType t
     TSInterface _ _               -> SIsObj
@@ -376,6 +461,7 @@ mapName f g = go
       TSArray l         -> TSArray (hmap go l)
       TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
       TSObject ts       -> TSObject (hmap (hmap (mapTSType_ go)) ts)
+      TSSingle ts       -> TSSingle (go ts)
       TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
       TSNamed n t       -> TSNamed n (go t)
       TSInterface n t   -> TSInterface n (hmap (hmap (mapTSType_ go)) t)
@@ -448,6 +534,7 @@ ppTypeWith f = go
               (\k x -> Const (PP.pretty k <> "?:" PP.<+> withTSType_ (go ps) x))
           )
           ts
+      TSSingle ts -> go ps ts
       TSUnion ts  -> PP.encloseSep "" "" " | " (htoList (withTSType_ (go ps)) ts)
       TSNamed n _ -> PP.pretty n
       TSInterface n _ -> PP.pretty n
@@ -459,12 +546,25 @@ ppTypeWith f = go
       TSExternal _ n -> f n
       TSPrimType PS{..} -> ppPrim psItem
 
-ppTypeFWith
-    :: forall ps ks n a b x. ()
-    => TSTypeF ps ks n a b
+-- TODO: figure out shadowing
+ppTypeF
+    :: PP.Pretty n
+    => Vec ps Text
+    -> TSTypeF ps ks n a b
     -> PP.Doc x
-ppTypeFWith (TSGeneric n _ rs _) =
-    PP.pretty n PP.<> PP.encloseSep "<" ">" "," (htoList (PP.pretty . SOP.unK) rs)
+ppTypeF = ppTypeFWith PP.pretty
+
+-- TODO: figure out shadowing
+ppTypeFWith
+    :: (n -> PP.Doc x)
+    -> Vec ps Text
+    -> TSTypeF ps ks n a b
+    -> PP.Doc x
+ppTypeFWith f ps tf@(TSGeneric n _ vs _) = PP.hsep [
+      PP.pretty n PP.<> PP.encloseSep "<" ">" "," (htoList (PP.pretty . SOP.unK) vs)
+    , "="
+    , tsApplyVar tf $ \rs -> ppTypeWith f (rs Vec.++ ps)
+    ]
 
 typeExports
     :: Vec ps Text
@@ -539,10 +639,11 @@ flattenType_ f = go Vec.VNil
       TSTuple ts -> ([],) . TSTuple <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
       TSObject ts -> do
         ([],) . TSObject <$> htraverse (htraverse (traverseTSType_ (fmap snd . go qs))) ts
+      TSSingle ts -> second TSSingle <$> go qs ts
       TSUnion ts -> ([],) . TSUnion <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
       TSApply tf@(TSGeneric n _ ps _) t -> do
         tsApplyVar @_ @_ @_ @_ @_ @(State _ ()) tf $ \(rs :: Vec rs Text) tv -> do
-          case assocPlus @rs @qs @ps (vecToSNat rs) of
+          case assocPlus @rs @qs @ps (vecToSNat_ rs) of
             Refl -> do
               (_, res) <- go (rs Vec.++ qs) tv
               modify $ M.insert (NotInterface, n)
@@ -563,11 +664,11 @@ flattenType_ f = go Vec.VNil
 
 assocPlus
     :: forall a b c. ()
-    => SNat a
+    => SNat_ a
     -> Plus a (Plus b c) :~: Plus (Plus a b) c
 assocPlus = \case
-    Nat.SZ -> Refl
-    (Nat.SS :: SNat q) -> case assocPlus @q @b @c snat of
+    SZ_ -> Refl
+    SS_ n -> case assocPlus @_ @b @c n  of
       Refl -> Refl
 
 enumLitToValue :: EnumLit -> A.Value
@@ -620,6 +721,7 @@ typeToValue = \case
                        . V.fromList
                        . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
     TSObject    ts    -> A.object . getOp (objTypeToValue (TSObject ts))
+    TSSingle ts       -> typeToValue ts
     TSUnion ts        -> iapply (withTSType_ typeToValue) ts
     TSNamed _ t       -> typeToValue t
     TSInterface n ts  -> A.object . getOp (objTypeToValue (TSInterface n ts))
@@ -683,6 +785,7 @@ parseType = \case
           then Left $ PEExtraTuple n (V.length xs)
           else pure res
     TSObject ts -> parseKeyVal ts
+    TSSingle ts -> parseType ts
     TSUnion ts ->
       let us = []
       -- let us = icollect (withTSType_ (ppType Vec.VNil)) ts
