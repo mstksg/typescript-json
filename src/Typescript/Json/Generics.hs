@@ -20,13 +20,14 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Typescript.Json.Generics (
-    ToTSType(..)
-  , genericToTSType
-  , genericToTSType_
-  , genericToTSType1
-  , genericToTSType1_
-  , genericToTSTypeF
-  , genericToTSTypeF_
+  -- * Combinators
+    mergeUnion
+  , mergeObjProd
+  , mergeTupProd
+  , emptyConstr
+  , singleConstr
+  , singleMember
+  -- * Typeclass-based
   , GTSType(..)
   , GTSSum(..)
   , GTSObject(..)
@@ -35,6 +36,17 @@ module Typescript.Json.Generics (
   , GTSSumF(..)
   , GTSObjectF(..)
   , GTSTupleF(..)
+  -- * Default instances
+  , ToTSType(..)
+  , genericToTSType
+  , genericToTSType_
+  , genericToTSType1
+  , genericToTSType1_
+  , genericToTSTypeF
+  , genericToTSTypeF_
+  -- * Util
+  , type (++)
+  , splitNP
   ) where
 
 import           Data.Bifunctor
@@ -101,7 +113,7 @@ instance ToTSType a => ToTSType [a] where
       TSType_ t -> TSType_ $ TSArray (ilan t)
 
 instance ToTSType a => ToTSType (Maybe a) where
-    toTSType = withTSType_ (genericToTSType1_ @"tag" @"contents") toTSType
+    toTSType = genericToTSType1_ @"tag" @"contents" toTSType
 
 type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[] ++ bs = bs
@@ -120,18 +132,18 @@ genericToTSType
 genericToTSType = invmap to from . gtoTSType @tag @val @(Rep a)
 
 genericToTSType1_
-    :: forall tag val f ps ks n a. (Generic1 f, GTSTypeF tag val (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
-    => TSType ps ks n a
+    :: forall tag val f ps n a. (Generic1 f, GTSTypeF tag val (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    => TSType_ ps n a
     -> TSType_ ps n (f a)
 genericToTSType1_ = genericToTSType1 @tag @val @f (SOP.hcpure (Proxy @ToTSType) toTSType)
 
 genericToTSType1
-    :: forall tag val f ps ks n a. (Generic1 f, GTSTypeF tag val (Rep1 f))
+    :: forall tag val f ps n a. (Generic1 f, GTSTypeF tag val (Rep1 f))
     => NP (TSType_ ps n) (LeafTypes (Rep1 f))
-    -> TSType ps ks n a
+    -> TSType_ ps n a
     -> TSType_ ps n (f a)
 genericToTSType1 lts tx = case genericToTSTypeF @tag @val @f lts of
-    TSTypeF_ tf -> TSType_ $ TSApply tf (TSType_ tx :* Nil)
+    TSTypeF_ tf -> TSType_ $ TSApply tf (tx :* Nil)
 
 genericToTSTypeF_
     :: forall tag val f ps n a. (Generic1 f, GTSTypeF tag val (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))

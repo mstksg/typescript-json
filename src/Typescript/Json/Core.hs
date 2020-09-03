@@ -470,7 +470,7 @@ ppPrim = \case
       [ "enum"
       , PP.pretty n
       , PP.encloseSep "{" "}" ","
-          [ PP.pretty e PP.<+> ppEnumLit x
+          [ PP.pretty e PP.<+> "=" PP.<+> ppEnumLit x
           | (e, x) <- toList es
           ]
       ]
