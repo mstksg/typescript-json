@@ -51,6 +51,7 @@ module Typescript.Json.Core (
   , TSTypeF(..)
   , TSTypeF_(..)
   , mapTSTypeF_
+  , withTSTypeF_
   , tsApply
   , tsApply1
   , tsGeneric1
@@ -170,7 +171,7 @@ mapTSType_
     :: (forall ks. TSType ps ks n a -> TSType us ks m b)
     -> TSType_ ps n a
     -> TSType_ us m b
-mapTSType_ f (TSType_ t) = TSType_ (f t)
+mapTSType_ f = withTSType_ (TSType_ . f)
 
 traverseTSType_
     :: Functor f
@@ -280,11 +281,17 @@ instance Invariant (TSType ps ks n) where
       TSExternal o e -> TSExternal o e
       TSPrimType p -> TSPrimType (invmap f g p)
 
+withTSTypeF_
+    :: (forall ks. TSTypeF ps ks n as b -> r)
+    -> TSTypeF_ ps n as  b
+    -> r
+withTSTypeF_ f (TSTypeF_ x) = f x
+
 mapTSTypeF_
     :: (forall ks. TSTypeF ps ks n as b -> TSTypeF qs ks m as' b')
     -> TSTypeF_ ps n as  b
     -> TSTypeF_ qs m as' b'
-mapTSTypeF_ f (TSTypeF_ x) = TSTypeF_ (f x)
+mapTSTypeF_ f = withTSTypeF_ (TSTypeF_ . f)
 
 tsApply
     :: TSTypeF ps ks n as b      -- ^ type function
@@ -372,12 +379,12 @@ tsShift n = go
       TSVar i    -> TSVar (shiftFin n i)
       TSPrimType t -> TSPrimType t
 
-toSNat_
-    :: SNat n
-    -> SNat_ n
-toSNat_  = \case
-    Nat.SZ -> SZ_
-    Nat.SS -> SS_ (toSNat_ Nat.snat)
+-- toSNat_
+--     :: SNat n
+--     -> SNat_ n
+-- toSNat_  = \case
+--     Nat.SZ -> SZ_
+--     Nat.SS -> SS_ (toSNat_ Nat.snat)
 
 shiftFin
     :: forall as bs. ()
@@ -395,7 +402,7 @@ plusNat
 plusNat = \case
     SZ_ -> id
     SS_ n -> SS_ . plusNat n
-      
+
 data SNat_ :: Nat -> Type where
     SZ_ :: SNat_ 'Nat.Z
     SS_ :: SNat_ n -> SNat_ ('Nat.S n)
