@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -20,8 +21,12 @@
 
 module Typescript.Json.Generics (
     ToTSType(..)
-  , genericTSType
-  , genericTSType_
+  , genericToTSType
+  , genericToTSType_
+  , genericToTSType1
+  , genericToTSType1_
+  , genericToTSTypeF
+  , genericToTSTypeF_
   , GTSType(..)
   , GTSSum(..)
   , GTSObject(..)
@@ -68,6 +73,9 @@ type NotEqSym a b = WarnIfEq (CmpSymbol a b)
 class ToTSType a where
     toTSType :: TSType_ ps n a
 
+    default toTSType :: (Generic a, GTSType "tag" "contents" (Rep a), All ToTSType (LeafTypes (Rep a))) => TSType_ ps n a
+    toTSType = genericToTSType_ @"tag" @"contents" @a
+
 instance ToTSType Int where
     toTSType = TSType_ . TSPrimType $
       PS TSNumber
@@ -92,9 +100,49 @@ instance ToTSType a => ToTSType [a] where
     toTSType = case toTSType @a of
       TSType_ t -> TSType_ $ TSArray (ilan t)
 
+instance ToTSType a => ToTSType (Maybe a) where
+    toTSType = withTSType_ (genericToTSType1_ @"tag" @"contents") toTSType
+
 type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[] ++ bs = bs
     (a ': as) ++ bs = a ': (as ++ bs)
+
+genericToTSType_
+    :: forall tag val a ps n.
+     ( Generic a, GTSType tag val (Rep a), All ToTSType (LeafTypes (Rep a)) )
+    => TSType_ ps n a
+genericToTSType_ = genericToTSType @tag @val @a (SOP.hcpure (Proxy @ToTSType) toTSType)
+
+genericToTSType
+    :: forall tag val a ps n. (Generic a, GTSType tag val (Rep a))
+    => NP (TSType_ ps n) (LeafTypes (Rep a))
+    -> TSType_ ps n a
+genericToTSType = invmap to from . gtoTSType @tag @val @(Rep a)
+
+genericToTSType1_
+    :: forall tag val f ps ks n a. (Generic1 f, GTSTypeF tag val (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    => TSType ps ks n a
+    -> TSType_ ps n (f a)
+genericToTSType1_ = genericToTSType1 @tag @val @f (SOP.hcpure (Proxy @ToTSType) toTSType)
+
+genericToTSType1
+    :: forall tag val f ps ks n a. (Generic1 f, GTSTypeF tag val (Rep1 f))
+    => NP (TSType_ ps n) (LeafTypes (Rep1 f))
+    -> TSType ps ks n a
+    -> TSType_ ps n (f a)
+genericToTSType1 lts tx = case genericToTSTypeF @tag @val @f lts of
+    TSTypeF_ tf -> TSType_ $ TSApply tf (TSType_ tx :* Nil)
+
+genericToTSTypeF_
+    :: forall tag val f ps n a. (Generic1 f, GTSTypeF tag val (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    => TSTypeF_ ps n '[a] (f a)
+genericToTSTypeF_ = genericToTSTypeF @tag @val @f (SOP.hcpure (Proxy @ToTSType) toTSType)
+
+genericToTSTypeF
+    :: forall tag val f ps n a. (Generic1 f, GTSTypeF tag val (Rep1 f))
+    => NP (TSType_ ps n) (LeafTypes (Rep1 f))
+    -> TSTypeF_ ps n '[a] (f a)
+genericToTSTypeF = invmap to1 from1 . gtoTSTypeF @tag @val @(Rep1 f)
 
 type family LeafTypes (f :: Type -> Type) :: [Type] where
     LeafTypes (K1 i a)   = '[a]
@@ -104,21 +152,6 @@ type family LeafTypes (f :: Type -> Type) :: [Type] where
     LeafTypes Par1       = '[]
     LeafTypes (f :+: g)  = LeafTypes f ++ LeafTypes g
     LeafTypes (f :*: g)  = LeafTypes f ++ LeafTypes g
-
-genericTSType_
-    :: forall tag val a ps n.
-     ( Generic a, GTSType tag val (Rep a), All ToTSType (LeafTypes (Rep a)) )
-    => TSType_ ps n a
-genericTSType_ = genericTSType @tag @val @a (SOP.hcpure (Proxy @ToTSType) toTSType)
-
-
-genericTSType
-    :: forall tag val a ps n. (Generic a, GTSType tag val (Rep a))
-    => NP (TSType_ ps n) (LeafTypes (Rep a))
-    -> TSType_ ps n a
-genericTSType = invmap to from . gtoTSType @tag @val @(Rep a)
-
-
 
 class GTSType (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtoTSType :: NP (TSType_ ps n) (LeafTypes f) -> TSType_ ps n (f x)
