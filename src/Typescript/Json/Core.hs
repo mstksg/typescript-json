@@ -41,6 +41,7 @@ module Typescript.Json.Core (
   , IsInterface(..)
   , mapName
   , onTSType_
+  , decideTSType_
   , mapTSType_
   , withTSType_
   , IsObjType(..)
@@ -81,6 +82,7 @@ module Typescript.Json.Core (
   ) where
 
 import           Control.Applicative
+import           Control.Applicative.Free
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import           Data.Bifunctor
@@ -100,10 +102,12 @@ import           Data.HFunctor.Route
 import           Data.IntMap                               (IntMap)
 import           Data.Kind
 import           Data.Map                                  (Map)
+import           Data.Maybe
 import           Data.Ord
 import           Data.Proxy
 import           Data.SOP                                  (NP(..), NS(..), I(..), K(..), (:.:)(..))
 import           Data.Scientific                           (Scientific, toBoundedInteger)
+import           Data.Semigroup                            (Product(..), Sum(..))
 import           Data.Some                                 (Some(..), withSome, foldSome, mapSome)
 import           Data.Text                                 (Text)
 import           Data.Type.Equality
@@ -114,6 +118,7 @@ import           Data.Void
 import           GHC.Generics                              (Generic, (:*:)(..))
 import           GHC.OverloadedLabels
 import           GHC.TypeLits hiding                       (Nat)
+import           Numeric.Natural
 import           Typescript.Json.Core.Combinators
 import           Unsafe.Coerce
 import qualified Data.Aeson                                as A
@@ -221,6 +226,7 @@ type TSKeyVal ps n = PreT Ap (ObjMember (TSType_ ps n))
 
 data TSType :: Nat -> IsObjType -> Type -> Type -> Type where
     TSArray        :: ILan [] (TSType ps ks n) a -> TSType ps 'NotObj n a
+    TSNullable     :: ILan Maybe (TSType ps ks n) a -> TSType ps 'NotObj n a
     TSTuple        :: PreT Ap (TSType_ ps n) a -> TSType ps 'NotObj n a
     TSObject       :: TSKeyVal ps n a -> TSType ps 'IsObj n a
     TSSingle       :: TSType ps 'IsObj n a -> TSType ps 'NotObj n a
@@ -271,6 +277,7 @@ instance Invariant (TSTypeF_ ps n as) where
 instance Invariant (TSType ps ks n) where
     invmap f g = \case
       TSArray  t  -> TSArray (invmap f g t )
+      TSNullable t -> TSNullable (invmap f g t)
       TSTuple  ts -> TSTuple (invmap f g ts)
       TSObject ts -> TSObject (invmap f g ts)
       TSSingle ts -> TSSingle (invmap f g ts)
@@ -363,6 +370,7 @@ tsShift n = go
     go :: forall qs js b. TSType qs js n b -> TSType (Plus rs qs) js n b
     go = \case
       TSArray ts -> TSArray (hmap go ts)
+      TSNullable ts -> TSNullable (hmap go ts)
       TSTuple ts -> TSTuple (hmap (mapTSType_ go) ts)
       TSUnion ts -> TSUnion (hmap (mapTSType_ go) ts)
       TSObject ts -> TSObject (hmap (hmap (mapTSType_ go)) ts)
@@ -407,6 +415,7 @@ tsObjType
     -> SIsObjType ks
 tsObjType = \case
     TSArray  _                    -> SNotObj
+    TSNullable _                  -> SNotObj
     TSTuple  _                    -> SNotObj
     TSObject _                    -> SIsObj
     TSSingle _                    -> SNotObj
@@ -429,12 +438,17 @@ onTSType_ f g (TSType_ t) = case tsObjType t of
     SNotObj -> f t
     SIsObj  -> g t
 
+decideTSType_ :: TSType_ ps n ~> (TSType ps 'NotObj n :+: TSType ps 'IsObj n)
+decideTSType_ = onTSType_ L1 R1
+
+
 mapName :: forall ps ks n m. (m -> n) -> (n -> m) -> TSType ps ks n ~> TSType ps ks m
 mapName f g = go
   where
     go :: TSType us js n ~> TSType us js m
     go = \case
       TSArray l         -> TSArray (hmap go l)
+      TSNullable l      -> TSNullable (hmap go l)
       TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
       TSObject ts       -> TSObject (hmap (hmap (mapTSType_ go)) ts)
       TSSingle ts       -> TSSingle (go ts)
@@ -448,7 +462,6 @@ mapName f g = go
       TSIntersection ts -> TSIntersection (hmap go ts)
       TSExternal o n ps -> TSExternal o (g n) ps
       TSPrimType t      -> TSPrimType t
-
 
 ppScientific :: Scientific -> PP.Doc x
 ppScientific n = maybe (PP.pretty (show n)) PP.pretty
@@ -502,6 +515,7 @@ ppTypeWith f = go
     go :: Vec qs Text -> TSType qs js n b -> PP.Doc x
     go ps = \case
       TSArray t   -> getConst (interpretILan (Const . go ps) t) <> "[]"
+      TSNullable t -> getConst (interpretILan (Const . go ps) t) PP.<+> "| null"
       TSTuple ts  -> PP.encloseSep "[ " " ]" ", " (htoList (withTSType_ (go ps)) ts)
       TSObject ts -> PP.encloseSep "{ " " }" ", " $
         htoList
@@ -614,20 +628,22 @@ flattenType_ ps f = go Vec.VNil
         -> State (Map (IsInterface (), Text) ([Text], r)) ([Text], TSType (Plus qs ps) js Text b)
     go qs = \case
       TSArray t  -> ([],) . TSArray <$> htraverse (fmap snd . go qs) t
+      TSNullable t  -> ([],) . TSNullable <$> htraverse (fmap snd . go qs) t
       TSTuple ts -> ([],) . TSTuple <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
       TSObject ts -> do
         ([],) . TSObject <$> htraverse (htraverse (traverseTSType_ (fmap snd . go qs))) ts
       TSSingle ts -> second TSSingle <$> go qs ts
       TSUnion ts -> ([],) . TSUnion <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
       TSApply tf@(TSGeneric n o ms _) t -> do
-        _ <- htraverse (traverseTSType_ (fmap snd . go qs)) t
-        tsApplyVar @_ @_ @_ @_ @_ @(State _ ()) tf $ \(rs :: Vec rs Text) tv -> do
-          case assocPlus @rs @qs @ps (vecToSNat_ rs) of
+        t' <- htraverse (traverseTSType_ (fmap snd . go qs)) t
+        tsApplyVar tf $ \(rs :: Vec rs Text) tv ->
+          (case assocPlus @rs @qs @ps (vecToSNat_ rs) of
             Refl -> do
               (_, res) <- go (rs Vec.++ qs) tv
               modify $ M.insert (NotInterface, n)
                 (htoList SOP.unK ms, f (rs Vec.++ qs) res)
-        pure ([], TSExternal o n (htoList (withTSType_ (T.pack . show . ppType (qs Vec.++ ps))) t))
+          ) :: State (Map (IsInterface (), Text) ([Text], r)) ()
+        pure ([], TSExternal o n (htoList (withTSType_ (T.pack . show . ppType (qs Vec.++ ps))) t'))
       TSNamed n t -> do
         (_, res) <- go qs t
         modify $ M.insert (NotInterface, n) ([], f qs res)
@@ -694,7 +710,9 @@ typeToValue
 typeToValue = \case
     TSArray ts        -> A.Array
                        . V.fromList
-                       . getOp (interpretILan (\t -> Op (map (typeToValue t))) ts)
+                       . getOp (interpretILan (\t -> Op ( map (typeToValue t))) ts)
+    TSNullable ts     -> fromMaybe A.Null
+                       . getOp (interpretILan (\t -> Op (fmap (typeToValue t))) ts)
     TSTuple ts        -> A.Array
                        . V.fromList
                        . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
@@ -755,6 +773,7 @@ parseType
     -> Parse a
 parseType = \case
     TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType) ts
+    TSNullable ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.perhaps . parseType) ts
     TSTuple ts -> do
       (res, n) <- flip runStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
         (,i+1) <$> ABE.nth i (withTSType_ parseType t)

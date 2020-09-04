@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 95a15089082b99af6289a8534c0a2b66231c6e0bb041315037f57cbd90dc26d0
+-- hash: c82009540658b41eafea1919a85857546f4d6c1db90e857f82c7e7eed70e54d1
 
 name:           typescript-json
 version:        0.1.0.0
@@ -45,6 +45,7 @@ library
     , contravariant
     , dependent-sum
     , fin
+    , free
     , functor-combinators >=0.3.6
     , invariant
     , prettyprinter >=1.7

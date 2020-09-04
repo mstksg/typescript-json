@@ -4,12 +4,16 @@
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators    #-}
 
 module Typescript.Json (
     keyVal, keyValMay, tsObject
   , tupleVal, tsTuple
   , unionVal, tsUnions
-  , tsList, tsVector, tsIsList
+  , tagVal, taggedObject, taggedValue
+  , intersectVal, tsIntersection
+  , tsNamed, tsNamed_
+  , tsList, tsVector, tsIsList, tsNullable
   , tsBoolean
   , tsNumber, tsBoundedInteger, tsInteger, tsRealFloat, tsDouble, tsBigInt
   , tsText, tsString
@@ -18,10 +22,13 @@ module Typescript.Json (
   , tsUnknown, tsAny, tsVoid, tsUndefined, tsNull, tsNever
   ) where
 
+import           Control.Applicative.Free
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
-import           Data.Fin
+import           Data.Fin hiding                           (absurd)
 import           Data.Functor.Combinator
+import           Data.Functor.Contravariant
+import           Data.Functor.Contravariant.Conclude
 import           Data.Functor.Contravariant.Divisible.Free
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
@@ -34,6 +41,7 @@ import           Data.Void
 import           GHC.Generics
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
+import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.Aeson                                as A
 import qualified Data.SOP                                  as SOP
 import qualified Data.Text                                 as T
@@ -41,11 +49,16 @@ import qualified Data.Vector.Generic                       as V
 import qualified GHC.Exts                                  as Exts
 
 keyVal
-    :: (a -> b)
+    :: Bool             -- ^ turn nullable types into optional params if possible
+    -> (a -> b)
     -> Text
     -> TSType_ ps n b
     -> Ap (Pre a (ObjMember (TSType_ ps n))) b
-keyVal f k t = injectPre f $ ObjMember
+keyVal True f k (TSType_ (TSNullable t)) = injectPre f $ ObjMember
+    { objMemberKey = k
+    , objMemberVal = R1 (hmap TSType_ t)
+    }
+keyVal _ f k t = injectPre f $ ObjMember
     { objMemberKey = k
     , objMemberVal = L1 t
     }
@@ -100,6 +113,61 @@ imapNP f = \case
     Nil     -> Nil
     x :* xs -> f Z x :* imapNP (\q -> f (S . q)) xs
 
+tagVal
+    :: Text         -- ^ tag key
+    -> Text         -- ^ tag value
+    -> Ap (Pre a (ObjMember (TSType_ ps n))) ()
+tagVal tag val = keyVal False (const ()) tag $ TSType_ (tsStringLit val)
+
+taggedObject
+    :: Text                   -- ^ tag key
+    -> Text                   -- ^ tag value
+    -> TSType ps 'IsObj n a   -- ^ contents (object)
+    -> TSType ps 'IsObj n a
+taggedObject tag val obj = tsIntersection $
+       intersectVal (const ()) (tsObject (tagVal tag val))
+    *> intersectVal id         obj
+
+taggedValue
+    :: Bool                   -- ^ merge tag and value if possible
+    -> Bool                   -- ^ treat nullable types as optional properties if possible
+    -> Text                   -- ^ tag key
+    -> Text                   -- ^ tag value
+    -> Text                   -- ^ contents key
+    -> TSType_ ps n a   -- ^ contents (object)
+    -> TSType ps 'IsObj n a
+taggedValue False nul tag val contents obj = tsObject $
+         tagVal tag val
+      *> keyVal nul id contents obj
+taggedValue True  nul tag val contents obj = case decideTSType_ obj of
+    L1 x -> tsObject $
+         tagVal tag val
+      *> keyVal nul id contents (TSType_ x)
+    R1 y -> taggedObject tag val y
+
+intersectVal
+    :: (a -> b)
+    -> TSType ps 'IsObj n b
+    -> Ap (Pre a (TSType ps 'IsObj n)) b
+intersectVal = injectPre
+
+tsIntersection
+    :: Ap (Pre a (TSType ps 'IsObj n)) a
+    -> TSType ps 'IsObj n a
+tsIntersection = TSIntersection . PreT
+
+tsNamed
+    :: Text
+    -> TSType ps ks n a
+    -> TSType ps ks n a
+tsNamed = TSNamed
+
+tsNamed_
+    :: Text
+    -> TSType_ ps n a
+    -> TSType_ ps n a
+tsNamed_ t = mapTSType_ (tsNamed t)
+
 tsList :: TSType_ ps n a -> TSType_ ps n [a]
 tsList = withTSType_ (TSType_ . TSArray . ilan)
 
@@ -108,6 +176,9 @@ tsVector = invmap V.fromList V.toList . tsList
 
 tsIsList :: Exts.IsList l => TSType_ ps n (Exts.Item l) -> TSType_ ps n l
 tsIsList = invmap Exts.fromList Exts.toList . tsList
+
+tsNullable :: TSType_ ps n a -> TSType_ ps n (Maybe a)
+tsNullable = withTSType_ (TSType_ . TSNullable . ilan)
 
 tsBoolean :: TSType ps 'NotObj n Bool
 tsBoolean = TSPrimType $ inject TSBoolean

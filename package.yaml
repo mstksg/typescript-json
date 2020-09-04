@@ -37,6 +37,7 @@ dependencies:
 - functor-combinators >= 0.3.6
 - invariant
 - prettyprinter >= 1.7
+- free
 - recursion-schemes
 - scientific
 - semigroupoids

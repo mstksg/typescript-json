@@ -26,7 +26,6 @@ module Typescript.Json.Generics (
   , mergeTupProd
   , emptyConstr
   , singleConstr
-  , singleMember
   -- * Typeclass-based
   , GTSType(..)
   , GTSSum(..)
@@ -65,6 +64,7 @@ import           Data.Type.Nat                             (Plus)
 import           Data.Void
 import           GHC.Generics
 import           GHC.TypeLits
+import           Typescript.Json
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
 import qualified Control.Applicative.Lift                  as Lift
@@ -113,7 +113,7 @@ instance ToTSType a => ToTSType [a] where
       TSType_ t -> TSType_ $ TSArray (ilan t)
 
 instance ToTSType a => ToTSType (Maybe a) where
-    toTSType = genericToTSType1_ @"tag" @"contents" toTSType
+    toTSType = tsNullable toTSType
 
 type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[] ++ bs = bs
@@ -276,7 +276,7 @@ emptyConstr tag constr = invmap mempty mempty . PostT $
 -- | Will "flatten out" objects if possible
 instance (KnownSymbol tag, KnownSymbol val, KnownSymbol constr, NotEqSym tag constr, GTSType tag val f)
       => GTSSum tag val (M1 C ('MetaCons constr a b) f) where
-    gtsSum lts = singleConstr (knownSymbolText @tag) (knownSymbolText @val) (knownSymbolText @constr)
+    gtsSum lts = singleConstr (knownSymbolText @tag) (knownSymbolText @constr) (knownSymbolText @val)
                . invmap M1 unM1
                $ gtoTSType @tag @val @f lts
 
@@ -287,27 +287,10 @@ singleConstr
     -> Text
     -> TSType_ ps n (f p)
     -> PostT t (TSType_ ps n) (f p)
-singleConstr tag val constr px = PostT $
-    injectPost id $ onTSType_
-      (\x -> TSType_ . TSObject . PreT $
-             tagObj
-          *> injectPre id ObjMember
-               { objMemberKey = val
-               , objMemberVal = L1 (TSType_ x)
-               }
-      )
-      (\x -> TSType_ . TSIntersection . PreT $
-             injectPre (const ()) (TSObject (PreT tagObj))
-          *> injectPre id         x
-      )
-      px
-  where
-    tagObj :: forall x ps n. Ap (Pre x (ObjMember (TSType_ ps n))) ()
-    tagObj = injectPre (const ()) $ ObjMember
-        { objMemberKey = tag
-        , objMemberVal = L1 . TSType_ . TSPrimType $
-            inject (TSStringLit constr)
-        }
+singleConstr tag val constr = PostT
+                            . injectPost id
+                            . TSType_
+                            . taggedValue True True tag val constr
 
 class GTSObject (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtsObject :: NP (TSType_ ps n) (LeafTypes f) -> TSKeyVal ps n (f x)
@@ -320,19 +303,8 @@ instance (All Top (LeafTypes f), GTSObject tag val f, GTSObject tag val g) => GT
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance (KnownSymbol k, GTSType tag val f) => GTSObject tag val (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsObject lts = invmap M1 unM1
-                  $ singleMember (knownSymbolText @k) (gtoTSType @tag @val @f lts)
-
-singleMember
-    :: Text
-    -> TSType_ ps n a
-    -> TSKeyVal ps n a
-singleMember k t = PreT $
-    injectPre id $ ObjMember
-      { objMemberKey = k
-      , objMemberVal = L1 t
-      }
-
+    gtsObject lts = invmap M1 unM1 . PreT $
+                    keyVal True id (knownSymbolText @k) (gtoTSType @tag @val @f lts)
 
 class GTSTuple (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtsTuple :: NP (TSType_ ps n) (LeafTypes f) -> PreT Ap (TSType_ ps n) (f x)
@@ -444,7 +416,7 @@ instance (KnownSymbol tag, KnownSymbol val, KnownSymbol constr, NotEqSym tag con
       => GTSSumF tag val (M1 C ('MetaCons constr a b) f) where
     gtsSumF lts t = case gtoTSTypeF @tag @val @f lts of
       TSTypeF_ tsg -> invmap M1 unM1
-                    . singleConstr (knownSymbolText @tag) (knownSymbolText @val) (knownSymbolText @constr)
+                    . singleConstr (knownSymbolText @tag) (knownSymbolText @constr) (knownSymbolText @val)
                     . TSType_
                     $ tsApply tsg (TSType_ t :* Nil)
 
@@ -463,8 +435,8 @@ instance (All Top (LeafTypes f), GTSObjectF tag val f, GTSObjectF tag val g) => 
 
 instance (KnownSymbol k, GTSTypeF tag val f) => GTSObjectF tag val (M1 S ('MetaSel ('Just k) a b c) f) where
     gtsObjectF lts t = case gtoTSTypeF @tag @val @f lts of
-      TSTypeF_ tsg -> invmap M1 unM1
-                    . singleMember (knownSymbolText @k)
+      TSTypeF_ tsg -> invmap M1 unM1 . PreT
+                    . keyVal True id (knownSymbolText @k)
                     . TSType_
                     $ tsApply tsg (TSType_ t :* Nil)
 
