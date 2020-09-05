@@ -57,6 +57,7 @@ module Typescript.Json.Core (
   , tsApply
   , tsApply1
   , tsGeneric1
+  , tsApplied1
   , tsApplyVar
   , tsApplyVar1
   , compGeneric
@@ -233,18 +234,8 @@ data TSType :: Nat -> IsObjType -> Type -> Type -> Type where
     TSUnion        :: PostT Dec (TSType_ ps n) a -> TSType ps 'NotObj n a
     TSNamed        :: Text -> TSType ps ks n a -> TSType ps ks n a
     TSInterface    :: Text -> TSKeyVal ps n a  -> TSType ps 'IsObj n a
-    TSApply        :: TSTypeF ps ks n as b -> NP (TSType_ ps n) as -> TSType ps ks n b
+    TSApplied      :: TSTypeF ps ks n as b -> NP (TSType_ ps n) as -> TSType ps ks n b
     TSVar          :: !(Fin ps) -> TSType ps 'NotObj n a   -- is NotObj right?
-    -- either we:
-    --
-    -- 1. do not allow duplicates, in which case we disallow some potential
-    --    useful types that people would want to use intersections for in
-    --    the first place
-    -- 2. allow duplicates, but somehow find a way to make sure 'a' is
-    --    Void
-    --
-    -- #2 seems pretty much impossible without a full impelemntation of the
-    -- type system
     TSIntersection :: PreT Ap (TSType ps 'IsObj n) a -> TSType ps 'IsObj n a
     TSExternal     :: SIsObjType ks -> !n -> [Text] -> TSType ps ks n a
     TSPrimType     :: PS TSPrim a -> TSType ps 'NotObj n a
@@ -284,7 +275,7 @@ instance Invariant (TSType ps ks n) where
       TSUnion  ts -> TSUnion (invmap f g ts)
       TSNamed n t -> TSNamed n (invmap f g t)
       TSInterface n t -> TSInterface n (invmap f g t)
-      TSApply tf tx -> TSApply (invmap f g tf) tx
+      TSApplied tf tx -> TSApplied (invmap f g tf) tx
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
       TSExternal o e ps -> TSExternal o e ps
@@ -301,6 +292,12 @@ mapTSTypeF_
     -> TSTypeF_ ps n as  b
     -> TSTypeF_ qs m as' b'
 mapTSTypeF_ f = withTSTypeF_ (TSTypeF_ . f)
+
+tsApplied1
+    :: TSTypeF ps ks n '[a] b
+    -> TSType_ ps n a
+    -> TSType ps ks n b
+tsApplied1 tf tx = TSApplied tf (tx :* Nil)
 
 tsApply
     :: TSTypeF ps ks n as b      -- ^ type function
@@ -377,8 +374,8 @@ tsShift n = go
       TSSingle t  -> TSSingle (go t)
       TSNamed m t -> TSNamed m (go t)
       TSInterface m t -> TSInterface m (hmap (hmap (mapTSType_ go)) t)
-      TSApply (TSGeneric m o ps tf) txs ->
-            TSApply
+      TSApplied (TSGeneric m o ps tf) txs ->
+            TSApplied
               (TSGeneric m o ps $ \q ->
                 case assocPlus @_ @rs @qs q of
                   Refl -> tf (plusNat q n)
@@ -422,7 +419,7 @@ tsObjType = \case
     TSUnion  _                    -> SNotObj
     TSNamed _ t                   -> tsObjType t
     TSInterface _ _               -> SIsObj
-    TSApply (TSGeneric _ o _ _) _ -> o
+    TSApplied (TSGeneric _ o _ _) _ -> o
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
     TSExternal o _ _              -> o
@@ -455,7 +452,7 @@ mapName f g = go
       TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
       TSNamed n t       -> TSNamed n (go t)
       TSInterface n t   -> TSInterface n (hmap (hmap (mapTSType_ go)) t)
-      TSApply (TSGeneric n o p h) t -> TSApply
+      TSApplied (TSGeneric n o p h) t -> TSApplied
         (TSGeneric n o p (\q -> go . h q . hmap (mapTSType_ (mapName g f))))
         (hmap (mapTSType_ go) t)
       TSVar i           -> TSVar i
@@ -529,7 +526,7 @@ ppTypeWith f = go
       TSNamed n _ -> PP.pretty n
       TSInterface n _ -> PP.pretty n
       -- this is the benefit of delaying application
-      TSApply (TSGeneric n _ _ _) xs -> PP.pretty n <> PP.encloseSep "<" ">" ","
+      TSApplied (TSGeneric n _ _ _) xs -> PP.pretty n <> PP.encloseSep "<" ">" ","
         (htoList (withTSType_ (go ps)) xs)
       TSVar i -> PP.pretty (ps Vec.! i)
       TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
@@ -634,7 +631,7 @@ flattenType_ ps f = go Vec.VNil
         ([],) . TSObject <$> htraverse (htraverse (traverseTSType_ (fmap snd . go qs))) ts
       TSSingle ts -> second TSSingle <$> go qs ts
       TSUnion ts -> ([],) . TSUnion <$> htraverse (traverseTSType_ (fmap snd . go qs)) ts
-      TSApply tf@(TSGeneric n o ms _) t -> do
+      TSApplied tf@(TSGeneric n o ms _) t -> do
         t' <- htraverse (traverseTSType_ (fmap snd . go qs)) t
         tsApplyVar tf $ \(rs :: Vec rs Text) tv ->
           (case assocPlus @rs @qs @ps (vecToSNat_ rs) of
@@ -696,7 +693,7 @@ objTypeToValue = \case
     TSIntersection ts -> preDivisibleT objTypeToValue ts
     TSInterface _ ts  -> keyValToValue ts
     TSNamed     _   t -> objTypeToValue t
-    TSApply     f   t -> objTypeToValue (tsApply f t)
+    TSApplied     f   t -> objTypeToValue (tsApply f t)
   where
     keyValToValue :: TSKeyVal 'Nat.Z Void ~> Op [A.Pair]
     keyValToValue = preDivisibleT
@@ -721,7 +718,7 @@ typeToValue = \case
     TSUnion ts        -> iapply (withTSType_ typeToValue) ts
     TSNamed _ t       -> typeToValue t
     TSInterface n ts  -> A.object . getOp (objTypeToValue (TSInterface n ts))
-    TSApply f t       -> typeToValue (tsApply f t)
+    TSApplied f t       -> typeToValue (tsApply f t)
     TSIntersection ts -> A.object . getOp (objTypeToValue (TSIntersection ts))
     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
@@ -790,7 +787,7 @@ parseType = \case
             icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
     TSNamed _ t -> parseType t
     TSInterface _ ts -> parseKeyVal ts
-    TSApply t f -> parseType (tsApply t f)
+    TSApplied t f -> parseType (tsApply t f)
     TSIntersection ts -> interpret parseType ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem

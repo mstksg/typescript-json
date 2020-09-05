@@ -7,19 +7,50 @@
 {-# LANGUAGE TypeOperators    #-}
 
 module Typescript.Json (
-    keyVal, keyValMay, tsObject
+  -- * TSType
+    TSType
+  , TSTypeF
+  , EnumLit(..)
+  , TSType_(..)
+  , TSTypeF_(..)
+  -- * Construction
+  -- ** Lists and Nullables
+  , tsList, tsVector, tsIsList, tsNullable
+  -- ** Object
+  , keyVal, keyValMay, tsObject
+  -- ** Tuple
   , tupleVal, tsTuple
+  -- ** Unions
   , unionVal, tsUnions
   , tagVal, taggedObject, taggedValue
+  -- ** Intersections
   , intersectVal, tsIntersection
+  -- ** Named
   , tsNamed, tsNamed_
-  , tsList, tsVector, tsIsList, tsNullable
+  -- ** Generics
+  , tsGeneric1
+  , tsApplied1
+  , tsApply1
+  , tsGeneric
+  , tsApplied
+  , tsApply
+  -- ** Primitives
   , tsBoolean
   , tsNumber, tsBoundedInteger, tsInteger, tsRealFloat, tsDouble, tsBigInt
   , tsText, tsString
   , tsEnumWith, tsEnumFrom, tsEnum
   , tsStringLit, tsNumericLit, tsIntegerLit, tsBigIntLit
   , tsUnknown, tsAny, tsVoid, tsUndefined, tsNull, tsNever
+  -- * Printing
+  , ppType
+  , ppTypeF
+  , typeExports
+  , typeFExports
+  , IsInterface(..)
+  -- * Serializing
+  , typeToValue
+  -- * Parsing
+  , parseType
   ) where
 
 import           Control.Applicative.Free
@@ -32,10 +63,11 @@ import           Data.Functor.Contravariant.Conclude
 import           Data.Functor.Contravariant.Divisible.Free
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
-import           Data.SOP                                  (NP(..), NS(..), I(..))
+import           Data.SOP                                  (NP(..), NS(..), I(..), K(..))
 import           Data.Scientific
 import           Data.Text                                 (Text)
 import           Data.Traversable
+import           Data.Type.Nat                             (Plus)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
 import           GHC.Generics
@@ -167,6 +199,20 @@ tsNamed_
     -> TSType_ ps n a
     -> TSType_ ps n a
 tsNamed_ t = mapTSType_ (tsNamed t)
+
+tsGeneric
+    :: Text
+    -> SIsObjType ks
+    -> NP (K Text) as
+    -> (forall rs. SNat_ rs -> NP (TSType_ (Plus rs ps) n) as -> TSType (Plus rs ps) ks n b)
+    -> TSTypeF ps ks n as b
+tsGeneric = TSGeneric
+
+tsApplied
+    :: TSTypeF ps ks n as b
+    -> NP (TSType_ ps n) as
+    -> TSType ps ks n b
+tsApplied = TSApplied
 
 tsList :: TSType_ ps n a -> TSType_ ps n [a]
 tsList = withTSType_ (TSType_ . TSArray . ilan)

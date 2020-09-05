@@ -143,7 +143,7 @@ genericToTSType1
     -> TSType_ ps n a
     -> TSType_ ps n (f a)
 genericToTSType1 lts tx = case genericToTSTypeF @tag @val @f lts of
-    TSTypeF_ tf -> TSType_ $ TSApply tf (tx :* Nil)
+    TSTypeF_ tf -> TSType_ $ TSApplied tf (tx :* Nil)
 
 genericToTSTypeF_
     :: forall tag val f ps n a. (Generic1 f, GTSTypeF tag val (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
