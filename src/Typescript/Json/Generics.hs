@@ -53,24 +53,20 @@ import           Data.Functor.Combinator
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
 import           Data.Functor.Invariant
-import           Data.HFunctor
 import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.Proxy
-import           Data.SOP                                  (NP(..), NS(..), I(..), K(..), (:.:)(..), hpure, All, Top)
+import           Data.SOP                                  (NP(..), K(..), hpure, All, Top)
 import           Data.Scientific
 import           Data.Text                                 (Text)
-import           Data.Type.Nat                             (Plus)
 import           Data.Void
 import           GHC.Generics
 import           GHC.TypeLits
 import           Typescript.Json
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
-import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.SOP                                  as SOP
 import qualified Data.Text                                 as T
-import qualified Data.Type.Nat                             as Nat
 
 type family WarnIfEq (b :: Ordering) (c :: ErrorMessage) :: Constraint where
     WarnIfEq 'LT c = ()

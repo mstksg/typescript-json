@@ -58,8 +58,6 @@ import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Fin hiding                           (absurd)
 import           Data.Functor.Combinator
-import           Data.Functor.Contravariant
-import           Data.Functor.Contravariant.Conclude
 import           Data.Functor.Contravariant.Divisible.Free
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
@@ -70,12 +68,9 @@ import           Data.Traversable
 import           Data.Type.Nat                             (Plus)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
-import           GHC.Generics
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
-import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.Aeson                                as A
-import qualified Data.SOP                                  as SOP
 import qualified Data.Text                                 as T
 import qualified Data.Vector.Generic                       as V
 import qualified GHC.Exts                                  as Exts

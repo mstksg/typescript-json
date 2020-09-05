@@ -85,53 +85,34 @@ module Typescript.Json.Core (
 import           Control.Applicative
 import           Control.Applicative.Free
 import           Control.Monad.Trans.State
-import           Control.Monad.Trans.Writer
 import           Data.Bifunctor
-import           Data.Dependent.Sum                        (DSum)
 import           Data.Fin                                  (Fin(..))
 import           Data.Foldable
 import           Data.Functor
 import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant
-import           Data.Functor.Contravariant.Decide
-import           Data.Functor.Contravariant.Divisible
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
 import           Data.GADT.Show
 import           Data.HFunctor.Route
-import           Data.IntMap                               (IntMap)
 import           Data.Kind
 import           Data.Map                                  (Map)
 import           Data.Maybe
-import           Data.Ord
-import           Data.Proxy
-import           Data.SOP                                  (NP(..), NS(..), I(..), K(..), (:.:)(..))
+import           Data.SOP                                  (NP(..), K(..))
 import           Data.Scientific                           (Scientific, toBoundedInteger)
-import           Data.Semigroup                            (Product(..), Sum(..))
-import           Data.Some                                 (Some(..), withSome, foldSome, mapSome)
+import           Data.Some                                 (Some(..))
 import           Data.Text                                 (Text)
 import           Data.Type.Equality
 import           Data.Type.Nat
 import           Data.Vec.Lazy                             (Vec)
-import           Data.Vector                               (Vector)
 import           Data.Void
-import           GHC.Generics                              (Generic, (:*:)(..))
-import           GHC.OverloadedLabels
-import           GHC.TypeLits hiding                       (Nat)
-import           Numeric.Natural
 import           Typescript.Json.Core.Combinators
-import           Unsafe.Coerce
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Types                          as A
-import qualified Data.Bifunctor.Assoc                      as B
-import qualified Data.Fin                                  as Fin
-import qualified Data.HashMap.Strict                       as HM
-import qualified Data.HashSet                              as HS
 import qualified Data.Map                                  as M
 import qualified Data.SOP                                  as SOP
-import qualified Data.SOP.NP                               as NP
 import qualified Data.Text                                 as T
 import qualified Data.Type.Nat                             as Nat
 import qualified Data.Vec.Lazy                             as Vec
