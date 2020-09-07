@@ -64,12 +64,18 @@ module Typescript.Json.Core (
   -- * prettyprint
   , ppEnumLit
   , ppPrim
+  , ppType'
   , ppType
   , ppTypeWith
+  , ppTypeF'
   , ppTypeF
   , ppTypeFWith
+  , typeExports'
   , typeExports
+  , typeExports_
+  , typeFExports'
   , typeFExports
+  , typeFExports_
   -- * to value
   , enumLitToValue
   , primToValue
@@ -114,6 +120,7 @@ import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Types                          as A
 import qualified Data.Map                                  as M
 import qualified Data.SOP                                  as SOP
+import qualified Data.Set                                  as S
 import qualified Data.Text                                 as T
 import qualified Data.Type.Nat                             as Nat
 import qualified Data.Vec.Lazy                             as Vec
@@ -324,7 +331,23 @@ tsApplyVar
     -> (forall rs. Vec rs Text -> TSType (Plus rs ps) ks n b -> r)
     -> r
 tsApplyVar (TSGeneric _ _ ps g) f = withParams ps $ \rs es ->
-     f rs (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @ps . SOP.unK) es))
+     f (fmap (shadow oldVars) rs)
+       (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @ps . SOP.unK) es))
+  where
+    oldVars :: S.Set Text
+    oldVars = S.fromList (htoList SOP.unK ps)
+
+shadow :: S.Set Text -> Text -> Text
+shadow ps t0 = go Nothing
+  where
+    go i
+        | t `S.member` ps = go (Just (maybe 0 (+1) i))
+        | otherwise       = t
+      where
+        t = appendNum i t0
+    appendNum Nothing  = id
+    appendNum (Just i) = (<> T.pack (show @Int i))
+
 
 vecToSNat_ :: forall n b. Vec n b -> SNat_ n
 vecToSNat_ = \case
@@ -478,10 +501,16 @@ ppPrim = \case
 
 ppType
     :: PP.Pretty n
-    => Vec ps Text
-    -> TSType ps ks n a
+    => TSType_ 'Nat.Z n a
     -> PP.Doc x
-ppType = ppTypeWith PP.pretty
+ppType = ppType' Vec.VNil
+
+ppType'
+    :: PP.Pretty n
+    => Vec ps Text
+    -> TSType_ ps n a
+    -> PP.Doc x
+ppType' ps = withTSType_ (ppTypeWith PP.pretty ps)
 
 ppTypeWith
     :: forall ps ks n a x. ()
@@ -518,13 +547,18 @@ ppTypeWith f = go
           else PP.encloseSep "<" ">" "," (PP.pretty <$> qs)
       TSPrimType PS{..} -> ppPrim psItem
 
--- TODO: figure out shadowing
 ppTypeF
     :: PP.Pretty n
-    => Vec ps Text
-    -> TSTypeF ps ks n a b
+    => TSTypeF_ 'Nat.Z n a b
     -> PP.Doc x
-ppTypeF = ppTypeFWith PP.pretty
+ppTypeF = ppTypeF' Vec.VNil
+
+ppTypeF'
+    :: PP.Pretty n
+    => Vec ps Text
+    -> TSTypeF_ ps n a b
+    -> PP.Doc x
+ppTypeF' ps = withTSTypeF_ (ppTypeFWith PP.pretty ps)
 
 -- TODO: figure out shadowing
 ppTypeFWith
@@ -538,27 +572,51 @@ ppTypeFWith f ps tf@(TSGeneric n _ vs _) = PP.hsep [
     , tsApplyVar tf $ \rs -> ppTypeWith f (rs Vec.++ ps)
     ]
 
+typeExports_
+    :: Maybe Text    -- ^ top-level name and interface, if meant to be included
+    -> TSType_ 'Nat.Z Void a
+    -> PP.Doc x
+typeExports_ iin0 = withTSType_ (typeExports (fmap (NotInterface,) iin0))
+
 typeExports
+    :: Maybe (IsInterface (ks :~: 'IsObj), Text)    -- ^ top-level name and interface, if meant to be included
+    -> TSType 'Nat.Z ks Void a
+    -> PP.Doc x
+typeExports = typeExports' Vec.VNil
+
+typeExports'
     :: Vec ps Text
     -> Maybe (IsInterface (ks :~: 'IsObj), Text)    -- ^ top-level name and interface, if meant to be included
     -> TSType ps ks Void a
     -> PP.Doc x
-typeExports ps iin0 ts =
+typeExports' ps iin0 ts =
       ppMap
-    . maybe id (`M.insert` (params0, ppType ps t0)) (first void <$> iin0)
+    . maybe id (`M.insert` (params0, ppType' ps (TSType_ t0))) (first void <$> iin0)
     $ tmap0
   where
-    ((params0, t0), tmap0) = flattenType ps (\qs -> ppType (qs Vec.++ ps)) ts
+    ((params0, t0), tmap0) = flattenType ps (\qs -> ppType' (qs Vec.++ ps). TSType_) ts
+
+typeFExports_
+    :: Maybe Text    -- ^ top-level name, if meant to be included
+    -> TSTypeF_ 'Nat.Z Void a b
+    -> PP.Doc x
+typeFExports_ iin0 = withTSTypeF_ (typeFExports (fmap (NotInterface,) iin0))
 
 typeFExports
+    :: Maybe (IsInterface (ks :~: 'IsObj), Text)    -- ^ top-level name and interface, if meant to be included
+    -> TSTypeF 'Nat.Z ks Void a b
+    -> PP.Doc x
+typeFExports = typeFExports' Vec.VNil
+
+typeFExports'
     :: Vec ps Text
     -> Maybe (IsInterface (ks :~: 'IsObj), Text)    -- ^ top-level name and interface, if meant to be included
     -> TSTypeF ps ks Void a b
     -> PP.Doc x
-typeFExports ps iin0 tf = tsApplyVar tf $ \rs ts ->
-  let ((params0, t0), tmap0) = flattenType (rs Vec.++ ps) (\qs -> ppType (qs Vec.++ (rs Vec.++ ps))) ts
+typeFExports' ps iin0 tf = tsApplyVar tf $ \rs ts ->
+  let ((params0, t0), tmap0) = flattenType (rs Vec.++ ps) (\qs -> ppType' (qs Vec.++ (rs Vec.++ ps)) . TSType_) ts
   in    ppMap
-      . maybe id (`M.insert` (toList rs ++ params0, ppType (rs Vec.++ ps) t0)) (first void <$> iin0)
+      . maybe id (`M.insert` (toList rs ++ params0, ppType' (rs Vec.++ ps) (TSType_ t0))) (first void <$> iin0)
       $ tmap0
 
 ppMap
@@ -622,7 +680,7 @@ flattenType_ ps f = go Vec.VNil
               modify $ M.insert (NotInterface, n)
                 (htoList SOP.unK ms, f (rs Vec.++ qs) res)
           ) :: State (Map (IsInterface (), Text) ([Text], r)) ()
-        pure ([], TSExternal o n (htoList (withTSType_ (T.pack . show . ppType (qs Vec.++ ps))) t'))
+        pure ([], TSExternal o n (htoList (T.pack . show . ppType' (qs Vec.++ ps)) t'))
       TSNamed n t -> do
         (_, res) <- go qs t
         modify $ M.insert (NotInterface, n) ([], f qs res)

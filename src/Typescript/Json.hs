@@ -45,7 +45,9 @@ module Typescript.Json (
   , ppType
   , ppTypeF
   , typeExports
+  , typeExports_
   , typeFExports
+  , typeFExports_
   , IsInterface(..)
   -- * Serializing
   , encodeType
