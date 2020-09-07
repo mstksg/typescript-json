@@ -78,6 +78,7 @@ import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
+import qualified Data.Aeson.Encoding                       as AE
 import qualified Data.ByteString                           as BS
 import qualified Data.ByteString.Lazy                      as BSL
 import qualified Data.Text                                 as T
@@ -307,7 +308,7 @@ tsNever :: TSType p 'NotObj n Void
 tsNever = TSPrimType $ inject TSNever
 
 encodeType :: TSType 'Nat.Z k Void a -> a -> BSL.ByteString
-encodeType t = A.encode . typeToValue t
+encodeType t = AE.encodingToLazyByteString . typeToEncoding t
 
 encodeTypeStrict :: TSType 'Nat.Z k Void a -> a -> BS.ByteString
 encodeTypeStrict t = BSL.toStrict . encodeType t

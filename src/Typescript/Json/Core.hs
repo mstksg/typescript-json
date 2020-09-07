@@ -80,6 +80,9 @@ module Typescript.Json.Core (
   , enumLitToValue
   , primToValue
   , typeToValue
+  , encodeEnumLit
+  , primToEncoding
+  , typeToEncoding
   -- * parse
   , parseEnumLit
   , parsePrim
@@ -117,6 +120,7 @@ import           Data.Void
 import           Typescript.Json.Core.Combinators
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
+import qualified Data.Aeson.Encoding                       as AE
 import qualified Data.Aeson.Types                          as A
 import qualified Data.Map                                  as M
 import qualified Data.SOP                                  as SOP
@@ -701,6 +705,63 @@ assocPlus = \case
     SZ_ -> Refl
     SS_ n -> case assocPlus @_ @b @c n  of
       Refl -> Refl
+
+encodeEnumLit :: EnumLit -> A.Encoding
+encodeEnumLit = \case
+    ELString t -> AE.text t
+    ELNumber n -> AE.scientific n
+
+primToEncoding :: TSPrim a -> a -> A.Encoding
+primToEncoding = \case
+    TSBoolean -> AE.bool
+    TSNumber  -> AE.scientific
+    -- hm...
+    TSBigInt  -> AE.integer
+    TSString  -> AE.text
+    TSEnum _ e -> \i -> encodeEnumLit (snd (e Vec.! i))
+    TSStringLit t -> \_ -> AE.text t
+    TSNumericLit n -> \_ -> AE.scientific n
+    -- hm...
+    TSBigIntLit n -> \_ -> AE.integer n
+    TSUnknown -> AE.value
+    TSAny -> AE.value
+    -- hm...
+    TSVoid -> \_ -> AE.null_
+    TSUndefined -> \_ -> AE.null_
+    TSNull -> \_ -> AE.null_
+    TSNever -> absurd
+
+objTypeToEncoding :: TSType 'Nat.Z 'IsObj Void a -> Op A.Series a
+objTypeToEncoding = \case
+    TSObject       ts -> keyValToValue ts
+    TSIntersection ts -> preDivisibleT objTypeToEncoding ts
+    TSInterface _ ts  -> keyValToValue ts
+    TSNamed     _   t -> objTypeToEncoding t
+    TSApplied   f   t -> objTypeToEncoding (tsApply f t)
+  where
+    keyValToValue :: TSKeyVal 'Nat.Z Void ~> Op A.Series
+    keyValToValue = preDivisibleT
+        ( interpretObjMember
+            (\k t -> Op           $ \x -> k A..= withTSType_ typeToValue t x)
+            (\k t -> Op . foldMap $ \x -> k A..= withTSType_ typeToValue t x)
+        )
+
+typeToEncoding :: TSType 'Nat.Z k Void a -> a -> A.Encoding
+typeToEncoding = \case
+    TSArray ts        -> AE.list id
+                       . getOp (interpretILan (\t -> Op ( map (typeToEncoding t))) ts)
+    TSNullable ts     -> fromMaybe AE.null_
+                       . getOp (interpretILan (\t -> Op (fmap (typeToEncoding t))) ts)
+    TSTuple ts        -> AE.list id
+                       . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToEncoding t x]) ts)
+    TSObject    ts    -> A.pairs . getOp (objTypeToEncoding (TSObject ts))
+    TSSingle ts       -> typeToEncoding ts
+    TSUnion ts        -> iapply (withTSType_ typeToEncoding) ts
+    TSNamed _ t       -> typeToEncoding t
+    TSInterface n ts  -> A.pairs . getOp (objTypeToEncoding (TSInterface n ts))
+    TSApplied f t     -> typeToEncoding (tsApply f t)
+    TSIntersection ts -> A.pairs . getOp (objTypeToEncoding (TSIntersection ts))
+    TSPrimType PS{..} -> primToEncoding psItem . psSerializer
 
 enumLitToValue :: EnumLit -> A.Value
 enumLitToValue = \case
