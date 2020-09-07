@@ -78,6 +78,7 @@ module Typescript.Json.Core (
   , parseEnumLit
   , parsePrim
   , parseType
+  , ParseErr(..)
   -- * utility func
   , interpretObjMember
   ) where

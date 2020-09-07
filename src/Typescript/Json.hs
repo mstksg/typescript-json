@@ -48,8 +48,12 @@ module Typescript.Json (
   , typeFExports
   , IsInterface(..)
   -- * Serializing
+  , encodeType
+  , encodeTypeStrict
   , typeToValue
   -- * Parsing
+  , decodeType
+  , decodeTypeStrict
   , parseType
   ) where
 
@@ -71,7 +75,11 @@ import           Data.Void
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
 import qualified Data.Aeson                                as A
+import qualified Data.Aeson.BetterErrors                   as ABE
+import qualified Data.ByteString                           as BS
+import qualified Data.ByteString.Lazy                      as BSL
 import qualified Data.Text                                 as T
+import qualified Data.Type.Nat                             as Nat
 import qualified Data.Vector.Generic                       as V
 import qualified GHC.Exts                                  as Exts
 
@@ -295,4 +303,22 @@ tsNull = TSPrimType $ inject TSNull
 
 tsNever :: TSType ps 'NotObj n Void
 tsNever = TSPrimType $ inject TSNever
+
+encodeType :: TSType 'Nat.Z ks Void a -> a -> BSL.ByteString
+encodeType t = A.encode . typeToValue t
+
+encodeTypeStrict :: TSType 'Nat.Z ks Void a -> a -> BS.ByteString
+encodeTypeStrict t = BSL.toStrict . encodeType t
+
+decodeType
+    :: TSType 'Nat.Z ks Void a
+    -> BSL.ByteString
+    -> Either (ABE.ParseError ParseErr) a
+decodeType t = ABE.parse (parseType t)
+
+decodeTypeStrict
+    :: TSType 'Nat.Z ks Void a
+    -> BS.ByteString
+    -> Either (ABE.ParseError ParseErr) a
+decodeTypeStrict t = ABE.parseStrict (parseType t)
 

@@ -30,14 +30,15 @@ dependencies:
 - aeson-better-errors
 - assoc
 - base >= 4.7 && < 5
+- bytestring
 - containers
 - contravariant
 - dependent-sum
 - fin
+- free
 - functor-combinators >= 0.3.6
 - invariant
 - prettyprinter >= 1.7
-- free
 - recursion-schemes
 - scientific
 - semigroupoids
