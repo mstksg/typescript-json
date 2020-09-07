@@ -89,8 +89,8 @@ keyVal
     :: Bool             -- ^ turn nullable types into optional params if possible
     -> (a -> b)
     -> Text
-    -> TSType_ ps n b
-    -> Ap (Pre a (ObjMember (TSType_ ps n))) b
+    -> TSType_ p n b
+    -> Ap (Pre a (ObjMember (TSType_ p n))) b
 keyVal True f k (TSType_ (TSNullable t)) = injectPre f $ ObjMember
     { objMemberKey = k
     , objMemberVal = R1 (hmap TSType_ t)
@@ -103,43 +103,43 @@ keyVal _ f k t = injectPre f $ ObjMember
 keyValMay
     :: (a -> Maybe b)
     -> Text
-    -> TSType_ ps n b
-    -> Ap (Pre a (ObjMember (TSType_ ps n))) (Maybe b)
+    -> TSType_ p n b
+    -> Ap (Pre a (ObjMember (TSType_ p n))) (Maybe b)
 keyValMay f k t = injectPre f $ ObjMember
     { objMemberKey = k
     , objMemberVal = R1 (ilan t)
     }
 
 tsObject
-    :: Ap (Pre a (ObjMember (TSType_ ps n))) a
-    -> TSType ps 'IsObj n a
+    :: Ap (Pre a (ObjMember (TSType_ p n))) a
+    -> TSType p 'IsObj n a
 tsObject = TSObject . PreT
 
 tupleVal
     :: (a -> b)
-    -> TSType_ ps n b
-    -> Ap (Pre a (TSType_ ps n)) b
+    -> TSType_ p n b
+    -> Ap (Pre a (TSType_ p n)) b
 tupleVal = injectPre
 
 tsTuple
-    :: Ap (Pre a (TSType_ ps n)) a
-    -> TSType ps 'NotObj n a
+    :: Ap (Pre a (TSType_ p n)) a
+    -> TSType p 'NotObj n a
 tsTuple = TSTuple . PreT
 
 unionVal
     :: (b -> a)
-    -> TSType_ ps n b
-    -> Dec (Post a (TSType_ ps n)) b
+    -> TSType_ p n b
+    -> Dec (Post a (TSType_ p n)) b
 unionVal = injectPost
 
 tsUnion
-    :: Dec (Post a (TSType_ ps n)) a
-    -> TSType ps 'NotObj n a
+    :: Dec (Post a (TSType_ p n)) a
+    -> TSType p 'NotObj n a
 tsUnion = TSUnion . PostT
 
 tsUnions
-    :: NP (TSType_ ps n) as
-    -> TSType ps 'NotObj n (NS I as)
+    :: NP (TSType_ p n) as
+    -> TSType p 'NotObj n (NS I as)
 tsUnions = tsUnion . concludeN . imapNP (\i -> injectPost @Dec (i . I))
 
 imapNP
@@ -153,14 +153,14 @@ imapNP f = \case
 tagVal
     :: Text         -- ^ tag key
     -> Text         -- ^ tag value
-    -> Ap (Pre a (ObjMember (TSType_ ps n))) ()
+    -> Ap (Pre a (ObjMember (TSType_ p n))) ()
 tagVal tag val = keyVal False (const ()) tag $ TSType_ (tsStringLit val)
 
 taggedObject
     :: Text                   -- ^ tag key
     -> Text                   -- ^ tag value
-    -> TSType ps 'IsObj n a   -- ^ contents (object)
-    -> TSType ps 'IsObj n a
+    -> TSType p 'IsObj n a   -- ^ contents (object)
+    -> TSType p 'IsObj n a
 taggedObject tag val obj = tsIntersection $
        intersectVal (const ()) (tsObject (tagVal tag val))
     *> intersectVal id         obj
@@ -171,8 +171,8 @@ taggedValue
     -> Text                   -- ^ tag key
     -> Text                   -- ^ tag value
     -> Text                   -- ^ contents key
-    -> TSType_ ps n a   -- ^ contents (object)
-    -> TSType ps 'IsObj n a
+    -> TSType_ p n a   -- ^ contents (object)
+    -> TSType p 'IsObj n a
 taggedValue False nul tag val contents obj = tsObject $
          tagVal tag val
       *> keyVal nul id contents obj
@@ -184,142 +184,142 @@ taggedValue True  nul tag val contents obj = case decideTSType_ obj of
 
 intersectVal
     :: (a -> b)
-    -> TSType ps 'IsObj n b
-    -> Ap (Pre a (TSType ps 'IsObj n)) b
+    -> TSType p 'IsObj n b
+    -> Ap (Pre a (TSType p 'IsObj n)) b
 intersectVal = injectPre
 
 tsIntersection
-    :: Ap (Pre a (TSType ps 'IsObj n)) a
-    -> TSType ps 'IsObj n a
+    :: Ap (Pre a (TSType p 'IsObj n)) a
+    -> TSType p 'IsObj n a
 tsIntersection = TSIntersection . PreT
 
 tsNamed
     :: Text
-    -> TSType ps ks n a
-    -> TSType ps ks n a
+    -> TSType p k n a
+    -> TSType p k n a
 tsNamed = TSNamed
 
 tsNamed_
     :: Text
-    -> TSType_ ps n a
-    -> TSType_ ps n a
+    -> TSType_ p n a
+    -> TSType_ p n a
 tsNamed_ t = mapTSType_ (tsNamed t)
 
 tsGeneric
     :: Text
-    -> SIsObjType ks
+    -> SIsObjType k
     -> NP (K Text) as
-    -> (forall rs. SNat_ rs -> NP (TSType_ (Plus rs ps) n) as -> TSType (Plus rs ps) ks n b)
-    -> TSTypeF ps ks n as b
+    -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSType (Plus r p) k n b)
+    -> TSTypeF p k n as b
 tsGeneric = TSGeneric
 
 tsApplied
-    :: TSTypeF ps ks n as b
-    -> NP (TSType_ ps n) as
-    -> TSType ps ks n b
+    :: TSTypeF p k n as b
+    -> NP (TSType_ p n) as
+    -> TSType p k n b
 tsApplied = TSApplied
 
-tsList :: TSType_ ps n a -> TSType_ ps n [a]
-tsList = withTSType_ (TSType_ . TSArray . ilan)
+tsList :: TSType_ p n a -> TSType p 'NotObj n [a]
+tsList = withTSType_ (TSArray . ilan)
 
-tsVector :: V.Vector v a => TSType_ ps n a -> TSType_ ps n (v a)
+tsVector :: V.Vector v a => TSType_ p n a -> TSType p 'NotObj n (v a)
 tsVector = invmap V.fromList V.toList . tsList
 
-tsIsList :: Exts.IsList l => TSType_ ps n (Exts.Item l) -> TSType_ ps n l
+tsIsList :: Exts.IsList l => TSType_ p n (Exts.Item l) -> TSType p 'NotObj n l
 tsIsList = invmap Exts.fromList Exts.toList . tsList
 
-tsNullable :: TSType_ ps n a -> TSType_ ps n (Maybe a)
-tsNullable = withTSType_ (TSType_ . TSNullable . ilan)
+tsNullable :: TSType_ p n a -> TSType p 'NotObj n (Maybe a)
+tsNullable = withTSType_ (TSNullable . ilan)
 
-tsBoolean :: TSType ps 'NotObj n Bool
+tsBoolean :: TSType p 'NotObj n Bool
 tsBoolean = TSPrimType $ inject TSBoolean
 
-tsNumber :: TSType ps 'NotObj n Scientific
+tsNumber :: TSType p 'NotObj n Scientific
 tsNumber = TSPrimType $ inject TSNumber
 
-tsBoundedInteger :: (Integral a, Bounded a) => TSType ps 'NotObj n a
+tsBoundedInteger :: (Integral a, Bounded a) => TSType p 'NotObj n a
 tsBoundedInteger = TSPrimType $ PS TSNumber
     (\x -> case toBoundedInteger x of
             Nothing -> Left . T.pack $ "Not an integer: " <> show x
             Just i  -> Right i
     ) fromIntegral
 
-tsInteger :: Integral a => TSType ps 'NotObj n a
+tsInteger :: Integral a => TSType p 'NotObj n a
 tsInteger = TSPrimType $ PS TSNumber
     (\x -> first (\n -> T.pack $ "Not an integer: " <> show @Double n) (floatingOrInteger x))
     fromIntegral
 
-tsRealFloat :: RealFloat a => TSType ps 'NotObj n a
+tsRealFloat :: RealFloat a => TSType p 'NotObj n a
 tsRealFloat = invmap toRealFloat fromFloatDigits tsNumber
 
-tsDouble :: TSType ps 'NotObj n Double
+tsDouble :: TSType p 'NotObj n Double
 tsDouble = tsRealFloat
 
-tsBigInt :: TSType ps 'NotObj n Integer
+tsBigInt :: TSType p 'NotObj n Integer
 tsBigInt = TSPrimType $ inject TSBigInt
 
-tsText :: TSType ps 'NotObj n Text
+tsText :: TSType p 'NotObj n Text
 tsText = TSPrimType $ inject TSString
 
-tsString :: TSType ps 'NotObj n String
+tsString :: TSType p 'NotObj n String
 tsString = invmap T.unpack T.pack tsText
 
-tsEnumWith :: Text -> Vec m (Text, EnumLit) -> TSType ps 'NotObj n (Fin m)
+tsEnumWith :: Text -> Vec m (Text, EnumLit) -> TSType p 'NotObj n (Fin m)
 tsEnumWith nm xs = TSPrimType $ inject (TSEnum nm xs)
 
-tsEnum :: Text -> Vec m Text -> TSType ps 'NotObj n (Fin m)
+tsEnum :: Text -> Vec m Text -> TSType p 'NotObj n (Fin m)
 tsEnum nm = tsEnumFrom nm 0
 
-tsEnumFrom :: Text -> Int -> Vec m Text -> TSType ps 'NotObj n (Fin m)
+tsEnumFrom :: Text -> Int -> Vec m Text -> TSType p 'NotObj n (Fin m)
 tsEnumFrom nm i0 xs = tsEnumWith nm xs'
   where
     xs' = flip evalState i0 . for xs $ \x -> state $ \i ->
       ((x, ELNumber (fromIntegral i)), i+1)
 
-tsStringLit :: Text -> TSType ps 'NotObj n ()
+tsStringLit :: Text -> TSType p 'NotObj n ()
 tsStringLit = TSPrimType . inject . TSStringLit
 
-tsNumericLit :: Scientific -> TSType ps 'NotObj n ()
+tsNumericLit :: Scientific -> TSType p 'NotObj n ()
 tsNumericLit = TSPrimType . inject . TSNumericLit
 
-tsIntegerLit :: Integral a => a -> TSType ps 'NotObj n ()
+tsIntegerLit :: Integral a => a -> TSType p 'NotObj n ()
 tsIntegerLit = TSPrimType . inject . TSNumericLit . fromIntegral
 
-tsBigIntLit :: Integer -> TSType ps 'NotObj n ()
+tsBigIntLit :: Integer -> TSType p 'NotObj n ()
 tsBigIntLit = TSPrimType . inject . TSBigIntLit
 
-tsUnknown :: TSType ps 'NotObj n A.Value
+tsUnknown :: TSType p 'NotObj n A.Value
 tsUnknown = TSPrimType $ inject TSUnknown
 
-tsAny :: TSType ps 'NotObj n A.Value
+tsAny :: TSType p 'NotObj n A.Value
 tsAny = TSPrimType $ inject TSAny
 
-tsVoid :: TSType ps 'NotObj n ()
+tsVoid :: TSType p 'NotObj n ()
 tsVoid = TSPrimType $ inject TSVoid
 
-tsUndefined :: TSType ps 'NotObj n ()
+tsUndefined :: TSType p 'NotObj n ()
 tsUndefined = TSPrimType $ inject TSUndefined
 
-tsNull :: TSType ps 'NotObj n ()
+tsNull :: TSType p 'NotObj n ()
 tsNull = TSPrimType $ inject TSNull
 
-tsNever :: TSType ps 'NotObj n Void
+tsNever :: TSType p 'NotObj n Void
 tsNever = TSPrimType $ inject TSNever
 
-encodeType :: TSType 'Nat.Z ks Void a -> a -> BSL.ByteString
+encodeType :: TSType 'Nat.Z k Void a -> a -> BSL.ByteString
 encodeType t = A.encode . typeToValue t
 
-encodeTypeStrict :: TSType 'Nat.Z ks Void a -> a -> BS.ByteString
+encodeTypeStrict :: TSType 'Nat.Z k Void a -> a -> BS.ByteString
 encodeTypeStrict t = BSL.toStrict . encodeType t
 
 decodeType
-    :: TSType 'Nat.Z ks Void a
+    :: TSType 'Nat.Z k Void a
     -> BSL.ByteString
     -> Either (ABE.ParseError ParseErr) a
 decodeType t = ABE.parse (parseType t)
 
 decodeTypeStrict
-    :: TSType 'Nat.Z ks Void a
+    :: TSType 'Nat.Z k Void a
     -> BS.ByteString
     -> Either (ABE.ParseError ParseErr) a
 decodeTypeStrict t = ABE.parseStrict (parseType t)
