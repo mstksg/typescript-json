@@ -49,6 +49,7 @@ module Typescript.Json.Generics (
   ) where
 
 import           Data.Bifunctor
+import           Data.Default.Class
 import           Data.Functor.Combinator
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
@@ -275,7 +276,7 @@ singleConstr
 singleConstr tag val constr = PostT
                             . injectPost id
                             . TSType_
-                            . taggedValue True True tag val constr
+                            . taggedValue (def { tvoTagKey = tag, tvoContentsKey = val }) constr
 
 class GTSObject (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtsObject :: NP (TSType_ p n) (LeafTypes f) -> TSKeyVal p n (f x)
@@ -288,7 +289,7 @@ instance (All Top (LeafTypes f), GTSObject tag val f, GTSObject tag val g) => GT
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance (KnownSymbol k, GTSType tag val f) => GTSObject tag val (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsObject lts = invmap M1 unM1 . PreT $
+    gtsObject lts = invmap M1 unM1 . PreT . getObjectProps $
                     keyVal True id (knownSymbolText @k) (gtoTSType @tag @val @f lts)
 
 class GTSTuple (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
@@ -420,7 +421,7 @@ instance (All Top (LeafTypes f), GTSObjectF tag val f, GTSObjectF tag val g) => 
 
 instance (KnownSymbol k, GTSTypeF tag val f) => GTSObjectF tag val (M1 S ('MetaSel ('Just k) a b c) f) where
     gtsObjectF lts t = case gtoTSTypeF @tag @val @f lts of
-      TSTypeF_ tsg -> invmap M1 unM1 . PreT
+      TSTypeF_ tsg -> invmap M1 unM1 . PreT . getObjectProps
                     . keyVal True id (knownSymbolText @k)
                     . TSType_
                     $ tsApply tsg (TSType_ t :* Nil)

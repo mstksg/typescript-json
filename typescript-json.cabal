@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bca18f09f9bbad3ec3efc39b58cb7863cd5fbe583f263efabe15e8f7056daa10
+-- hash: f6f3271b3cfbb5d9c39fa35e97ef0cfdb24d94e9674ca813b04ed137cde2c9cf
 
 name:           typescript-json
 version:        0.1.0.0
@@ -44,12 +44,14 @@ library
     , bytestring
     , containers
     , contravariant
+    , data-default-class
     , dependent-sum
     , fin
     , free
     , functor-combinators >=0.3.6
     , invariant
     , prettyprinter >=1.7
+    , profunctors
     , recursion-schemes
     , scientific
     , semigroupoids

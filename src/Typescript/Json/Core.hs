@@ -56,8 +56,6 @@ module Typescript.Json.Core (
   , withTSTypeF_
   , tsApply
   , tsApply1
-  , tsGeneric1
-  , tsApplied1
   , tsApplyVar
   , tsApplyVar1
   , compGeneric
@@ -286,12 +284,6 @@ mapTSTypeF_
     -> TSTypeF_ q m as' b'
 mapTSTypeF_ f = withTSTypeF_ (TSTypeF_ . f)
 
-tsApplied1
-    :: TSTypeF p k n '[a] b
-    -> TSType_ p n a
-    -> TSType p k n b
-tsApplied1 tf tx = TSApplied tf (tx :* Nil)
-
 tsApply
     :: TSTypeF p k n as b      -- ^ type function
     -> NP (TSType_ p n) as         -- ^ thing to apply
@@ -300,9 +292,9 @@ tsApply (TSGeneric _ _ _ f) t = f SZ_ t
 
 tsApply1
     :: TSTypeF p k n '[a] b      -- ^ type function
-    -> TSType p j n a         -- ^ thing to apply
+    -> TSType_ p n a         -- ^ thing to apply
     -> TSType p k n b
-tsApply1 (TSGeneric _ _ _ f) t = f SZ_ (TSType_ t :* Nil)
+tsApply1 (TSGeneric _ _ _ f) t = f SZ_ (t :* Nil)
 
 withParams
     :: NP (K Text) as
@@ -357,14 +349,6 @@ vecToSNat_ :: forall n b. Vec n b -> SNat_ n
 vecToSNat_ = \case
     Vec.VNil     -> SZ_
     _ Vec.::: xs -> SS_ (vecToSNat_ xs)
-
-tsGeneric1
-    :: Text
-    -> SIsObjType k
-    -> Text
-    -> (forall r j. SNat_ r -> TSType (Plus r p) j n a -> TSType (Plus r p) k n b)
-    -> TSTypeF p k n '[a] b
-tsGeneric1 n o p f = TSGeneric n o (K p :* Nil) (\rs (TSType_ t :* Nil) -> f rs t)
 
 tsShift
     :: forall r p k n a. ()
@@ -504,17 +488,15 @@ ppPrim = \case
     TSNever        -> "never"
 
 ppType
-    :: PP.Pretty n
-    => TSType_ 'Nat.Z n a
+    :: TSType_ 'Nat.Z Void a
     -> PP.Doc x
 ppType = ppType' Vec.VNil
 
 ppType'
-    :: PP.Pretty n
-    => Vec p Text
-    -> TSType_ p n a
+    :: Vec p Text
+    -> TSType_ p Void a
     -> PP.Doc x
-ppType' ps = withTSType_ (ppTypeWith PP.pretty ps)
+ppType' ps = withTSType_ (ppTypeWith absurd ps)
 
 ppTypeWith
     :: forall p k n a x. ()
@@ -595,10 +577,10 @@ typeExports'
     -> PP.Doc x
 typeExports' ps iin0 ts =
       ppMap
-    . maybe id (`M.insert` (params0, ppType' ps (TSType_ t0))) (first void <$> iin0)
+    . maybe id (`M.insert` (params0, ppTypeWith PP.pretty ps t0)) (first void <$> iin0)
     $ tmap0
   where
-    ((params0, t0), tmap0) = flattenType ps (\qs -> ppType' (qs Vec.++ ps). TSType_) ts
+    ((params0, t0), tmap0) = flattenType ps (\qs -> ppTypeWith PP.pretty (qs Vec.++ ps)) ts
 
 typeFExports_
     :: Maybe Text    -- ^ top-level name, if meant to be included
@@ -618,9 +600,9 @@ typeFExports'
     -> TSTypeF p k Void a b
     -> PP.Doc x
 typeFExports' ps iin0 tf = tsApplyVar tf $ \rs ts ->
-  let ((params0, t0), tmap0) = flattenType (rs Vec.++ ps) (\qs -> ppType' (qs Vec.++ (rs Vec.++ ps)) . TSType_) ts
+  let ((params0, t0), tmap0) = flattenType (rs Vec.++ ps) (\qs -> ppTypeWith PP.pretty (qs Vec.++ (rs Vec.++ ps))) ts
   in    ppMap
-      . maybe id (`M.insert` (toList rs ++ params0, ppType' (rs Vec.++ ps) (TSType_ t0))) (first void <$> iin0)
+      . maybe id (`M.insert` (toList rs ++ params0, ppTypeWith PP.pretty (rs Vec.++ ps) t0)) (first void <$> iin0)
       $ tmap0
 
 ppMap
@@ -684,7 +666,7 @@ flattenType_ ps f = go Vec.VNil
               modify $ M.insert (NotInterface, n)
                 (htoList SOP.unK ms, f (rs Vec.++ qs) res)
           ) :: State (Map (IsInterface (), Text) ([Text], r)) ()
-        pure ([], TSExternal o n (htoList (T.pack . show . ppType' (qs Vec.++ ps)) t'))
+        pure ([], TSExternal o n (htoList (withTSType_ (T.pack . show . ppTypeWith PP.pretty (qs Vec.++ ps))) t'))
       TSNamed n t -> do
         (_, res) <- go qs t
         modify $ M.insert (NotInterface, n) ([], f qs res)
