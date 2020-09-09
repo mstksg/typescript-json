@@ -20,14 +20,8 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 module Typescript.Json.Generics (
-  -- * Combinators
-    mergeUnion
-  , mergeObjProd
-  , mergeTupProd
-  , emptyConstr
-  , singleConstr
   -- * Typeclass-based
-  , GTSType(..)
+    GTSType(..)
   , GTSSum(..)
   , GTSObject(..)
   , GTSTuple(..)
@@ -51,21 +45,20 @@ module Typescript.Json.Generics (
 import           Data.Bifunctor
 import           Data.Default.Class
 import           Data.Functor.Combinator
+import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Decide
-import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
 import           Data.Functor.Invariant
-import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.Proxy
-import           Data.SOP                                  (NP(..), K(..), hpure, All, Top)
-import           Data.Text                                 (Text)
+import           Data.SOP                          (NP(..), K(..), hpure, All, Top)
+import           Data.Text                         (Text)
 import           Data.Void
 import           GHC.Generics
 import           GHC.TypeLits
 import           Typescript.Json
 import           Typescript.Json.Core
-import qualified Data.SOP                                  as SOP
-import qualified Data.Text                                 as T
+import qualified Data.SOP                          as SOP
+import qualified Data.Text                         as T
 
 type family WarnIfEq (b :: Ordering) (c :: ErrorMessage) :: Constraint where
     WarnIfEq 'LT c = ()
@@ -183,129 +176,86 @@ splitNP = \case
     _ :* ps -> \case
       x :* xs -> first (x :*) (splitNP ps xs)
 
-instance (All Top (LeafTypes f), GTSSum tag val f, GTSSum tag val g) => GTSType tag val (f :+: g) where
-    gtoTSType lts = TSType_ . TSUnion $
-        mergeUnion (gtsSum @tag @val @f as) (gtsSum @tag @val @g bs)
-      where
-        (as, bs) = splitNP (hpure Proxy) lts
-
-mergeUnion
-    :: PostT Dec (TSType_ p n) (f x)
-    -> PostT Dec (TSType_ p n) (g x)
-    -> PostT Dec (TSType_ p n) ((f :+: g) x)
-mergeUnion (PostT oX) (PostT oY) = PostT $
+instance (All Top (LeafTypes f), KnownSymbol tag, KnownSymbol val, GTSSum tag val f, GTSSum tag val g) => GTSType tag val (f :+: g) where
+    gtoTSType lts = TSType_ . tsTaggedUnion tvo $
         decide (\case L1 x -> Left x; R1 y -> Right y)
-          (hmap (mapPost L1) oX)
-          (hmap (mapPost R1) oY)
+          (gtsSum @tag @val @f as L1)
+          (gtsSum @tag @val @g bs R1)
+      where
+        tvo = def
+          { tvoTagKey      = knownSymbolText @tag
+          , tvoContentsKey = knownSymbolText @val
+          }
+        (as, bs) = splitNP (hpure Proxy) lts
 
 instance (All Top (LeafTypes f), KnownSymbol k, GTSType tag val f, GTSObject tag val g)
       => GTSType tag val ((M1 S ('MetaSel ('Just k) a b c) f) :*: g) where
-    gtoTSType lts = TSType_ . TSObject $
-        mergeObjProd
-          (gtsObject @tag @val @(M1 S ('MetaSel ('Just k) a b c) f) as)
-          (gtsObject @tag @val @g bs)
+    gtoTSType lts = TSType_ . tsObject $
+        (:*:) <$> (gtsObject @tag @val @(M1 S ('MetaSel ('Just k) a b c) f) as (\(x :*: _) -> x))
+              <*> (gtsObject @tag @val @g bs (\(_ :*: y) -> y))
       where
         (as, bs) = splitNP (hpure Proxy) lts
-
-mergeObjProd
-    :: TSKeyVal p n (f x)
-    -> TSKeyVal p n (g x)
-    -> TSKeyVal p n ((f :*: g) x)
-mergeObjProd (PreT oX) (PreT oY) = PreT $
-    (:*:) <$> hmap (mapPre (\(x :*: _) -> x)) oX
-          <*> hmap (mapPre (\(_ :*: y) -> y)) oY
 
 instance (All Top (LeafTypes f), GTSType tag val f, GTSTuple tag val g)
       => GTSType tag val ((M1 S ('MetaSel 'Nothing a b c) f) :*: g) where
-    gtoTSType lts = TSType_ . TSTuple $
-        mergeTupProd
-          (gtsTuple @tag @val @(M1 S ('MetaSel 'Nothing a b c) f) as)
-          (gtsTuple @tag @val @g bs)
+    gtoTSType lts = TSType_ . tsTuple $
+        (:*:) <$> gtsTuple @tag @val @(M1 S ('MetaSel 'Nothing a b c) f) as (\(x :*: _) -> x)
+              <*> gtsTuple @tag @val @g bs (\(_ :*: y) -> y)
       where
         (as, bs) = splitNP (hpure Proxy) lts
-
-mergeTupProd
-    :: PreT Ap (TSType_ p n) (f x)
-    -> PreT Ap (TSType_ p n) (g x)
-    -> PreT Ap (TSType_ p n) ((f :*: g) x)
-mergeTupProd (PreT oX) (PreT oY) = PreT $
-    (:*:) <$> hmap (mapPre (\(x :*: _) -> x)) oX
-          <*> hmap (mapPre (\(_ :*: y) -> y)) oY
 
 class GTSSum (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtsSum
         :: NP (TSType_ p n) (LeafTypes f)
-        -> PostT Dec (TSType_ p n) (f x)
+        -> (f x -> a)
+        -> TaggedBranches p n a (f x)
 
 instance (All Top (LeafTypes f), GTSSum tag val f, GTSSum tag val g) => GTSSum tag val (f :+: g) where
-    gtsSum lts = mergeUnion (gtsSum @tag @val @f as) (gtsSum @tag @val @g bs)
+    gtsSum lts f =
+        decide (\case L1 x -> Left x; R1 y -> Right y)
+          (gtsSum @tag @val @f as (f . L1))
+          (gtsSum @tag @val @g bs (f . R1))
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance {-# OVERLAPS #-} (KnownSymbol tag, KnownSymbol constr, NotEqSym tag constr)
+instance {-# OVERLAPS #-} (KnownSymbol constr, NotEqSym tag constr)
       => GTSSum tag conts (M1 C ('MetaCons constr a b) U1) where
-    gtsSum _ = emptyConstr (knownSymbolText @tag) (knownSymbolText @constr)
-
-emptyConstr
-    :: Monoid m
-    => Text
-    -> Text
-    -> PostT Dec (TSType_ p n) m
-emptyConstr tag constr = invmap mempty mempty . PostT $
-    injectPost id $ TSType_ . TSObject . PreT $
-      injectPre (const ()) $ ObjMember
-        { objMemberKey = tag
-        , objMemberVal = L1 . TSType_ . TSPrimType $
-            inject (TSStringLit constr)
-        }
+    gtsSum _ f = () >$ emptyTaggedBranch (f (M1 U1)) (knownSymbolText @constr)
 
 -- | Will "flatten out" objects if possible
-instance (KnownSymbol tag, KnownSymbol val, KnownSymbol constr, NotEqSym tag constr, GTSType tag val f)
+instance (KnownSymbol constr, NotEqSym tag constr, GTSType tag val f)
       => GTSSum tag val (M1 C ('MetaCons constr a b) f) where
-    gtsSum lts = singleConstr (knownSymbolText @tag) (knownSymbolText @constr) (knownSymbolText @val)
-               . invmap M1 unM1
-               $ gtoTSType @tag @val @f lts
-
-singleConstr
-    :: Inject t
-    => Text
-    -> Text
-    -> Text
-    -> TSType_ p n a
-    -> PostT t (TSType_ p n) a
-singleConstr tag val constr = PostT
-                            . injectPost id
-                            . TSType_
-                            . taggedValue (def { tvoTagKey = tag, tvoContentsKey = val }) constr
+    gtsSum lts f = contramap unM1
+                 . taggedBranch (f . M1) (knownSymbolText @constr)
+                 $ gtoTSType @tag @val @f lts
 
 class GTSObject (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
-    gtsObject :: NP (TSType_ p n) (LeafTypes f) -> TSKeyVal p n (f x)
+    gtsObject :: NP (TSType_ p n) (LeafTypes f) -> (a -> f x) -> ObjectProps p n a (f x)
 
 instance (All Top (LeafTypes f), GTSObject tag val f, GTSObject tag val g) => GTSObject tag val (f :*: g) where
-    gtsObject lts = mergeObjProd
-        (gtsObject @tag @val @f as)
-        (gtsObject @tag @val @g bs)
+    gtsObject lts f =
+        (:*:) <$> gtsObject @tag @val @f as ((\(x :*: _) -> x) . f)
+              <*> gtsObject @tag @val @g bs ((\(_ :*: y) -> y) . f)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance (KnownSymbol k, GTSType tag val f) => GTSObject tag val (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsObject lts = invmap M1 unM1 . PreT . getObjectProps $
-                    keyVal True id (knownSymbolText @k) (gtoTSType @tag @val @f lts)
+    gtsObject lts f = M1 <$> keyVal True (unM1 . f) (knownSymbolText @k) (gtoTSType @tag @val @f lts)
 
 class GTSTuple (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
-    gtsTuple :: NP (TSType_ p n) (LeafTypes f) -> PreT Ap (TSType_ p n) (f x)
+    gtsTuple :: NP (TSType_ p n) (LeafTypes f) -> (a -> f x) -> TupleVals p n a (f x)
 
 instance (All Top (LeafTypes f), GTSTuple tag val f, GTSTuple tag val g) => GTSTuple tag val (f :*: g) where
-    gtsTuple lts = mergeTupProd
-        (gtsTuple @tag @val @f as)
-        (gtsTuple @tag @val @g bs)
+    gtsTuple lts f =
+      (:*:) <$> gtsTuple @tag @val @f as ((\(x :*: _) -> x) . f)
+            <*> gtsTuple @tag @val @g bs ((\(_ :*: y) -> y) . f)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance GTSType tag val f => GTSTuple tag val (M1 S ('MetaSel 'Nothing a b c) f) where
-    gtsTuple lts = PreT $
-      injectPre id $
-        invmap M1 unM1 (gtoTSType @tag @val @f lts)
+    gtsTuple lts f =  M1 <$> tupleVal (unM1 . f) (gtoTSType @tag @val @f lts)
+
+
 
 
 
@@ -314,24 +264,32 @@ instance GTSType tag val f => GTSTuple tag val (M1 S ('MetaSel 'Nothing a b c) f
 class GTSTypeF (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtoTSTypeF :: NP (TSType_ p n) (LeafTypes f) -> TSTypeF_ p n '[a] (f a)
 
-instance (All Top (LeafTypes f), GTSSumF tag val f, GTSSumF tag val g) => GTSTypeF tag val (f :+: g) where
+instance (All Top (LeafTypes f), KnownSymbol tag, KnownSymbol val, GTSSumF tag val f, GTSSumF tag val g) => GTSTypeF tag val (f :+: g) where
     gtoTSTypeF lts = TSTypeF_ $
         TSGeneric ":+:" SNotObj (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
-          TSUnion $ mergeUnion
-            (gtsSumF @tag @val @f (hmap (mapTSType_ (tsShift rs)) as) t)
-            (gtsSumF @tag @val @g (hmap (mapTSType_ (tsShift rs)) bs) t)
+          tsTaggedUnion tvo $ decide (\case L1 x -> Left x; R1 y -> Right y)
+            (gtsSumF @tag @val @f (hmap (mapTSType_ (tsShift rs)) as) L1 t)
+            (gtsSumF @tag @val @g (hmap (mapTSType_ (tsShift rs)) bs) R1 t)
       where
+        tvo = def
+          { tvoTagKey      = knownSymbolText @tag
+          , tvoContentsKey = knownSymbolText @val
+          }
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance (All Top (LeafTypes f), KnownSymbol k, GTSTypeF tag val f, GTSObjectF tag val g)
       => GTSTypeF tag val ((M1 S ('MetaSel ('Just k) a b c) f) :*: g) where
     gtoTSTypeF lts = TSTypeF_ $
         TSGeneric ":*:" SIsObj (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
-          TSObject $ mergeObjProd
-            (gtsObjectF @tag @val @(M1 S ('MetaSel ('Just k) a b c) f)
-                (hmap (mapTSType_ (tsShift rs)) as) t
-            )
-            (gtsObjectF @tag @val @g (hmap (mapTSType_ (tsShift rs)) bs) t)
+          tsObject $
+            (:*:) <$> gtsObjectF @tag @val @(M1 S ('MetaSel ('Just k) a b c) f)
+                        (hmap (mapTSType_ (tsShift rs)) as)
+                        (\(x :*: _) -> x)
+                        t
+                  <*> gtsObjectF @tag @val @g
+                        (hmap (mapTSType_ (tsShift rs)) bs)
+                        (\(_ :*: y) -> y)
+                        t
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
@@ -339,11 +297,15 @@ instance (All Top (LeafTypes f), GTSTypeF tag val f, GTSTupleF tag val g)
       => GTSTypeF tag val ((M1 S ('MetaSel 'Nothing a b c) f) :*: g) where
     gtoTSTypeF lts = TSTypeF_ $
         TSGeneric ":*:" SNotObj (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
-          TSTuple $ mergeTupProd
-            (gtsTupleF @tag @val @(M1 S ('MetaSel 'Nothing a b c) f)
-                (hmap (mapTSType_ (tsShift rs)) as) t
-            )
-            (gtsTupleF @tag @val @g (hmap (mapTSType_ (tsShift rs)) bs) t)
+          tsTuple $
+            (:*:) <$> gtsTupleF @tag @val @(M1 S ('MetaSel 'Nothing a b c) f)
+                        (hmap (mapTSType_ (tsShift rs)) as)
+                        (\(x :*: _) -> x)
+                        t
+                  <*> gtsTupleF @tag @val @g
+                        (hmap (mapTSType_ (tsShift rs)) bs)
+                        (\(_ :*: y) -> y)
+                        t
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
@@ -383,65 +345,72 @@ instance GTSTypeF tag val V1 where
 class GTSSumF (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtsSumF
         :: NP (TSType_ p n) (LeafTypes f)
+        -> (f a -> b)
         -> TSType p k n a
-        -> PostT Dec (TSType_ p n) (f a)
+        -> TaggedBranches p n b (f a)
 
 instance (All Top (LeafTypes f), GTSSumF tag val f, GTSSumF tag val g) => GTSSumF tag val (f :+: g) where
-    gtsSumF lts t = mergeUnion
-        (gtsSumF @tag @val @f as t)
-        (gtsSumF @tag @val @g bs t)
+    gtsSumF lts f t = decide (\case L1 x -> Left x; R1 y -> Right y)
+        (gtsSumF @tag @val @f as (f . L1) t)
+        (gtsSumF @tag @val @g bs (f . R1) t)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance {-# OVERLAPS #-} (KnownSymbol tag, KnownSymbol constr, NotEqSym tag constr)
+instance {-# OVERLAPS #-} (KnownSymbol constr, NotEqSym tag constr)
       => GTSSumF tag val (M1 C ('MetaCons constr a b) U1) where
-    gtsSumF _ _ = emptyConstr (knownSymbolText @tag) (knownSymbolText @constr)
+    gtsSumF _ f _ = () >$ emptyTaggedBranch (f (M1 U1)) (knownSymbolText @constr)
 
 -- | Will "flatten out" objects if possible
-instance (KnownSymbol tag, KnownSymbol val, KnownSymbol constr, NotEqSym tag constr, GTSTypeF tag val f)
+instance (KnownSymbol constr, NotEqSym tag constr, GTSTypeF tag val f)
       => GTSSumF tag val (M1 C ('MetaCons constr a b) f) where
-    gtsSumF lts t = case gtoTSTypeF @tag @val @f lts of
-      TSTypeF_ tsg -> invmap M1 unM1
-                    . singleConstr (knownSymbolText @tag) (knownSymbolText @constr) (knownSymbolText @val)
-                    . TSType_
-                    $ tsApply tsg (TSType_ t :* Nil)
+    gtsSumF lts f t = withTSTypeF_
+      (\tsg -> contramap unM1
+             . taggedBranch (f . M1) (knownSymbolText @constr)
+             . TSType_
+             $ tsApply tsg (TSType_ t :* Nil)
+      )
+      (gtoTSTypeF @tag @val @f lts)
 
 class GTSObjectF (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtsObjectF
         :: NP (TSType_ p n) (LeafTypes f)
+        -> (b -> f a)
         -> TSType p k n a
-        -> TSKeyVal p n (f a)
+        -> ObjectProps p n b (f a)
 
 instance (All Top (LeafTypes f), GTSObjectF tag val f, GTSObjectF tag val g) => GTSObjectF tag val (f :*: g) where
-    gtsObjectF lts t = mergeObjProd
-        (gtsObjectF @tag @val @f as t)
-        (gtsObjectF @tag @val @g bs t)
+    gtsObjectF lts f t =
+        (:*:) <$> gtsObjectF @tag @val @f as ((\(x :*: _) -> x) . f) t
+              <*> gtsObjectF @tag @val @g bs ((\(_ :*: y) -> y) . f) t
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance (KnownSymbol k, GTSTypeF tag val f) => GTSObjectF tag val (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsObjectF lts t = case gtoTSTypeF @tag @val @f lts of
-      TSTypeF_ tsg -> invmap M1 unM1 . PreT . getObjectProps
-                    . keyVal True id (knownSymbolText @k)
-                    . TSType_
-                    $ tsApply tsg (TSType_ t :* Nil)
+    gtsObjectF lts f t = withTSTypeF_
+      (\tsg -> M1 <$> keyVal True (unM1 . f) (knownSymbolText @k)
+                        (TSType_ (tsApply tsg (TSType_ t :* Nil)))
+      )
+      (gtoTSTypeF @tag @val @f lts)
 
 class GTSTupleF (tag :: Symbol) (val :: Symbol) (f :: Type -> Type) where
     gtsTupleF :: NP (TSType_ p n) (LeafTypes f)
+              -> (b -> f a)
               -> TSType p k n a
-              -> PreT Ap (TSType_ p n) (f a)
+              -> TupleVals p n b (f a)
 
 instance (All Top (LeafTypes f), GTSTupleF tag val f, GTSTupleF tag val g) => GTSTupleF tag val (f :*: g) where
-    gtsTupleF lts t = mergeTupProd
-        (gtsTupleF @tag @val @f as t)
-        (gtsTupleF @tag @val @g bs t)
+    gtsTupleF lts f t =
+        (:*:) <$> gtsTupleF @tag @val @f as ((\(x :*: _) -> x) . f) t
+              <*> gtsTupleF @tag @val @g bs ((\(_ :*: y) -> y) . f) t
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance GTSTypeF tag val f => GTSTupleF tag val (M1 S ('MetaSel 'Nothing a b c) f) where
-    gtsTupleF lts t = case gtoTSTypeF @tag @val @f lts of
-      TSTypeF_ tsg -> PreT $ injectPre id $
-        invmap M1 unM1 (TSType_ (tsApply tsg (TSType_ t :* Nil)))
+    gtsTupleF lts f t = withTSTypeF_
+      (\tsg -> M1 <$> tupleVal (unM1 . f)
+                        (TSType_ (tsApply tsg (TSType_ t :* Nil)))
+      )
+      (gtoTSTypeF @tag @val @f lts)
 
 knownSymbolText :: forall s. KnownSymbol s => Text
 knownSymbolText = T.pack (symbolVal (Proxy @s))

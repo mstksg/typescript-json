@@ -32,9 +32,11 @@ module Typescript.Json (
   -- *** Tagged
   , tagVal, taggedObject, taggedValue
   , TaggedBranches(..)
+  , fmapTaggedBranches
   , Branch(..)
   , TaggedValueOpts(..)
   , taggedBranch
+  , emptyTaggedBranch
   , tsTaggedUnion
   , tsTaggedUnions
   -- ** Intersections
@@ -103,6 +105,7 @@ import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
+import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Encoding                       as AE
@@ -353,15 +356,26 @@ tsUnions f = tsUnion . contramap f . concludeN
 
 data Branch p n a = Branch
     { branchTag   :: Text
-    , branchType  :: TSType_ p n a
+    , branchType  :: Lift (TSType_ p n) a
     }
 
 instance Invariant (Branch p n) where
     invmap f g (Branch a b) = Branch a (invmap f g b)
 
+-- | A high-level data type describing the common pattern of a "tagged"
+-- union (sum types in Haskell), where each branch comes in the form of an
+-- object with a "tag" property with a string literal singleton, and the
+-- rest of the object is the contents.  We would store an @Either Int Bool@ as, say,
+-- @{ tag: "Left", contents: number } | { tag: "Right", contents: boolean }@.
+--
+-- Meant to be constructed using 'taggedBranch' and other 'Decide'
+-- combinators.
 newtype TaggedBranches p n a b = TaggedBranches
     { getTaggedBranches :: Dec (Post a (Branch p n)) b }
   deriving newtype (Contravariant, Decide, Conclude, Invariant)
+
+fmapTaggedBranches :: (a -> c) -> TaggedBranches p n a b -> TaggedBranches p n c b
+fmapTaggedBranches f = TaggedBranches . hmap (mapPost f) . getTaggedBranches
 
 -- | Create a singleton 'TaggedBranches', to be combined with 'Decide'
 -- combinators with others.  Can also be used with 'tsUnions' if you want
@@ -371,7 +385,13 @@ taggedBranch
     -> Text             -- ^ Tag value
     -> TSType_ p n b
     -> TaggedBranches p n a b
-taggedBranch f v = TaggedBranches . injectPost f . Branch v
+taggedBranch f v = TaggedBranches . injectPost f . Branch v . Lift.Other
+
+emptyTaggedBranch
+    :: a                -- ^ the value of the main type that this branch represents
+    -> Text             -- ^ Tag value
+    -> TaggedBranches p n a ()
+emptyTaggedBranch x v = TaggedBranches . injectPost (const x) $ Branch v (Lift.Pure ())
 
 tsTaggedUnion
     :: TaggedValueOpts
@@ -398,7 +418,10 @@ runBranch
     :: TaggedValueOpts
     -> Branch p n a
     -> TSType_ p n a
-runBranch tvo Branch{..} = TSType_ $ taggedValue tvo branchTag branchType
+runBranch tvo Branch{..} = TSType_ $
+  case branchType of
+    Lift.Pure  x -> invmap (const x) (const ()) . tsObject $ tagVal (tvoTagKey tvo) branchTag
+    Lift.Other t -> taggedValue tvo branchTag t
 
 
 data TaggedValueOpts = TaggedValueOpts
