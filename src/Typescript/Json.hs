@@ -3,6 +3,7 @@
 {-# LANGUAGE EmptyCase                  #-}
 {-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -60,7 +61,7 @@ module Typescript.Json (
   -- ** Primitives
   , tsBoolean
   , tsNumber, tsBoundedInteger, tsInteger, tsRealFloat, tsDouble, tsBigInt
-  , tsText, tsString
+  , tsText, tsLazyText, tsString
   , tsEnumWith, tsEnumFrom, tsEnum
   , tsStringLit, tsNumericLit, tsIntegerLit, tsBigIntLit
   , tsUnknown, tsAny, tsVoid, tsUndefined, tsNull, tsNever
@@ -100,9 +101,11 @@ import           Data.SOP                                  (NP(..), NS(..), I(..
 import           Data.Scientific
 import           Data.Text                                 (Text)
 import           Data.Traversable
+import           GHC.TypeLits
 import           Data.Type.Nat                             (Plus)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
+import           Data.Kind
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
 import qualified Control.Applicative.Lift                  as Lift
@@ -112,6 +115,7 @@ import qualified Data.Aeson.Encoding                       as AE
 import qualified Data.ByteString                           as BS
 import qualified Data.ByteString.Lazy                      as BSL
 import qualified Data.Text                                 as T
+import qualified Data.Text.Lazy                            as TL
 import qualified Data.Type.Nat                             as Nat
 import qualified Data.Vector.Generic                       as V
 import qualified GHC.Exts                                  as Exts
@@ -763,6 +767,9 @@ tsBigInt = TSPrimType $ inject TSBigInt
 tsText :: TSType p 'NotObj n Text
 tsText = TSPrimType $ inject TSString
 
+tsLazyText :: TSType p 'NotObj n TL.Text
+tsLazyText = invmap TL.fromStrict TL.toStrict tsText
+
 tsString :: TSType p 'NotObj n String
 tsString = invmap T.unpack T.pack tsText
 
@@ -825,4 +832,12 @@ decodeTypeStrict
     -> BS.ByteString
     -> Either (ABE.ParseError ParseErr) a
 decodeTypeStrict t = ABE.parseStrict (parseType t)
+
+-- data SSym :: Symbol -> Type where
+--     SSym :: KnownSymbol s => SSym s
+
+-- tsSymbol :: KnownSymbol s => TSType p 'NotObj n (SSym s)
+-- tsSymbol = invmap (const x) (const ()) $ tsStringLit (T.pack (symbolVal x))
+--   where
+--     x = SSym
 

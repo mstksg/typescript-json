@@ -240,6 +240,13 @@ data TSTypeF :: Nat -> IsObjType -> Type -> [Type] -> Type -> Type where
            , tsgFunc    :: forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSType (Plus r p) k n b
            } -> TSTypeF p k n as b
 
+-- data TSExport =
+--     forall a.    TSEType    String (TSType_ 'Nat.Z Text a)
+--   | forall as b. TSEGeneric (TSTypeF_ 'Nat.Z Text as b)
+--   | TSEEnum [(Text, EnumLit)]
+--     -- TSEnum       :: Text -> Vec n (Text, EnumLit) -> TSPrim (Fin n)
+
+
 compGeneric
     :: (forall r. SNat_ r -> TSType (Plus r p) k n b -> TSType (Plus r p) k n c)
     -> TSTypeF p k n as b
