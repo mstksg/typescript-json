@@ -437,7 +437,12 @@ data TaggedValueOpts = TaggedValueOpts
   deriving (Show, Eq, Ord)
 
 instance Default TaggedValueOpts where
-    def = TaggedValueOpts True True "tag" "contents"
+    def = TaggedValueOpts
+        { tvoMergeTagValue = False
+        , tvoMergeNullable = True
+        , tvoTagKey = "tag"
+        , tvoContentsKey = "contents"
+        }
 
 -- | A utility for a simple situation of a "tag" key-value pair, where the
 -- property value is just a string literal singleton.  Often used to

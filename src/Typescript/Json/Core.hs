@@ -97,6 +97,7 @@ import           Data.Bifunctor
 import           Data.Fin                                  (Fin(..))
 import           Data.Foldable
 import           Data.Functor
+import           Data.Ord
 import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
@@ -109,6 +110,7 @@ import           Data.Map                                  (Map)
 import           Data.Maybe
 import           Data.SOP                                  (NP(..), K(..))
 import           Data.Scientific                           (Scientific, toBoundedInteger)
+import           Data.Set                                  (Set)
 import           Data.Some                                 (Some(..))
 import           Data.Text                                 (Text)
 import           Data.Type.Equality
@@ -120,6 +122,9 @@ import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Encoding                       as AE
 import qualified Data.Aeson.Types                          as A
+import qualified Data.Graph.Inductive.Graph                as FGL
+import qualified Data.Graph.Inductive.PatriciaTree         as FGL
+import qualified Data.Graph.Inductive.Query.DFS            as FGL
 import qualified Data.Map                                  as M
 import qualified Data.SOP                                  as SOP
 import qualified Data.Set                                  as S
@@ -334,22 +339,23 @@ tsApplyVar
     -> (forall s. Vec s Text -> TSType (Plus s p) k n b -> r)
     -> r
 tsApplyVar (TSGeneric _ _ ps g) f = withParams ps $ \rs es ->
-     f (fmap (shadow oldVars) rs)
+     f rs   -- shodowing should happen on the level of withParams?
+     -- f (fmap (shadow oldVars) rs)
        (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es))
-  where
-    oldVars :: S.Set Text
-    oldVars = S.fromList (htoList SOP.unK ps)
+  -- where
+  --   oldVars :: Set Text
+  --   oldVars = S.fromList (htoList SOP.unK ps)
 
-shadow :: S.Set Text -> Text -> Text
-shadow ps t0 = go Nothing
-  where
-    go i
-        | t `S.member` ps = go (Just (maybe 0 (+1) i))
-        | otherwise       = t
-      where
-        t = appendNum i t0
-    appendNum Nothing  = id
-    appendNum (Just i) = (<> T.pack (show @Int i))
+-- shadow :: Set Text -> Text -> Text
+-- shadow ps t0 = go Nothing
+  -- where
+  --   go i
+  --       | t `S.member` ps = go (Just (maybe 0 (+1) i))
+  --       | otherwise       = t
+  --     where
+  --       t = appendNum i t0
+  --   appendNum Nothing  = id
+  --   appendNum (Just i) = (<> T.pack (show @Int i))
 
 
 vecToSNat_ :: forall n b. Vec n b -> SNat_ n
@@ -527,7 +533,7 @@ ppTypeWith f = go
           ts
       TSSingle ts -> go ps ts
       TSUnion ts  -> PP.encloseSep "" "" " | " (htoList (withTSType_ (go ps)) ts)
-      TSNamed n _ -> PP.pretty n
+      TSNamed n _ -> PP.pretty n        -- maybe should just ignore name
       TSInterface n _ -> PP.pretty n
       -- this is the benefit of delaying application
       TSApplied (TSGeneric n _ _ _) xs -> PP.pretty n <> PP.encloseSep "<" ">" ","
@@ -584,10 +590,10 @@ typeExports'
     -> PP.Doc x
 typeExports' ps iin0 ts =
       ppMap
-    . maybe id (`M.insert` (params0, ppTypeWith PP.pretty ps t0)) (first void <$> iin0)
+    . maybe id (`M.insert` (params0, (externals t0, ppTypeWith PP.pretty ps t0))) (first void <$> iin0)
     $ tmap0
   where
-    ((params0, t0), tmap0) = flattenType ps (\qs -> ppTypeWith PP.pretty (qs Vec.++ ps)) ts
+    ((params0, t0), tmap0) = flattenType ps (\qs t -> (externals t, ppTypeWith PP.pretty (qs Vec.++ ps) t)) ts
 
 typeFExports_
     :: Maybe Text    -- ^ top-level name, if meant to be included
@@ -607,30 +613,65 @@ typeFExports'
     -> TSTypeF p k Void a b
     -> PP.Doc x
 typeFExports' ps iin0 tf = tsApplyVar tf $ \rs ts ->
-  let ((params0, t0), tmap0) = flattenType (rs Vec.++ ps) (\qs -> ppTypeWith PP.pretty (qs Vec.++ (rs Vec.++ ps))) ts
+  let ((params0, t0), tmap0) = flattenType (rs Vec.++ ps)
+            (\qs t -> (externals t, ppTypeWith PP.pretty (qs Vec.++ (rs Vec.++ ps)) t))
+            ts
   in    ppMap
-      . maybe id (`M.insert` (toList rs ++ params0, ppTypeWith PP.pretty (rs Vec.++ ps) t0)) (first void <$> iin0)
+      . maybe id (`M.insert` (toList rs ++ params0, (externals t0, ppTypeWith PP.pretty (rs Vec.++ ps) t0)))
+                 (first void <$> iin0)
       $ tmap0
 
+externals :: Ord n => TSType p k n a -> Set n
+externals = \case
+    TSArray xs -> hfoldMap externals xs
+    TSNullable xs -> hfoldMap externals xs
+    TSTuple xs -> hfoldMap (withTSType_ externals) xs
+    TSObject xs -> hfoldMap (hfoldMap (withTSType_ externals)) xs
+    TSSingle x -> externals x
+    TSUnion xs -> hfoldMap (withTSType_ externals) xs
+    TSNamed _ x -> externals x
+    TSInterface _ xs -> hfoldMap (hfoldMap (withTSType_ externals)) xs
+    TSApplied f x -> externals (tsApply f x)
+    TSVar _ -> S.empty
+    TSIntersection xs -> hfoldMap externals xs
+    TSExternal _ n _ -> S.singleton n
+    TSPrimType _ -> S.empty
+
 ppMap
-    :: PP.Pretty n
-    => Map (IsInterface (), n) ([Text], PP.Doc x)
+    :: forall n x. (PP.Pretty n, Ord n)
+    => Map (IsInterface (), n) ([Text], (Set n, PP.Doc x))   -- params, references, doc
     -> PP.Doc x
-ppMap mp = PP.vcat
-    [ PP.hsep [
-        "export"
-      , iiString ii
-      , PP.pretty n <>
-          (if null params
-              then mempty
-              else PP.encloseSep "<" ">" "," (PP.pretty <$> params)
-          )
-      , "="
-      , tDoc
-      ]
-    | ((ii, n), (params, tDoc)) <- M.toList mp
-    ]
+ppMap mp = PP.vcat (FGL.topsort' graph)
   where
+    connections :: Map (Down n) (PP.Doc x, Set n)
+    connections = M.fromList
+      [ ( Down n
+        , ( PP.hsep [
+              "export"
+            , iiString ii
+            , PP.pretty n <>
+                (if null params
+                    then mempty
+                    else PP.encloseSep "<" ">" "," (PP.pretty <$> params)
+                )
+            , "="
+            , tDoc
+            ]
+          , refs
+          )
+        )
+      | ((ii, n), (params, (refs, tDoc))) <- M.toList mp
+      ]
+    nodes = zip [0..] (toList connections)
+    graph :: FGL.Gr (PP.Doc x) ()
+    graph = FGL.mkGraph
+        (second fst <$> nodes)
+        [ (i, j, ())
+        | (i, (_, ref)) <- nodes
+        , r <- S.toList ref
+        , j <- maybeToList $ M.lookupIndex (Down r) connections
+        ]
+    -- TODO: this needs to be 'enum' if it is an enum
     iiString = \case
       NotInterface  -> "type"
       IsInterface _ -> "interface"

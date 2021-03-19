@@ -51,6 +51,7 @@ dependencies:
 - unordered-containers
 - vec
 - vector
+- fgl
 
 
 library:
