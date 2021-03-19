@@ -165,7 +165,7 @@ class GTSType (f :: Type -> Type) where
 
 instance (KnownSymbol nm, GTSType f) => GTSType (M1 D ('MetaData nm a b c) f) where
     gtoTSType tso lts = mapTSType_
-      (TSNamed (knownSymbolText @nm) . invmap M1 unM1)
+      (tsNamed (knownSymbolText @nm) . invmap M1 unM1)
       (gtoTSType @f tso lts)
 
 instance GTSType f => GTSType (M1 S ('MetaSel s a b c) f) where
@@ -210,9 +210,9 @@ instance (All Top (LeafTypes f), KnownSymbol k, GTSType f, GTSObject g)
 
 instance (All Top (LeafTypes f), GTSType f, GTSTuple g)
       => GTSType ((M1 S ('MetaSel 'Nothing a b c) f) :*: g) where
-    gtoTSType _ lts = TSType_ . tsTuple $
-        (:*:) <$> gtsTuple @(M1 S ('MetaSel 'Nothing a b c) f) as (\(x :*: _) -> x)
-              <*> gtsTuple @g bs (\(_ :*: y) -> y)
+    gtoTSType tso lts = TSType_ . tsTuple $
+        (:*:) <$> gtsTuple @(M1 S ('MetaSel 'Nothing a b c) f) tso as (\(x :*: _) -> x)
+              <*> gtsTuple @g tso bs (\(_ :*: y) -> y)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
@@ -261,17 +261,17 @@ instance (KnownSymbol k, GTSType f) => GTSObject (M1 S ('MetaSel ('Just k) a b c
             (gtoTSType @f tso lts)
 
 class GTSTuple (f :: Type -> Type) where
-    gtsTuple :: NP (TSType_ p n) (LeafTypes f) -> (a -> f x) -> TupleVals p n a (f x)
+    gtsTuple :: TSOpts -> NP (TSType_ p n) (LeafTypes f) -> (a -> f x) -> TupleVals p n a (f x)
 
 instance (All Top (LeafTypes f), GTSTuple f, GTSTuple g) => GTSTuple (f :*: g) where
-    gtsTuple lts f =
-      (:*:) <$> gtsTuple @f as ((\(x :*: _) -> x) . f)
-            <*> gtsTuple @g bs ((\(_ :*: y) -> y) . f)
+    gtsTuple tso lts f =
+      (:*:) <$> gtsTuple @f tso as ((\(x :*: _) -> x) . f)
+            <*> gtsTuple @g tso bs ((\(_ :*: y) -> y) . f)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance GTSType f => GTSTuple (M1 S ('MetaSel 'Nothing a b c) f) where
-    gtsTuple lts f =  M1 <$> tupleVal (unM1 . f) (gtoTSType @f undefined lts)
+    gtsTuple tso lts f =  M1 <$> tupleVal (unM1 . f) (gtoTSType @f tso lts)
 
 
 
@@ -282,7 +282,7 @@ class GTSTypeF (f :: Type -> Type) where
 
 instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSTypeF (f :+: g) where
     gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric ":+:" SNotObj (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
+        TSGeneric ":+:" (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
           tsTaggedUnion tvo $ decide (\case L1 x -> Left x; R1 y -> Right y)
             (gtsSumF @f tso (hmap (mapTSType_ (tsShift rs)) as) L1 t)
             (gtsSumF @g tso (hmap (mapTSType_ (tsShift rs)) bs) R1 t)
@@ -296,7 +296,7 @@ instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSTypeF (f :+: g) whe
 instance (All Top (LeafTypes f), KnownSymbol k, GTSTypeF f, GTSObjectF g)
       => GTSTypeF ((M1 S ('MetaSel ('Just k) a b c) f) :*: g) where
     gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric ":*:" SIsObj (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
+        TSGeneric ":*:" (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
           tsObject $
             (:*:) <$> gtsObjectF @(M1 S ('MetaSel ('Just k) a b c) f)
                         tso
@@ -314,7 +314,7 @@ instance (All Top (LeafTypes f), KnownSymbol k, GTSTypeF f, GTSObjectF g)
 instance (All Top (LeafTypes f), GTSTypeF f, GTSTupleF g)
       => GTSTypeF ((M1 S ('MetaSel 'Nothing a b c) f) :*: g) where
     gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric ":*:" SNotObj (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
+        TSGeneric ":*:" (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
           tsTuple $
             (:*:) <$> gtsTupleF @(M1 S ('MetaSel 'Nothing a b c) f)
                         tso
@@ -331,8 +331,13 @@ instance (All Top (LeafTypes f), GTSTypeF f, GTSTupleF g)
 
 instance (KnownSymbol nm, GTSTypeF f) => GTSTypeF (M1 D ('MetaData nm a b c) f) where
     gtoTSTypeF tso lts = mapTSTypeF_
-      (\tsg -> invmap M1 unM1 $ tsg { tsgName = knownSymbolText @nm })
-      (gtoTSTypeF @f tso lts)
+        (invmap M1 unM1 . reName)
+        (gtoTSTypeF @f tso lts)
+      where
+        reName :: TSTypeF p k n qs q -> TSTypeF p k n qs q
+        reName = \case
+          TSGeneric _ p f -> TSGeneric (knownSymbolText @nm) p f
+          TSGenericInterface _ p f -> TSGenericInterface (knownSymbolText @nm) p f
 
 instance GTSTypeF f => GTSTypeF (M1 S ('MetaSel s a b c) f) where
     gtoTSTypeF tso lts = mapTSTypeF_ (invmap M1 unM1) (gtoTSTypeF @f tso lts)
@@ -343,23 +348,23 @@ instance GTSTypeF f => GTSTypeF (M1 C ('MetaCons constr a b) f) where
 -- TODO: hm....
 instance GTSTypeF Par1 where
     gtoTSTypeF _ _ = TSTypeF_ $
-      TSGeneric "Par1" SNotObj (K "T" :* Nil) $ \_ (x :* Nil) ->
+      TSGeneric "Par1" (K "T" :* Nil) $ \_ (x :* Nil) ->
         onTSType_ id TSSingle (invmap Par1 unPar1 x)
 
 instance GTSTypeF (K1 i x) where
     gtoTSTypeF :: forall p n a. TSOpts -> NP (TSType_ p n) '[x] -> TSTypeF_ p n '[a] (K1 i x a)
     gtoTSTypeF _ (TSType_ t :* Nil) = TSTypeF_ $
-        TSGeneric "K1" (tsObjType t) (K "T" :* Nil) $ \rs _ ->
+        TSGeneric "K1" (K "T" :* Nil) $ \rs _ ->
           tsShift @_ @p rs $ invmap K1 unK1 t
 
 instance GTSTypeF U1 where
     gtoTSTypeF _ _ = TSTypeF_ $
-      TSGeneric "U1" SNotObj (K "T" :* Nil) $ \_ _ ->
+      TSGeneric "U1" (K "T" :* Nil) $ \_ _ ->
         invmap (const U1) (const ()) $ TSPrimType (inject TSVoid)
 
 instance GTSTypeF V1 where
     gtoTSTypeF _ _ = TSTypeF_ $
-      TSGeneric "V1" SNotObj (K "T" :* Nil) $ \_ _ ->
+      TSGeneric "V1" (K "T" :* Nil) $ \_ _ ->
         invmap absurd (\case {}) $ TSPrimType (inject TSNever)
 
 

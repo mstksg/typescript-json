@@ -49,7 +49,7 @@ module Typescript.Json (
   , tsGeneric1
   , tsGeneric2
   , tsGeneric3
-  , tsGeneric
+  -- , tsGeneric
   , tsApplied1
   , tsApplied2
   , tsApplied3
@@ -68,10 +68,10 @@ module Typescript.Json (
   -- * Printing
   , ppType
   , ppTypeF
-  , typeExports
-  , typeExports_
-  , typeFExports
-  , typeFExports_
+  -- , typeExports
+  -- , typeExports_
+  -- , typeFExports
+  -- , typeFExports_
   , IsInterface(..)
   -- * Serializing
   , encodeType
@@ -624,7 +624,7 @@ tsNamed
     :: Text
     -> TSType p k n a
     -> TSType p k n a
-tsNamed = TSNamed
+tsNamed nm t = TSApplied (TSGeneric nm Nil (\n _ -> tsShift n t)) Nil
 -- TODO: namespacing
 
 -- | Wrap a type in a name.
@@ -656,7 +656,7 @@ tsGeneric1
     -> Text                     -- ^ Name of the parameter (used for printing)
     -> (forall r. SNat_ r -> TSType_ (Plus r p) n a -> TSType (Plus r p) k n b)         -- ^ Make a type, given the type parameter
     -> TSTypeF p k n '[a] b
-tsGeneric1 n o p f = TSGeneric n o (K p :* Nil) (\rs (t :* Nil) -> f rs t)
+tsGeneric1 n o p f = TSGeneric n (K p :* Nil) (\rs (t :* Nil) -> f rs t)
 
 tsGeneric2
     :: Text
@@ -665,7 +665,7 @@ tsGeneric2
     -> Text
     -> (forall r. SNat_ r -> TSType_ (Plus r p) n a -> TSType_ (Plus r p) n b -> TSType (Plus r p) k n c)
     -> TSTypeF p k n '[a, b] c
-tsGeneric2 n o p q f = TSGeneric n o (K p :* K q :* Nil)
+tsGeneric2 n o p q f = TSGeneric n (K p :* K q :* Nil)
     (\rs (t :* u :* Nil) -> f rs t u)
 
 tsGeneric3
@@ -676,17 +676,17 @@ tsGeneric3
     -> Text
     -> (forall r. SNat_ r -> TSType_ (Plus r p) n a -> TSType_ (Plus r p) n b -> TSType_ (Plus r p) n c -> TSType (Plus r p) k n d)
     -> TSTypeF p k n '[a, b, c] d
-tsGeneric3 n o p q r f = TSGeneric n o (K p :* K q :* K r :* Nil)
+tsGeneric3 n o p q r f = TSGeneric n (K p :* K q :* K r :* Nil)
     (\rs (t :* u :* v :* Nil) -> f rs t u v)
 
--- | A parameterized type with multiple parameters.  Prefer
-tsGeneric
-    :: Text                 -- ^ Name
-    -> SIsObjType k         -- ^ whether or not it is an object literal
-    -> NP (K Text) as       -- ^ Name of parameters
-    -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSType (Plus r p) k n b)   -- ^ Type function
-    -> TSTypeF p k n as b
-tsGeneric = TSGeneric
+-- -- | A parameterized type with multiple parameters.  Prefer
+-- tsGeneric
+--     :: Text                 -- ^ Name
+--     -> SIsObjType k         -- ^ whether or not it is an object literal
+--     -> NP (K Text) as       -- ^ Name of parameters
+--     -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSType (Plus r p) k n b)   -- ^ Type function
+--     -> TSTypeF p k n as b
+-- tsGeneric = TSGeneric
 
 tsApplied
     :: TSTypeF p k n as b
@@ -699,7 +699,8 @@ tsApply2
     -> TSType_ p n a                -- ^ thing to apply
     -> TSType_ p n b                -- ^ thing to apply
     -> TSType p k n c
-tsApply2 (TSGeneric _ _ _ f) tx ty = f SZ_ (tx :* ty :* Nil)
+tsApply2 (TSGeneric _ _ f) tx ty = f SZ_ (tx :* ty :* Nil)
+tsApply2 (TSGenericInterface _ _ f) tx ty = TSObject $ f SZ_ (tx :* ty :* Nil)
 
 tsApply3
     :: TSTypeF p k n '[a, b, c] d      -- ^ type function
@@ -707,7 +708,8 @@ tsApply3
     -> TSType_ p n b                   -- ^ thing to apply
     -> TSType_ p n c                   -- ^ thing to apply
     -> TSType p k n d
-tsApply3 (TSGeneric _ _ _ f) tx ty tz = f SZ_ (tx :* ty :* tz :* Nil)
+tsApply3 (TSGeneric _ _ f) tx ty tz = f SZ_ (tx :* ty :* tz :* Nil)
+tsApply3 (TSGenericInterface _ _ f) tx ty tz = TSObject $ f SZ_ (tx :* ty :* tz :* Nil)
 
 tsApplied1
     :: TSTypeF p k n '[a] b
@@ -837,12 +839,4 @@ decodeTypeStrict
     -> BS.ByteString
     -> Either (ABE.ParseError ParseErr) a
 decodeTypeStrict t = ABE.parseStrict (parseType t)
-
--- data SSym :: Symbol -> Type where
---     SSym :: KnownSymbol s => SSym s
-
--- tsSymbol :: KnownSymbol s => TSType p 'NotObj n (SSym s)
--- tsSymbol = invmap (const x) (const ()) $ tsStringLit (T.pack (symbolVal x))
---   where
---     x = SSym
 
