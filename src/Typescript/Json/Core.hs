@@ -248,11 +248,13 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
 data TSNameable :: Nat -> IsObjType -> [Type] -> Type -> Type where
     TSNFunc     :: TSTypeF p k as a -> TSNameable p k as a
     TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj '[] a
+    TSNExternal :: PS ((:~:) A.Value) a -> TSNameable p 'NotObj '[] a
 
 instance Invariant (TSNameable p k as) where
     invmap f g = \case
       TSNFunc x     -> TSNFunc (invmap f g x)
       TSNPrimType x -> TSNPrimType (invmap f g x)
+      TSNExternal x -> TSNExternal (invmap f g x)
 
 data TSNamed_ p as a = forall k. TSNamed_ (TSNamed p k as a)
 
@@ -318,8 +320,9 @@ instance Invariant (TSType p k) where
       TSSingle ts -> TSSingle (invmap f g ts)
       TSUnion  ts -> TSUnion (invmap f g ts)
       TSNamedType (TSNamed nm nt) xs -> case nt of
-        TSNFunc tf -> TSNamedType (TSNamed nm (TSNFunc (invmap f g tf))) xs
+        TSNFunc tf     -> TSNamedType (TSNamed nm (TSNFunc     (invmap f g tf))) xs
         TSNPrimType ps -> TSNamedType (TSNamed nm (TSNPrimType (invmap f g ps))) xs
+        TSNExternal ps -> TSNamedType (TSNamed nm (TSNExternal (invmap f g ps))) xs
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
       TSPrimType p -> TSPrimType (invmap f g p)
@@ -441,6 +444,7 @@ tsShift n = go
           ))
           (hmap (mapTSType_ go) xs)
         TSNPrimType ps -> TSNamedType (TSNamed nm (TSNPrimType ps)) Nil
+        TSNExternal ps -> TSNamedType (TSNamed nm (TSNExternal ps)) Nil
       TSIntersection t -> TSIntersection (hmap go t)
       TSVar i    -> TSVar (shiftFin n i)
       TSPrimType t -> TSPrimType t
@@ -480,6 +484,7 @@ tsObjType = \case
       TSNFunc tsf@(TSGeneric{})      -> tsApplyVar tsf $ \_ -> tsObjType
       TSNFunc (TSGenericInterface{}) -> SIsObj
       TSNPrimType _                  -> SNotObj
+      TSNExternal _                  -> SNotObj
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
     TSPrimType _                  -> SNotObj
@@ -580,6 +585,7 @@ ppType' = go
       TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
       TSPrimType PS{..} -> ppPrim psItem
 
+-- TODO: these typeF should probably be TSName instead of TSTypeF
 ppTypeF
     :: Text
     -> TSTypeF 'Nat.Z k a b
@@ -681,14 +687,15 @@ flattenNamedType_
     -> TSNamed p k as a
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
 flattenNamedType_ ps TSNamed{..} = case tsnType of
-    TSNPrimType PS{..} -> do
-      modify $ M.insert tsnName (S.empty, ppNamedPrim tsnName psItem)
-      pure S.empty
     TSNFunc tsf -> do
       deps <- tsApplyVar tsf $ \rs t -> flattenType_ (rs Vec.++ ps) t
       modify $ M.insert tsnName $
         (deps, ppTypeF' tsnName ps tsf)
       pure deps
+    TSNPrimType PS{..} -> do
+      modify $ M.insert tsnName (S.empty, ppNamedPrim tsnName psItem)
+      pure S.empty
+    TSNExternal _ -> pure S.empty
 
 flattenType_
     :: forall p k a x. ()
@@ -780,6 +787,7 @@ typeToEncoding = \case
     TSNamedType (TSNamed _ nt) xs -> case nt of
       TSNFunc f -> typeToEncoding (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToEncoding psItem . psSerializer
+      TSNExternal PS{..} -> AE.value . castWith (sym psItem) . psSerializer
     TSIntersection ts -> A.pairs . getOp (objTypeToEncoding (TSIntersection ts))
     TSPrimType PS{..} -> primToEncoding psItem . psSerializer
 
@@ -843,6 +851,7 @@ typeToValue = \case
     TSNamedType (TSNamed _ nt) xs -> case nt of
       TSNFunc f -> typeToValue (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToValue psItem . psSerializer
+      TSNExternal PS{..} -> castWith (sym psItem) <$> psSerializer
     TSIntersection ts -> A.object . getOp (objTypeToValue (TSIntersection ts))
     TSPrimType PS{..} -> primToValue psItem . psSerializer
 
@@ -852,6 +861,7 @@ data ParseErr = PEInvalidEnum   [(Text, EnumLit)]
               | PEInvalidBigInt Integer    Integer
               | PEPrimitive     (Some TSPrim) Text
               | PENamedPrimitive (Some TSNamedPrim) Text
+              | PEExternal      Text       Text
               | PEExtraTuple    Int        Int
               | PENotInUnion    [PP.Doc ()]
               | PENever
@@ -913,12 +923,14 @@ parseType = \case
       -- let us = icollect (withTSType_ (ppType Vec.VNil)) ts
       in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
             icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
-    TSNamedType (TSNamed _ nt) xs -> case nt of
+    TSNamedType (TSNamed nm nt) xs -> case nt of
       TSNFunc t -> parseType (tsApply t xs)
       TSNPrimType PS{..}
             -> either (ABE.throwCustomError . PENamedPrimitive (Some psItem)) pure . psParser
            =<< parseNamedPrim psItem
-    -- TSApplied t f -> parseType (tsApply t f)
+      TSNExternal PS{..}
+            -> either (ABE.throwCustomError . PEExternal nm) pure . psParser . castWith psItem
+           =<< ABE.asValue
     TSIntersection ts -> interpret parseType ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem

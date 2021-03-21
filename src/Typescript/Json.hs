@@ -655,23 +655,21 @@ tsNamed_ nm = withTSType_ (TSNamed_ . tsNamed nm)
 -- @
 tsGeneric1
     :: Text                     -- ^ Name of the type
-    -> SIsObjType k             -- ^ Whether or not the type is an object literal.  Must be statically known.
     -> Text                     -- ^ Name of the parameter (used for printing)
     -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType (Plus r p) k b)         -- ^ Make a type, given the type parameter
     -> TSNamed p k '[a] b
-tsGeneric1 n o p f = TSNamed
+tsGeneric1 n p f = TSNamed
     { tsnName = n
     , tsnType = TSNFunc $ TSGeneric (K p :* Nil) (\rs (t :* Nil) -> f rs t)
     }
 
 tsGeneric2
     :: Text
-    -> SIsObjType k
     -> Text
     -> Text
     -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType (Plus r p) k c)
     -> TSNamed p k '[a, b] c
-tsGeneric2 n o p q f = TSNamed
+tsGeneric2 n p q f = TSNamed
     { tsnName = n
     , tsnType = TSNFunc $
         TSGeneric (K p :* K q :* Nil) (\rs (t :* u :* Nil) -> f rs t u)
@@ -679,13 +677,12 @@ tsGeneric2 n o p q f = TSNamed
 
 tsGeneric3
     :: Text
-    -> SIsObjType k
     -> Text
     -> Text
     -> Text
     -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType_ (Plus r p) c -> TSType (Plus r p) k d)
     -> TSNamed p k '[a, b, c] d
-tsGeneric3 n o p q r f = TSNamed
+tsGeneric3 n p q r f = TSNamed
     { tsnName = n
     , tsnType = TSNFunc $
         TSGeneric (K p :* K q :* K r :* Nil) (\rs (t :* u :* v :* Nil) -> f rs t u v)
