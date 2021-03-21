@@ -623,11 +623,11 @@ tsIntersection = TSIntersection . PreT . getIntersectVals
 tsNamed
     :: Text
     -> TSType p k n a
-    -> TSType p k n a
-tsNamed nm t = TSNamedType (TSNamed
+    -> TSNamed p k n '[] a
+tsNamed nm t = TSNamed
     { tsnName = nm
     , tsnType = TSNFunc (TSGeneric Nil (\n _ -> tsShift n t))
-    }) Nil
+    }
 -- TODO: namespacing
 
 -- | Wrap a type in a name.
@@ -641,8 +641,8 @@ tsNamed nm t = TSNamedType (TSNamed
 tsNamed_
     :: Text
     -> TSType_ p n a
-    -> TSType_ p n a
-tsNamed_ t = mapTSType_ (tsNamed t)
+    -> TSNamed_ p n '[] a
+tsNamed_ nm = withTSType_ (TSNamed_ . tsNamed nm)
 
 -- | Create a single-argument generic (parameterized) type.
 --

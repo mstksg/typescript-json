@@ -24,10 +24,12 @@
 module Typescript.Json.Generics (
   -- * Typeclass-based
     GTSType(..)
+  , GTSNamed(..)
   , GTSSum(..)
   , GTSObject(..)
   , GTSTuple(..)
   , GTSTypeF(..)
+  , GTSNamedF(..)
   , GTSSumF(..)
   , GTSObjectF(..)
   , GTSTupleF(..)
@@ -35,10 +37,14 @@ module Typescript.Json.Generics (
   , ToTSType(..)
   , genericToTSType
   , genericToTSType_
+  , genericToTSNamed
+  , genericToTSNamed_
   , genericToTSType1
   , genericToTSType1_
   , genericToTSTypeF
   , genericToTSTypeF_
+  , genericToTSNamedF
+  , genericToTSNamedF_
   -- * Util
   , type (++)
   , splitNP
@@ -107,21 +113,35 @@ genericToTSType
     -> TSType_ p n a
 genericToTSType tso = invmap to from . gtoTSType @(Rep a) tso
 
+genericToTSNamed_
+    :: forall a p n. (Generic a, GTSNamed (Rep a), All ToTSType (LeafTypes (Rep a)))
+    => TSOpts
+    -> TSNamed_ p n '[] a
+genericToTSNamed_ tso = genericToTSNamed @a tso (SOP.hcpure (Proxy @ToTSType) toTSType)
+
+genericToTSNamed
+    :: forall a p n. (Generic a, GTSNamed (Rep a))
+    => TSOpts
+    -> NP (TSType_ p n) (LeafTypes (Rep a))
+    -> TSNamed_ p n '[] a
+genericToTSNamed tso = invmap to from . gtoTSNamed @(Rep a) tso
+
 genericToTSType1_
-    :: forall f p n a. (Generic1 f, GTSTypeF (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    :: forall f p n a. (Generic1 f, GTSNamedF (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
     => TSOpts
     -> TSType_ p n a
     -> TSType_ p n (f a)
 genericToTSType1_ tso = genericToTSType1 @f tso (SOP.hcpure (Proxy @ToTSType) toTSType)
 
 genericToTSType1
-    :: forall f p n a. (Generic1 f, GTSTypeF (Rep1 f))
+    :: forall f p n a. (Generic1 f, GTSNamedF (Rep1 f))
     => TSOpts
     -> NP (TSType_ p n) (LeafTypes (Rep1 f))
     -> TSType_ p n a
     -> TSType_ p n (f a)
-genericToTSType1 tso lts tx = case genericToTSTypeF @f tso lts of
-    TSTypeF_ tf -> TSType_ $ TSApplied tf (tx :* Nil)
+genericToTSType1 tso lts tx =
+    withTSNamed_ (TSType_ . (`TSNamedType` (tx :* Nil))) $
+      genericToTSNamedF @f tso lts
 
 genericToTSTypeF_
     :: forall f p n a. (Generic1 f, GTSTypeF (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
@@ -135,6 +155,20 @@ genericToTSTypeF
     -> NP (TSType_ p n) (LeafTypes (Rep1 f))
     -> TSTypeF_ p n '[a] (f a)
 genericToTSTypeF tso = invmap to1 from1 . gtoTSTypeF @(Rep1 f) tso
+
+genericToTSNamedF_
+    :: forall f p n a. (Generic1 f, GTSNamedF (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    => TSOpts
+    -> TSNamed_ p n '[a] (f a)
+genericToTSNamedF_ tso = genericToTSNamedF tso (SOP.hcpure (Proxy @ToTSType) toTSType)
+
+genericToTSNamedF
+    :: forall f p n a. (Generic1 f, GTSNamedF (Rep1 f))
+    => TSOpts
+    -> NP (TSType_ p n) (LeafTypes (Rep1 f))
+    -> TSNamed_ p n '[a] (f a)
+genericToTSNamedF tso = invmap to1 from1 . gtoTSNamedF @(Rep1 f) tso
+
 
 type family LeafTypes (f :: Type -> Type) :: [Type] where
     LeafTypes (K1 i a)   = '[a]
@@ -160,13 +194,19 @@ instance Default TSOpts where
         , tsoSumOpts = def
         }
 
+class GTSNamed (f :: Type -> Type) where
+    gtoTSNamed :: TSOpts -> NP (TSType_ p n) (LeafTypes f) -> TSNamed_ p n '[] (f x)
+
+instance (KnownSymbol nm, GTSType f) => GTSNamed (M1 D ('MetaData nm a b c) f) where
+    gtoTSNamed tso lts = tsNamed_ (knownSymbolText @nm) $
+      invmap M1 unM1 (gtoTSType @f tso lts)
+
 class GTSType (f :: Type -> Type) where
     gtoTSType :: TSOpts -> NP (TSType_ p n) (LeafTypes f) -> TSType_ p n (f x)
 
 instance (KnownSymbol nm, GTSType f) => GTSType (M1 D ('MetaData nm a b c) f) where
-    gtoTSType tso lts = mapTSType_
-      (tsNamed (knownSymbolText @nm) . invmap M1 unM1)
-      (gtoTSType @f tso lts)
+    gtoTSType tso lts =
+        withTSNamed_ (TSType_ . (`TSNamedType` Nil)) (gtoTSNamed tso lts)
 
 instance GTSType f => GTSType (M1 S ('MetaSel s a b c) f) where
     gtoTSType tso lts = mapTSType_ (invmap M1 unM1) (gtoTSType @f tso lts)
@@ -276,13 +316,20 @@ instance GTSType f => GTSTuple (M1 S ('MetaSel 'Nothing a b c) f) where
 
 
 
+class GTSNamedF (f :: Type -> Type) where
+    gtoTSNamedF :: TSOpts -> NP (TSType_ p n) (LeafTypes f) -> TSNamed_ p n '[x] (f x)
+
+instance (KnownSymbol nm, GTSTypeF f) => GTSNamedF (M1 D ('MetaData nm a b c) f) where
+    gtoTSNamedF tso lts =
+      withTSTypeF_ (TSNamed_ . TSNamed (knownSymbolText @nm) . TSNFunc) $
+        invmap M1 unM1 (gtoTSTypeF @f tso lts)
 
 class GTSTypeF (f :: Type -> Type) where
     gtoTSTypeF :: TSOpts -> NP (TSType_ p n) (LeafTypes f) -> TSTypeF_ p n '[a] (f a)
 
 instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSTypeF (f :+: g) where
     gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric ":+:" (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
+        TSGeneric (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
           tsTaggedUnion tvo $ decide (\case L1 x -> Left x; R1 y -> Right y)
             (gtsSumF @f tso (hmap (mapTSType_ (tsShift rs)) as) L1 t)
             (gtsSumF @g tso (hmap (mapTSType_ (tsShift rs)) bs) R1 t)
@@ -296,7 +343,7 @@ instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSTypeF (f :+: g) whe
 instance (All Top (LeafTypes f), KnownSymbol k, GTSTypeF f, GTSObjectF g)
       => GTSTypeF ((M1 S ('MetaSel ('Just k) a b c) f) :*: g) where
     gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric ":*:" (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
+        TSGeneric (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
           tsObject $
             (:*:) <$> gtsObjectF @(M1 S ('MetaSel ('Just k) a b c) f)
                         tso
@@ -314,7 +361,7 @@ instance (All Top (LeafTypes f), KnownSymbol k, GTSTypeF f, GTSObjectF g)
 instance (All Top (LeafTypes f), GTSTypeF f, GTSTupleF g)
       => GTSTypeF ((M1 S ('MetaSel 'Nothing a b c) f) :*: g) where
     gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric ":*:" (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
+        TSGeneric (K "T" :* Nil) $ \rs (TSType_ t :* Nil) ->
           tsTuple $
             (:*:) <$> gtsTupleF @(M1 S ('MetaSel 'Nothing a b c) f)
                         tso
@@ -329,16 +376,6 @@ instance (All Top (LeafTypes f), GTSTypeF f, GTSTupleF g)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance (KnownSymbol nm, GTSTypeF f) => GTSTypeF (M1 D ('MetaData nm a b c) f) where
-    gtoTSTypeF tso lts = mapTSTypeF_
-        (invmap M1 unM1 . reName)
-        (gtoTSTypeF @f tso lts)
-      where
-        reName :: TSTypeF p k n qs q -> TSTypeF p k n qs q
-        reName = \case
-          TSGeneric _ p f -> TSGeneric (knownSymbolText @nm) p f
-          TSGenericInterface _ p f -> TSGenericInterface (knownSymbolText @nm) p f
-
 instance GTSTypeF f => GTSTypeF (M1 S ('MetaSel s a b c) f) where
     gtoTSTypeF tso lts = mapTSTypeF_ (invmap M1 unM1) (gtoTSTypeF @f tso lts)
 
@@ -348,23 +385,23 @@ instance GTSTypeF f => GTSTypeF (M1 C ('MetaCons constr a b) f) where
 -- TODO: hm....
 instance GTSTypeF Par1 where
     gtoTSTypeF _ _ = TSTypeF_ $
-      TSGeneric "Par1" (K "T" :* Nil) $ \_ (x :* Nil) ->
+      TSGeneric (K "T" :* Nil) $ \_ (x :* Nil) ->
         onTSType_ id TSSingle (invmap Par1 unPar1 x)
 
 instance GTSTypeF (K1 i x) where
     gtoTSTypeF :: forall p n a. TSOpts -> NP (TSType_ p n) '[x] -> TSTypeF_ p n '[a] (K1 i x a)
     gtoTSTypeF _ (TSType_ t :* Nil) = TSTypeF_ $
-        TSGeneric "K1" (K "T" :* Nil) $ \rs _ ->
+        TSGeneric (K "T" :* Nil) $ \rs _ ->
           tsShift @_ @p rs $ invmap K1 unK1 t
 
 instance GTSTypeF U1 where
     gtoTSTypeF _ _ = TSTypeF_ $
-      TSGeneric "U1" (K "T" :* Nil) $ \_ _ ->
+      TSGeneric (K "T" :* Nil) $ \_ _ ->
         invmap (const U1) (const ()) $ TSPrimType (inject TSVoid)
 
 instance GTSTypeF V1 where
     gtoTSTypeF _ _ = TSTypeF_ $
-      TSGeneric "V1" (K "T" :* Nil) $ \_ _ ->
+      TSGeneric (K "T" :* Nil) $ \_ _ ->
         invmap absurd (\case {}) $ TSPrimType (inject TSNever)
 
 
@@ -387,7 +424,6 @@ instance {-# OVERLAPS #-} KnownSymbol constr
       => GTSSumF (M1 C ('MetaCons constr a b) U1) where
     gtsSumF TSOpts{..} _ f _ = () >$ emptyTaggedBranch (f (M1 U1)) (tsoConstructorModifier (symbolVal (Proxy @constr)))
 
--- | Will "flatten out" objects if possible
 instance (KnownSymbol constr, GTSTypeF f)
       => GTSSumF (M1 C ('MetaCons constr a b) f) where
     gtsSumF tso@TSOpts{..} lts f t = withTSTypeF_

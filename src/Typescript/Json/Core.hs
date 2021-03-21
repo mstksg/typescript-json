@@ -39,6 +39,8 @@ module Typescript.Json.Core (
   , TSType(..)
   , TSType_(..)
   , TSNamed(..)
+  , TSNamed_(..)
+  , withTSNamed_
   , TSNameable(..)
   , ObjMember(..)
   , TSKeyVal
@@ -252,10 +254,29 @@ data TSNameable :: Nat -> IsObjType -> Type -> [Type] -> Type -> Type where
     TSNFunc     :: TSTypeF p k n as a -> TSNameable p k n as a
     TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj n '[] a
 
+instance Invariant (TSNameable p k n as) where
+    invmap f g = \case
+      TSNFunc x     -> TSNFunc (invmap f g x)
+      TSNPrimType x -> TSNPrimType (invmap f g x)
+
+data TSNamed_ p n as a = forall k. TSNamed_ (TSNamed p k n as a)
+
+withTSNamed_
+    :: (forall k. TSNamed p k n as a -> r)
+    -> TSNamed_ p n as a
+    -> r
+withTSNamed_ f (TSNamed_ t) = f t
+
 data TSNamed p k n as a = TSNamed
     { tsnName :: Text
     , tsnType :: TSNameable p k n as a
     }
+
+instance Invariant (TSNamed p k n as) where
+    invmap f g (TSNamed n t) = TSNamed n (invmap f g t)
+
+instance Invariant (TSNamed_ p n as) where
+    invmap f g (TSNamed_ x) = TSNamed_ (invmap f g x)
 
 -- TODO: new idea...no need for n type variable if we always just directly
 -- encode into text on-the-fly?  so flatten returns docs directly instead
@@ -282,26 +303,11 @@ data TSTypeF :: Nat -> IsObjType -> Type -> [Type] -> Type -> Type where
         -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSKeyVal (Plus r p) n b)
         -> TSTypeF p 'IsObj n as b
 
--- instance Eq (TSTypeF p k n as a) where
---     (==) = \case
---     --   TSGeneric t ps f -> \case
---     --     TSGeneric t' ps' f'
-
--- data TSExport =
---     forall a.    TSEType    String (TSType_ 'Nat.Z Text a)
---   | forall as b. TSEGeneric (TSTypeF_ 'Nat.Z Text as b)
---   | TSEEnum Text [(Text, EnumLit)]
-
--- new system: no "named" type, but rather references?
--- but then that would make toTS partial
-
 instance Invariant (TSTypeF p k n as) where
     invmap f g (TSGeneric xs h) =
         TSGeneric xs (\q -> invmap f g . h q)
     invmap f g (TSGenericInterface xs h) =
         TSGenericInterface xs (\q -> invmap f g . h q)
-    -- invmap f g (TSPrimTypeF n p) =
-    --     TSPrimTypeF n (invmap f g p)
 
 data TSTypeF_ p n as b = forall k. TSTypeF_ { unTSTypeF_ :: TSTypeF p k n as b }
 
@@ -641,7 +647,7 @@ ppTypeFWith
     -> PP.Doc x
 ppTypeFWith f n ps tf@(TSGeneric vs _) = PP.hsep [
       "type"
-        PP.<> PP.pretty n
+        PP.<+> PP.pretty n
         PP.<> (if null args then ""
                             else PP.encloseSep "<" ">" "," args
               )
@@ -693,7 +699,8 @@ ppMap
     :: forall x. ()
     => Map Text (Set Text, PP.Doc x)
     -> PP.Doc x
-ppMap (M.mapKeys Down->mp) = PP.vcat (("export" PP.<>) <$> FGL.topsort' graph)
+ppMap (M.mapKeys Down->mp) = PP.vcat $
+    ("export" PP.<+>) <$> FGL.topsort' graph
   where
     nodes = zip [0..] (toList mp)
     graph :: FGL.Gr (PP.Doc x) ()
