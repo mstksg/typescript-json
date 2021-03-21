@@ -125,7 +125,7 @@ import qualified GHC.Exts                                  as Exts
 -- (for optional properties) and combined using its 'Applicative' instance.
 -- To finally turn one into a 'TSType', use 'tsObject'.
 --
--- In a @'ObjectProps' p n a b@, the @a@ represents the overall aggregate
+-- In a @'ObjectProps' p a b@, the @a@ represents the overall aggregate
 -- type, and the @b@ represents the type of the part that this 'ObjectProps'
 -- is describing.
 --
@@ -136,13 +136,13 @@ import qualified GHC.Exts                                  as Exts
 --   , mtc :: Maybe String
 --   }
 --
--- myTypeProps :: 'ObjectProps' p n MyType MyType
+-- myTypeProps :: 'ObjectProps' p MyType MyType
 -- myTypeProps = MyType
 --   <$> 'keyVal' True mta "mta" ('TSType_' 'tsBoundedInteger')
 --   <*> keyVal True mtb "mtb" (TSType_ 'tsBoolean')
 --   <*> 'keyValMay' mtc "mtc" (TSType_ 'tsString')
 --
--- myType :: TSType p 'IsObj n MyType
+-- myType :: TSType p 'IsObj MyType
 -- myType = tsObject myTypeProps
 -- @
 --
@@ -152,19 +152,19 @@ import qualified GHC.Exts                                  as Exts
 -- @
 --
 -- In the above, @keyVal True mta "mta" tsBoundedInteger@ has the type
--- @ObjectProps p n MyType Int@, showing that it refers to the @Int@ field
+-- @ObjectProps p MyType Int@, showing that it refers to the @Int@ field
 -- of the @MyType@.  The trick to using this is to assemble 'ObjectProps'
 -- together using Applicative combinators until the @a@ and @b@ "match",
 -- and the 'ObjectProps' describes the entire value.  Then you can use
 -- 'tsObject'.
-newtype ObjectProps p n a b = ObjectProps
-    { getObjectProps :: Ap (Pre a (ObjMember (TSType_ p n))) b }
+newtype ObjectProps p a b = ObjectProps
+    { getObjectProps :: Ap (Pre a (ObjMember (TSType_ p))) b }
   deriving newtype (Functor, Apply, Applicative)
 
-instance Invariant (ObjectProps p n a) where
+instance Invariant (ObjectProps p a) where
     invmap f _ = fmap f
 
-instance Profunctor (ObjectProps p n) where
+instance Profunctor (ObjectProps p) where
     dimap f g = ObjectProps . hmap (mapPre f) . fmap g . getObjectProps
 
 -- | Create a single key-value pair for an object.  If the first argument
@@ -175,8 +175,8 @@ keyVal
     :: Bool             -- ^ turn nullable types into optional params if possible
     -> (a -> b)         -- ^ project this pair's value out of the aggregate type
     -> Text             -- ^ key (property name)
-    -> TSType_ p n b
-    -> ObjectProps p n a b
+    -> TSType_ p b
+    -> ObjectProps p a b
 keyVal True f k (TSType_ (TSNullable t)) = ObjectProps . injectPre f $ ObjMember
     { objMemberKey = k
     , objMemberVal = R1 (hmap TSType_ t)
@@ -190,8 +190,8 @@ keyVal _ f k t = ObjectProps . injectPre f $ ObjMember
 keyValMay
     :: (a -> Maybe b)   -- ^ project this pair's value out of the aggregate type, potentially revealing it is not present.
     -> Text             -- ^ key (property name)
-    -> TSType_ p n b
-    -> ObjectProps p n a (Maybe b)
+    -> TSType_ p b
+    -> ObjectProps p a (Maybe b)
 keyValMay f k t = ObjectProps . injectPre f $ ObjMember
     { objMemberKey = k
     , objMemberVal = R1 (ilan t)
@@ -200,15 +200,15 @@ keyValMay f k t = ObjectProps . injectPre f $ ObjMember
 -- | Gather together object properties into a 'TSType'.  See 'ObjectProps'
 -- for details on how to use this.
 tsObject
-    :: ObjectProps p n a a
-    -> TSType p 'IsObj n a
+    :: ObjectProps p a a
+    -> TSType p 'IsObj a
 tsObject = TSObject . PreT . getObjectProps
 
 -- | A type aggregating values in a tuple type.  Meant to
 -- be assembled using 'tupleVal' and combined using its 'Applicative'
 -- instance.  To finally turn one into a 'TSType', use 'tsTuple'.
 --
--- In a @'TupleVals' p n a b@, the @a@ represents the overall aggregate
+-- In a @'TupleVals' p a b@, the @a@ represents the overall aggregate
 -- type, and the @b@ represents the type of the part that this 'TupleVals'
 -- is describing.
 --
@@ -219,13 +219,13 @@ tsObject = TSObject . PreT . getObjectProps
 --   , mtc :: String
 --   }
 --
--- myTypeVals :: 'TupleVals' p n MyType MyType
+-- myTypeVals :: 'TupleVals' p MyType MyType
 -- myTypeVals = MyType
 --   <$> 'tupleVal' mta (TSType_ 'tsBoundedInteger')
 --   <*> tupleVal mtb (TSType_ 'tsBoolean')
 --   <*> tupleVal mtc (TSType_ 'tsString')
 --
--- myType :: TSType p 'NotObj n MyType
+-- myType :: TSType p 'NotObj MyType
 -- myType = tsTuple myTypeVals
 -- @
 --
@@ -235,7 +235,7 @@ tsObject = TSObject . PreT . getObjectProps
 -- @
 --
 -- In the above, @tupleVal mta tsBoundedInteger@ has the type
--- @TupleVals p n MyType Int@, showing that it refers to the @Int@ field
+-- @TupleVals p MyType Int@, showing that it refers to the @Int@ field
 -- of the @MyType@.  The trick to using this is to assemble 'TupleVals'
 -- together using Applicative combinators until the @a@ and @b@ "match",
 -- and the 'TupleVals' describes the entire value.  Then you can use
@@ -243,36 +243,36 @@ tsObject = TSObject . PreT . getObjectProps
 --
 -- Note that the order that the 'Applicative' combination matters: it
 -- determines the ordering of the tuple.
-newtype TupleVals p n a b = TupleVals
-    { getTupleVals :: Ap (Pre a (TSType_ p n)) b }
+newtype TupleVals p a b = TupleVals
+    { getTupleVals :: Ap (Pre a (TSType_ p)) b }
   deriving newtype (Functor, Apply, Applicative)
 
-instance Invariant (TupleVals p n a) where
+instance Invariant (TupleVals p a) where
     invmap f _ = fmap f
 
-instance Profunctor (TupleVals p n) where
+instance Profunctor (TupleVals p) where
     dimap f g = TupleVals . hmap (mapPre f) . fmap g . getTupleVals
 
 -- | Create a singleton 'TupleVals', to be combined with applicative
 -- combinators with others.
 tupleVal
     :: (a -> b)         -- ^ project this pair's value out of the aggregate type
-    -> TSType_ p n b
-    -> TupleVals p n a b
+    -> TSType_ p b
+    -> TupleVals p a b
 tupleVal f = TupleVals . injectPre f
 
 -- | Gather together tuple values into a 'TSType'.  See 'TupleVals' for
 -- details on how to use this.
 tsTuple
-    :: TupleVals p n a a
-    -> TSType p 'NotObj n a
+    :: TupleVals p a a
+    -> TSType p 'NotObj a
 tsTuple = TSTuple . PreT . getTupleVals
 
 -- | A type aggregating branches in a union type.  Meant to
 -- be assembled using 'unionBranch' and combined using its 'Decide'
 -- instance.  To finally turn one into a 'TSType', use 'tsUnion'.
 --
--- In a @'UnionBranches' p n a b@, the @a@ represents the overall aggregate
+-- In a @'UnionBranches' p a b@, the @a@ represents the overall aggregate
 -- type, and the @b@ represents the type of the part that this
 -- 'UnionBranches'
 -- is describing.
@@ -280,12 +280,12 @@ tsTuple = TSTuple . PreT . getTupleVals
 -- @
 -- data MyType = MTA Int | MTB Bool
 --
--- myTypeBranches :: UnionBranches p n MyType MyType
+-- myTypeBranches :: UnionBranches p MyType MyType
 -- myTypeBranches = 'decide' (\case MTA i -> Left i; MTB b -> Right b)
 --     ('unionBranch' MTA (TSType_ 'tsBoundedInteger'))
 --     ('unionBranch' MTB (TSType_ 'tsBoolean'))
 --
--- myType :: TSType p 'NotObj n MyType
+-- myType :: TSType p 'NotObj MyType
 -- myType = tsUnion myTypeBranches
 -- @
 --
@@ -295,7 +295,7 @@ tsTuple = TSTuple . PreT . getTupleVals
 -- @
 --
 -- In the above, @tupleVal mta tsBoundedInteger@ has the type
--- @UnionBranches p n MyType Int@, showing that it refers to the @Int@ field
+-- @UnionBranches p MyType Int@, showing that it refers to the @Int@ field
 -- of the @MyType@.  The trick to using this is to assemble 'UnionBranches'
 -- together using Decide combinators until the @a@ and @b@ "match",
 -- and the 'UnionBranches' describes the entire value.  Then you can use
@@ -305,8 +305,8 @@ tsTuple = TSTuple . PreT . getTupleVals
 -- a large number of branches.  'tsUnions' is an alternative to decide
 -- combinators that uses heterogeneous lists, which can potentially make
 -- things cleaner.
-newtype UnionBranches p n a b = UnionBranches
-    { getUnionBranches :: Dec (Post a (TSType_ p n)) b }
+newtype UnionBranches p a b = UnionBranches
+    { getUnionBranches :: Dec (Post a (TSType_ p)) b }
   deriving newtype (Contravariant, Decide, Conclude, Invariant)
 
 -- | Create a singleton 'UnionBranches', to be combined with 'Decide'
@@ -314,16 +314,16 @@ newtype UnionBranches p n a b = UnionBranches
 -- to combine a large number.
 unionBranch
     :: (b -> a)                     -- ^ Embed the value into the main type
-    -> TSType_ p n b
-    -> UnionBranches p n a b
+    -> TSType_ p b
+    -> UnionBranches p a b
 unionBranch f = UnionBranches . injectPost f
 
 -- | Build up a union type from a collection of 'unionBranch's.  See
 -- documentation for 'UnionBranches' for more information on how to use
 -- this.
 tsUnion
-    :: UnionBranches p n a a
-    -> TSType p 'NotObj n a
+    :: UnionBranches p a a
+    -> TSType p 'NotObj a
 tsUnion = TSUnion . PostT . getUnionBranches
 
 -- | A convenient way to combine multiple unions using 'NP' and 'NS'.
@@ -333,14 +333,14 @@ tsUnion = TSUnion . PostT . getUnionBranches
 -- @
 -- data MyType = MTA Int | MTB Bool | MTC String | MTD Double
 --
--- subtypes :: NP (Dec (Post MyType (TSType_ p n)) '[Int, Bool, String, Double]
+-- subtypes :: NP (Dec (Post MyType (TSType_ p)) '[Int, Bool, String, Double]
 -- subtypes = 'unionBranch' MTA (TSType_ 'tsBoundedInteger')
 --         ':*' unionBranch MTB (TSType_ 'tsBoolean')
 --         :* unionBranch MTC (TSType_ 'tsString')
 --         :* unionBranch MTD (TSType_ 'tsDouble')
 --         :* 'Nil'
 --
--- myType :: TSType p 'NotObj n MyType
+-- myType :: TSType p 'NotObj MyType
 -- myType = tsUnions splitMyType subtypes
 --   where
 --     splitMyType = \case
@@ -354,16 +354,16 @@ tsUnion = TSUnion . PostT . getUnionBranches
 -- can be cleaner than peeling of 'Either's.
 tsUnions
     :: (a -> NS I as)
-    -> NP (UnionBranches p n a) as
-    -> TSType p 'NotObj n a
+    -> NP (UnionBranches p a) as
+    -> TSType p 'NotObj a
 tsUnions f = tsUnion . contramap f . concludeN
 
-data Branch p n a = Branch
+data Branch p a = Branch
     { branchTag   :: Text
-    , branchType  :: Lift (TSType_ p n) a
+    , branchType  :: Lift (TSType_ p) a
     }
 
-instance Invariant (Branch p n) where
+instance Invariant (Branch p) where
     invmap f g (Branch a b) = Branch a (invmap f g b)
 
 -- | A high-level data type describing the common pattern of a "tagged"
@@ -374,11 +374,11 @@ instance Invariant (Branch p n) where
 --
 -- Meant to be constructed using 'taggedBranch' and other 'Decide'
 -- combinators.
-newtype TaggedBranches p n a b = TaggedBranches
-    { getTaggedBranches :: Dec (Post a (Branch p n)) b }
+newtype TaggedBranches p a b = TaggedBranches
+    { getTaggedBranches :: Dec (Post a (Branch p)) b }
   deriving newtype (Contravariant, Decide, Conclude, Invariant)
 
-fmapTaggedBranches :: (a -> c) -> TaggedBranches p n a b -> TaggedBranches p n c b
+fmapTaggedBranches :: (a -> c) -> TaggedBranches p a b -> TaggedBranches p c b
 fmapTaggedBranches f = TaggedBranches . hmap (mapPost f) . getTaggedBranches
 
 -- | Create a singleton 'TaggedBranches', to be combined with 'Decide'
@@ -387,41 +387,41 @@ fmapTaggedBranches f = TaggedBranches . hmap (mapPost f) . getTaggedBranches
 taggedBranch
     :: (b -> a)         -- ^ Embed the value into the main type
     -> Text             -- ^ Tag value
-    -> TSType_ p n b
-    -> TaggedBranches p n a b
+    -> TSType_ p b
+    -> TaggedBranches p a b
 taggedBranch f v = TaggedBranches . injectPost f . Branch v . Lift.Other
 
 emptyTaggedBranch
     :: a                -- ^ the value of the main type that this branch represents
     -> Text             -- ^ Tag value
-    -> TaggedBranches p n a ()
+    -> TaggedBranches p a ()
 emptyTaggedBranch x v = TaggedBranches . injectPost (const x) $ Branch v (Lift.Pure ())
 
 tsTaggedUnion
     :: TaggedValueOpts
-    -> TaggedBranches p n a a
-    -> TSType p 'NotObj n a
+    -> TaggedBranches p a a
+    -> TSType p 'NotObj a
 tsTaggedUnion tvo = tsUnion . runTaggedBranches tvo
 
 tsTaggedUnions
     :: TaggedValueOpts
     -> (a -> NS I as)
-    -> NP (TaggedBranches p n a) as
-    -> TSType p 'NotObj n a
+    -> NP (TaggedBranches p a) as
+    -> TSType p 'NotObj a
 tsTaggedUnions tvo f = tsUnions f . hmap (runTaggedBranches tvo)
 
 runTaggedBranches
     :: TaggedValueOpts
-    -> TaggedBranches p n a b
-    -> UnionBranches p n a b
+    -> TaggedBranches p a b
+    -> UnionBranches p a b
 runTaggedBranches tvo = UnionBranches
                       . hmap (hmap (runBranch tvo))
                       . getTaggedBranches
 
 runBranch
     :: TaggedValueOpts
-    -> Branch p n a
-    -> TSType_ p n a
+    -> Branch p a
+    -> TSType_ p a
 runBranch tvo Branch{..} = TSType_ $
   case branchType of
     Lift.Pure  x -> invmap (const x) (const ()) . tsObject $ tagVal (tvoTagKey tvo) branchTag
@@ -468,7 +468,7 @@ instance Default TaggedValueOpts where
 tagVal
     :: Text         -- ^ tag key
     -> Text         -- ^ tag value
-    -> ObjectProps p n a ()
+    -> ObjectProps p a ()
 tagVal tag val = keyVal False (const ()) tag $ TSType_ (tsStringLit val)
 
 -- | A utility for a simple situation of a "tag" key-value pair intersected
@@ -489,8 +489,8 @@ tagVal tag val = keyVal False (const ()) tag $ TSType_ (tsStringLit val)
 taggedObject
     :: Text                   -- ^ tag key
     -> Text                   -- ^ tag value
-    -> TSType p 'IsObj n a    -- ^ contents (object)
-    -> TSType p 'IsObj n a
+    -> TSType p 'IsObj a    -- ^ contents (object)
+    -> TSType p 'IsObj a
 taggedObject tag val obj = tsIntersection $
        intersectVal (const ()) (tsObject (tagVal tag val))
     *> intersectVal id         obj
@@ -507,15 +507,15 @@ taggedObject tag val obj = tsIntersection $
 -- is 'False', will avoid case (2).
 --
 -- @
--- case1 :: TSType_ p n (Text, Int)
+-- case1 :: TSType_ p (Text, Int)
 -- case1 = 'TSType_' . 'tsObject' $
 --   (,) <$> 'keyVal' True "name" fst (TSType_ 'tsText')
 --       <*> 'keyVal' True "age" snd (TSType_ 'tsBoundedInteger')
 --
--- case2 :: TSType_ p n (Maybe Int)
+-- case2 :: TSType_ p (Maybe Int)
 -- case2 = 'TSType_' $ 'tsNullable' ('TSType_' 'tsBoundedInteger')
 --
--- case3 :: TSType_ p n String
+-- case3 :: TSType_ p String
 -- case3 = 'TSType_' 'tsString'
 -- @
 --
@@ -532,8 +532,8 @@ taggedObject tag val obj = tsIntersection $
 taggedValue
     :: TaggedValueOpts
     -> Text            -- ^ tag value
-    -> TSType_ p n a   -- ^ contents type
-    -> TSType p 'IsObj n a
+    -> TSType_ p a   -- ^ contents type
+    -> TSType p 'IsObj a
 taggedValue TaggedValueOpts{..} tagValue t
   | tvoMergeTagValue = case decideTSType_ t of
       L1 x -> tsObject $
@@ -548,7 +548,7 @@ taggedValue TaggedValueOpts{..} tagValue t
 -- assembled using 'intersectVal' and combined using its 'Applicative'
 -- instance.  To finally turn one into a 'TSType', use 'tsIntersection'.
 --
--- In a @'IntersectVals' p n a b@, the @a@ represents the overall aggregate
+-- In a @'IntersectVals' p a b@, the @a@ represents the overall aggregate
 -- type, and the @b@ represents the type of the part that this 'IntersectVals'
 -- is describing.
 --
@@ -559,17 +559,17 @@ taggedValue TaggedValueOpts{..} tagValue t
 --   , mtc :: Maybe String
 --   }
 --
--- myType :: TSType p 'IsObj n MyType
+-- myType :: TSType p 'IsObj MyType
 -- myType = tsObject $ MyType
 --   <$> 'keyVal' True mta "mta" ('TSType_' 'tsBoundedInteger')
 --   <*> keyVal True mtb "mtb" (TSType_ 'tsBoolean')
 --   <*> 'keyValMay' mtc "mtc" (TSType_ 'tsString')
 --
 -- -- { tag: "something" }
--- tagType :: TSType p 'IsObj n ()
+-- tagType :: TSType p 'IsObj ()
 -- tagType = tagVal "tag" "something"
 --
--- myTaggedType :: IntersectVals p n MyType MyType
+-- myTaggedType :: IntersectVals p MyType MyType
 -- myTaggedType = intersectVal tagType
 --             *> intersectVal myType
 -- @
@@ -591,14 +591,14 @@ taggedValue TaggedValueOpts{..} tagValue t
 -- behavior of encoding/decoding is undefined; for encoding, the result
 -- will most likely not typecheck in typescript.  for decoding, the result
 -- will most likely fail to parse.
-newtype IntersectVals p n a b = IntersectVals
-    { getIntersectVals :: Ap (Pre a (TSType p 'IsObj n)) b }
+newtype IntersectVals p a b = IntersectVals
+    { getIntersectVals :: Ap (Pre a (TSType p 'IsObj)) b }
   deriving newtype (Functor, Apply, Applicative)
 
-instance Invariant (IntersectVals p n a) where
+instance Invariant (IntersectVals p a) where
     invmap f _ = fmap f
 
-instance Profunctor (IntersectVals p n) where
+instance Profunctor (IntersectVals p) where
     dimap f g = IntersectVals . hmap (mapPre f) . fmap g . getIntersectVals
 
 -- | Create a singleton 'IntersectVals', to be combined with applicative
@@ -607,23 +607,23 @@ instance Profunctor (IntersectVals p n) where
 -- Note that the input type must an object literal, indicated by @''IsObj'@
 intersectVal
     :: (a -> b)
-    -> TSType p 'IsObj n b
-    -> IntersectVals p n a b
+    -> TSType p 'IsObj b
+    -> IntersectVals p a b
 intersectVal f = IntersectVals . injectPre f
 
 -- | Gather together intersection values into a 'TSType'.  See
 -- 'IntersectionVals' for details on how to use this.
 tsIntersection
-    :: IntersectVals p n a a
-    -> TSType p 'IsObj n a
+    :: IntersectVals p a a
+    -> TSType p 'IsObj a
 tsIntersection = TSIntersection . PreT . getIntersectVals
 
 -- | Wrap a type in a name, in a way that preserves @k@ (whether or not the
 -- type is an object literal).
 tsNamed
     :: Text
-    -> TSType p k n a
-    -> TSNamed p k n '[] a
+    -> TSType p k a
+    -> TSNamed p k '[] a
 tsNamed nm t = TSNamed
     { tsnName = nm
     , tsnType = TSNFunc (TSGeneric Nil (\n _ -> tsShift n t))
@@ -640,8 +640,8 @@ tsNamed nm t = TSNamed
 -- type underneath.  Otherwise, behavior is undefined.
 tsNamed_
     :: Text
-    -> TSType_ p n a
-    -> TSNamed_ p n '[] a
+    -> TSType_ p a
+    -> TSNamed_ p '[] a
 tsNamed_ nm = withTSType_ (TSNamed_ . tsNamed nm)
 
 -- | Create a single-argument generic (parameterized) type.
@@ -649,7 +649,7 @@ tsNamed_ nm = withTSType_ (TSNamed_ . tsNamed nm)
 -- For example, we could make a type imitating 'Maybe' in Haskell:
 --
 -- @
--- mkMaybe :: TSType_ p n a -> TSType_ p n (Maybe a)
+-- mkMaybe :: TSType_ p a -> TSType_ p (Maybe a)
 -- mkMaybe = tsUnion $ decide (maybe (Left ()) Right) $
 --     (tsTagged
 -- @
@@ -657,8 +657,8 @@ tsGeneric1
     :: Text                     -- ^ Name of the type
     -> SIsObjType k             -- ^ Whether or not the type is an object literal.  Must be statically known.
     -> Text                     -- ^ Name of the parameter (used for printing)
-    -> (forall r. SNat_ r -> TSType_ (Plus r p) n a -> TSType (Plus r p) k n b)         -- ^ Make a type, given the type parameter
-    -> TSNamed p k n '[a] b
+    -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType (Plus r p) k b)         -- ^ Make a type, given the type parameter
+    -> TSNamed p k '[a] b
 tsGeneric1 n o p f = TSNamed
     { tsnName = n
     , tsnType = TSNFunc $ TSGeneric (K p :* Nil) (\rs (t :* Nil) -> f rs t)
@@ -669,8 +669,8 @@ tsGeneric2
     -> SIsObjType k
     -> Text
     -> Text
-    -> (forall r. SNat_ r -> TSType_ (Plus r p) n a -> TSType_ (Plus r p) n b -> TSType (Plus r p) k n c)
-    -> TSNamed p k n '[a, b] c
+    -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType (Plus r p) k c)
+    -> TSNamed p k '[a, b] c
 tsGeneric2 n o p q f = TSNamed
     { tsnName = n
     , tsnType = TSNFunc $
@@ -683,8 +683,8 @@ tsGeneric3
     -> Text
     -> Text
     -> Text
-    -> (forall r. SNat_ r -> TSType_ (Plus r p) n a -> TSType_ (Plus r p) n b -> TSType_ (Plus r p) n c -> TSType (Plus r p) k n d)
-    -> TSNamed p k n '[a, b, c] d
+    -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType_ (Plus r p) c -> TSType (Plus r p) k d)
+    -> TSNamed p k '[a, b, c] d
 tsGeneric3 n o p q r f = TSNamed
     { tsnName = n
     , tsnType = TSNFunc $
@@ -696,158 +696,158 @@ tsGeneric3 n o p q r f = TSNamed
 --     :: Text                 -- ^ Name
 --     -> SIsObjType k         -- ^ whether or not it is an object literal
 --     -> NP (K Text) as       -- ^ Name of parameters
---     -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSType (Plus r p) k n b)   -- ^ Type function
---     -> TSTypeF p k n as b
+--     -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSType (Plus r p) k b)   -- ^ Type function
+--     -> TSTypeF p k as b
 -- tsGeneric = TSGeneric
 
 tsApplied
-    :: TSNamed p k n as b
-    -> NP (TSType_ p n) as
-    -> TSType p k n b
+    :: TSNamed p k as b
+    -> NP (TSType_ p) as
+    -> TSType p k b
 tsApplied = TSNamedType
 
 tsApply2
-    :: TSNamed p k n '[a, b] c      -- ^ type function
-    -> TSType_ p n a                -- ^ thing to apply
-    -> TSType_ p n b                -- ^ thing to apply
-    -> TSType p k n c
+    :: TSNamed p k '[a, b] c      -- ^ type function
+    -> TSType_ p a                -- ^ thing to apply
+    -> TSType_ p b                -- ^ thing to apply
+    -> TSType p k c
 tsApply2 (TSNamed _ (TSNFunc (TSGeneric _ f))) tx ty = f SZ_ (tx :* ty :* Nil)
 tsApply2 (TSNamed _ (TSNFunc (TSGenericInterface _ f))) tx ty = TSObject $ f SZ_ (tx :* ty :* Nil)
 
 tsApply3
-    :: TSNamed p k n '[a, b, c] d      -- ^ type function
-    -> TSType_ p n a                   -- ^ thing to apply
-    -> TSType_ p n b                   -- ^ thing to apply
-    -> TSType_ p n c                   -- ^ thing to apply
-    -> TSType p k n d
+    :: TSNamed p k '[a, b, c] d      -- ^ type function
+    -> TSType_ p a                   -- ^ thing to apply
+    -> TSType_ p b                   -- ^ thing to apply
+    -> TSType_ p c                   -- ^ thing to apply
+    -> TSType p k d
 tsApply3 (TSNamed _ (TSNFunc (TSGeneric _ f))) tx ty tz = f SZ_ (tx :* ty :* tz :* Nil)
 tsApply3 (TSNamed _ (TSNFunc (TSGenericInterface _ f))) tx ty tz = TSObject $ f SZ_ (tx :* ty :* tz :* Nil)
 
 tsApplied1
-    :: TSNamed p k n '[a] b
-    -> TSType_ p n a
-    -> TSType p k n b
+    :: TSNamed p k '[a] b
+    -> TSType_ p a
+    -> TSType p k b
 tsApplied1 tf tx = tsApplied tf (tx :* Nil)
 
 tsApplied2
-    :: TSNamed p k n '[a, b] c
-    -> TSType_ p n a
-    -> TSType_ p n b
-    -> TSType p k n c
+    :: TSNamed p k '[a, b] c
+    -> TSType_ p a
+    -> TSType_ p b
+    -> TSType p k c
 tsApplied2 tf tx ty = tsApplied tf (tx :* ty :* Nil)
 
 tsApplied3
-    :: TSNamed p k n '[a, b, c] d
-    -> TSType_ p n a
-    -> TSType_ p n b
-    -> TSType_ p n c
-    -> TSType p k n d
+    :: TSNamed p k '[a, b, c] d
+    -> TSType_ p a
+    -> TSType_ p b
+    -> TSType_ p c
+    -> TSType p k d
 tsApplied3 tf tx ty tz = tsApplied tf (tx :* ty :* tz :* Nil)
 
-tsList :: TSType_ p n a -> TSType p 'NotObj n [a]
+tsList :: TSType_ p a -> TSType p 'NotObj [a]
 tsList = withTSType_ (TSArray . ilan)
 
-tsVector :: V.Vector v a => TSType_ p n a -> TSType p 'NotObj n (v a)
+tsVector :: V.Vector v a => TSType_ p a -> TSType p 'NotObj (v a)
 tsVector = invmap V.fromList V.toList . tsList
 
-tsIsList :: Exts.IsList l => TSType_ p n (Exts.Item l) -> TSType p 'NotObj n l
+tsIsList :: Exts.IsList l => TSType_ p (Exts.Item l) -> TSType p 'NotObj l
 tsIsList = invmap Exts.fromList Exts.toList . tsList
 
-tsNullable :: TSType_ p n a -> TSType p 'NotObj n (Maybe a)
+tsNullable :: TSType_ p a -> TSType p 'NotObj (Maybe a)
 tsNullable = withTSType_ (TSNullable . ilan)
 
-tsBoolean :: TSType p 'NotObj n Bool
+tsBoolean :: TSType p 'NotObj Bool
 tsBoolean = TSPrimType $ inject TSBoolean
 
-tsNumber :: TSType p 'NotObj n Scientific
+tsNumber :: TSType p 'NotObj Scientific
 tsNumber = TSPrimType $ inject TSNumber
 
-tsBoundedInteger :: (Integral a, Bounded a) => TSType p 'NotObj n a
+tsBoundedInteger :: (Integral a, Bounded a) => TSType p 'NotObj a
 tsBoundedInteger = TSPrimType $ PS TSNumber
     (\x -> case toBoundedInteger x of
             Nothing -> Left . T.pack $ "Not an integer: " <> show x
             Just i  -> Right i
     ) fromIntegral
 
-tsInteger :: Integral a => TSType p 'NotObj n a
+tsInteger :: Integral a => TSType p 'NotObj a
 tsInteger = TSPrimType $ PS TSNumber
     (\x -> first (\n -> T.pack $ "Not an integer: " <> show @Double n) (floatingOrInteger x))
     fromIntegral
 
-tsRealFloat :: RealFloat a => TSType p 'NotObj n a
+tsRealFloat :: RealFloat a => TSType p 'NotObj a
 tsRealFloat = invmap toRealFloat fromFloatDigits tsNumber
 
-tsDouble :: TSType p 'NotObj n Double
+tsDouble :: TSType p 'NotObj Double
 tsDouble = tsRealFloat
 
-tsBigInt :: TSType p 'NotObj n Integer
+tsBigInt :: TSType p 'NotObj Integer
 tsBigInt = TSPrimType $ inject TSBigInt
 
-tsText :: TSType p 'NotObj n Text
+tsText :: TSType p 'NotObj Text
 tsText = TSPrimType $ inject TSString
 
-tsLazyText :: TSType p 'NotObj n TL.Text
+tsLazyText :: TSType p 'NotObj TL.Text
 tsLazyText = invmap TL.fromStrict TL.toStrict tsText
 
-tsString :: TSType p 'NotObj n String
+tsString :: TSType p 'NotObj String
 tsString = invmap T.unpack T.pack tsText
 
-tsEnumWith :: Text -> Vec m (Text, EnumLit) -> TSType p 'NotObj n (Fin m)
+tsEnumWith :: Text -> Vec m (Text, EnumLit) -> TSType p 'NotObj (Fin m)
 tsEnumWith nm xs = TSNamedType (TSNamed nm (TSNPrimType (inject (TSEnum xs)))) Nil
 
-tsEnum :: Text -> Vec m Text -> TSType p 'NotObj n (Fin m)
+tsEnum :: Text -> Vec m Text -> TSType p 'NotObj (Fin m)
 tsEnum nm = tsEnumFrom nm 0
 
-tsEnumFrom :: Text -> Int -> Vec m Text -> TSType p 'NotObj n (Fin m)
+tsEnumFrom :: Text -> Int -> Vec m Text -> TSType p 'NotObj (Fin m)
 tsEnumFrom nm i0 xs = tsEnumWith nm xs'
   where
     xs' = flip evalState i0 . for xs $ \x -> state $ \i ->
       ((x, ELNumber (fromIntegral i)), i+1)
 
-tsStringLit :: Text -> TSType p 'NotObj n ()
+tsStringLit :: Text -> TSType p 'NotObj ()
 tsStringLit = TSPrimType . inject . TSStringLit
 
-tsNumericLit :: Scientific -> TSType p 'NotObj n ()
+tsNumericLit :: Scientific -> TSType p 'NotObj ()
 tsNumericLit = TSPrimType . inject . TSNumericLit
 
-tsIntegerLit :: Integral a => a -> TSType p 'NotObj n ()
+tsIntegerLit :: Integral a => a -> TSType p 'NotObj ()
 tsIntegerLit = TSPrimType . inject . TSNumericLit . fromIntegral
 
-tsBigIntLit :: Integer -> TSType p 'NotObj n ()
+tsBigIntLit :: Integer -> TSType p 'NotObj ()
 tsBigIntLit = TSPrimType . inject . TSBigIntLit
 
-tsUnknown :: TSType p 'NotObj n A.Value
+tsUnknown :: TSType p 'NotObj A.Value
 tsUnknown = TSPrimType $ inject TSUnknown
 
-tsAny :: TSType p 'NotObj n A.Value
+tsAny :: TSType p 'NotObj A.Value
 tsAny = TSPrimType $ inject TSAny
 
-tsVoid :: TSType p 'NotObj n ()
+tsVoid :: TSType p 'NotObj ()
 tsVoid = TSPrimType $ inject TSVoid
 
-tsUndefined :: TSType p 'NotObj n ()
+tsUndefined :: TSType p 'NotObj ()
 tsUndefined = TSPrimType $ inject TSUndefined
 
-tsNull :: TSType p 'NotObj n ()
+tsNull :: TSType p 'NotObj ()
 tsNull = TSPrimType $ inject TSNull
 
-tsNever :: TSType p 'NotObj n Void
+tsNever :: TSType p 'NotObj Void
 tsNever = TSPrimType $ inject TSNever
 
-encodeType :: TSType 'Nat.Z k Void a -> a -> BSL.ByteString
+encodeType :: TSType 'Nat.Z k a -> a -> BSL.ByteString
 encodeType t = AE.encodingToLazyByteString . typeToEncoding t
 
-encodeTypeStrict :: TSType 'Nat.Z k Void a -> a -> BS.ByteString
+encodeTypeStrict :: TSType 'Nat.Z k a -> a -> BS.ByteString
 encodeTypeStrict t = BSL.toStrict . encodeType t
 
 decodeType
-    :: TSType 'Nat.Z k Void a
+    :: TSType 'Nat.Z k a
     -> BSL.ByteString
     -> Either (ABE.ParseError ParseErr) a
 decodeType t = ABE.parse (parseType t)
 
 decodeTypeStrict
-    :: TSType 'Nat.Z k Void a
+    :: TSType 'Nat.Z k a
     -> BS.ByteString
     -> Either (ABE.ParseError ParseErr) a
 decodeTypeStrict t = ABE.parseStrict (parseType t)

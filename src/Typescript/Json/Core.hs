@@ -45,7 +45,6 @@ module Typescript.Json.Core (
   , ObjMember(..)
   , TSKeyVal
   , IsInterface(..)
-  , mapName
   , onTSType_
   , decideTSType_
   , mapTSType_
@@ -70,10 +69,8 @@ module Typescript.Json.Core (
   , ppPrim
   , ppType'
   , ppType
-  , ppTypeWith
   , ppTypeF'
   , ppTypeF
-  , ppTypeFWith
   , typeExports'
   , typeExports
   , typeExports_
@@ -147,7 +144,6 @@ data TSPrim :: Type -> Type where
     TSNumber     :: TSPrim Scientific
     TSBigInt     :: TSPrim Integer
     TSString     :: TSPrim Text
-    -- TSEnum       :: Text -> Vec n (Text, EnumLit) -> TSPrim (Fin n)
     TSStringLit  :: Text -> TSPrim ()
     TSNumericLit :: Scientific -> TSPrim ()
     TSBigIntLit  :: Integer    -> TSPrim ()
@@ -176,27 +172,27 @@ deriving instance Ord (TSNamedPrim a)
 instance GShow TSNamedPrim where
     gshowsPrec = showsPrec
 
-data TSType_ p n a = forall k. TSType_ { unTSType_ :: TSType p k n a }
+data TSType_ p a = forall k. TSType_ { unTSType_ :: TSType p k a }
 
-instance Invariant (TSType_ p n) where
+instance Invariant (TSType_ p) where
     invmap f g = mapTSType_ (invmap f g)
 
 withTSType_
-    :: (forall k. TSType p k n a -> r)
-    -> TSType_ p n a
+    :: (forall k. TSType p k a -> r)
+    -> TSType_ p a
     -> r
 withTSType_ f (TSType_ t) = f t
 
 mapTSType_
-    :: (forall k. TSType p k n a -> TSType us k m b)
-    -> TSType_ p n a
-    -> TSType_ us m b
+    :: (forall k. TSType p k a -> TSType us k b)
+    -> TSType_ p a
+    -> TSType_ us b
 mapTSType_ f = withTSType_ (TSType_ . f)
 
 -- traverseTSType_
 --     :: Functor f
---     => (forall k. TSType p k n a -> f (TSType p k m b))
---     -> TSType_ p n a
+--     => (forall k. TSType p k a -> f (TSType p k m b))
+--     -> TSType_ p a
 --     -> f (TSType_ p m b)
 -- traverseTSType_ f (TSType_ t) = TSType_ <$> f t
 
@@ -235,47 +231,46 @@ data SIsObjType :: IsObjType -> Type where
     SNotObj :: SIsObjType 'NotObj
     SIsObj  :: SIsObjType 'IsObj
 
-type TSKeyVal p n = PreT Ap (ObjMember (TSType_ p n))
+type TSKeyVal p = PreT Ap (ObjMember (TSType_ p))
 
-data TSType :: Nat -> IsObjType -> Type -> Type -> Type where
-    TSArray        :: ILan [] (TSType p k n) a -> TSType p 'NotObj n a
-    TSNullable     :: ILan Maybe (TSType p k n) a -> TSType p 'NotObj n a
-    TSTuple        :: PreT Ap (TSType_ p n) a -> TSType p 'NotObj n a
-    TSObject       :: TSKeyVal p n a -> TSType p 'IsObj n a
-    TSSingle       :: TSType p 'IsObj n a -> TSType p 'NotObj n a
-    TSUnion        :: PostT Dec (TSType_ p n) a -> TSType p 'NotObj n a
-    TSNamedType    :: TSNamed p k n as a -> NP (TSType_ p n) as -> TSType p k n a
-    TSVar          :: !(Fin p) -> TSType p 'NotObj n a   -- is NotObj right?
-    TSIntersection :: PreT Ap (TSType p 'IsObj n) a -> TSType p 'IsObj n a
-    TSExternal     :: SIsObjType k -> !n -> [Text] -> TSType p k n a
-    TSPrimType     :: PS TSPrim a -> TSType p 'NotObj n a
+data TSType :: Nat -> IsObjType -> Type -> Type where
+    TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
+    TSNullable     :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
+    TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
+    TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
+    TSSingle       :: TSType p 'IsObj a -> TSType p 'NotObj a
+    TSUnion        :: PostT Dec (TSType_ p) a -> TSType p 'NotObj a
+    TSNamedType    :: TSNamed p k as a -> NP (TSType_ p) as -> TSType p k a
+    TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
+    TSIntersection :: PreT Ap (TSType p 'IsObj) a -> TSType p 'IsObj a
+    TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
 
-data TSNameable :: Nat -> IsObjType -> Type -> [Type] -> Type -> Type where
-    TSNFunc     :: TSTypeF p k n as a -> TSNameable p k n as a
-    TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj n '[] a
+data TSNameable :: Nat -> IsObjType -> [Type] -> Type -> Type where
+    TSNFunc     :: TSTypeF p k as a -> TSNameable p k as a
+    TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj '[] a
 
-instance Invariant (TSNameable p k n as) where
+instance Invariant (TSNameable p k as) where
     invmap f g = \case
       TSNFunc x     -> TSNFunc (invmap f g x)
       TSNPrimType x -> TSNPrimType (invmap f g x)
 
-data TSNamed_ p n as a = forall k. TSNamed_ (TSNamed p k n as a)
+data TSNamed_ p as a = forall k. TSNamed_ (TSNamed p k as a)
 
 withTSNamed_
-    :: (forall k. TSNamed p k n as a -> r)
-    -> TSNamed_ p n as a
+    :: (forall k. TSNamed p k as a -> r)
+    -> TSNamed_ p as a
     -> r
 withTSNamed_ f (TSNamed_ t) = f t
 
-data TSNamed p k n as a = TSNamed
+data TSNamed p k as a = TSNamed
     { tsnName :: Text
-    , tsnType :: TSNameable p k n as a
+    , tsnType :: TSNameable p k as a
     }
 
-instance Invariant (TSNamed p k n as) where
+instance Invariant (TSNamed p k as) where
     invmap f g (TSNamed n t) = TSNamed n (invmap f g t)
 
-instance Invariant (TSNamed_ p n as) where
+instance Invariant (TSNamed_ p as) where
     invmap f g (TSNamed_ x) = TSNamed_ (invmap f g x)
 
 -- TODO: new idea...no need for n type variable if we always just directly
@@ -293,28 +288,28 @@ instance Invariant (TSNamed_ p n as) where
 --
 -- then we don't ever need any externals as a part of the API
 
-data TSTypeF :: Nat -> IsObjType -> Type -> [Type] -> Type -> Type where
+data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
     TSGeneric
         :: NP (K Text) as
-        -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSType (Plus r p) k n b)
-        -> TSTypeF p k n as b
+        -> (forall r. SNat_ r -> NP (TSType_ (Plus r p)) as -> TSType (Plus r p) k b)
+        -> TSTypeF p k as b
     TSGenericInterface
         :: NP (K Text) as
-        -> (forall r. SNat_ r -> NP (TSType_ (Plus r p) n) as -> TSKeyVal (Plus r p) n b)
-        -> TSTypeF p 'IsObj n as b
+        -> (forall r. SNat_ r -> NP (TSType_ (Plus r p)) as -> TSKeyVal (Plus r p) b)
+        -> TSTypeF p 'IsObj as b
 
-instance Invariant (TSTypeF p k n as) where
+instance Invariant (TSTypeF p k as) where
     invmap f g (TSGeneric xs h) =
         TSGeneric xs (\q -> invmap f g . h q)
     invmap f g (TSGenericInterface xs h) =
         TSGenericInterface xs (\q -> invmap f g . h q)
 
-data TSTypeF_ p n as b = forall k. TSTypeF_ { unTSTypeF_ :: TSTypeF p k n as b }
+data TSTypeF_ p as b = forall k. TSTypeF_ { unTSTypeF_ :: TSTypeF p k as b }
 
-instance Invariant (TSTypeF_ p n as) where
+instance Invariant (TSTypeF_ p as) where
     invmap f g (TSTypeF_ x) = TSTypeF_ (invmap f g x)
 
-instance Invariant (TSType p k n) where
+instance Invariant (TSType p k) where
     invmap f g = \case
       TSArray  t  -> TSArray (invmap f g t )
       TSNullable t -> TSNullable (invmap f g t)
@@ -327,33 +322,32 @@ instance Invariant (TSType p k n) where
         TSNPrimType ps -> TSNamedType (TSNamed nm (TSNPrimType (invmap f g ps))) xs
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
-      TSExternal o e ps -> TSExternal o e ps
       TSPrimType p -> TSPrimType (invmap f g p)
 
 withTSTypeF_
-    :: (forall k. TSTypeF p k n as b -> r)
-    -> TSTypeF_ p n as  b
+    :: (forall k. TSTypeF p k as b -> r)
+    -> TSTypeF_ p as  b
     -> r
 withTSTypeF_ f (TSTypeF_ x) = f x
 
 mapTSTypeF_
-    :: (forall k. TSTypeF p k n as b -> TSTypeF q k m as' b')
-    -> TSTypeF_ p n as  b
-    -> TSTypeF_ q m as' b'
+    :: (forall k. TSTypeF p k as b -> TSTypeF q k as' b')
+    -> TSTypeF_ p as  b
+    -> TSTypeF_ q as' b'
 mapTSTypeF_ f = withTSTypeF_ (TSTypeF_ . f)
 
 tsApply
-    :: TSTypeF p k n as b      -- ^ type function
-    -> NP (TSType_ p n) as     -- ^ thing to apply
-    -> TSType p k n b
+    :: TSTypeF p k as b      -- ^ type function
+    -> NP (TSType_ p) as     -- ^ thing to apply
+    -> TSType p k b
 tsApply (TSGeneric _ f) t = f SZ_ t
 tsApply (TSGenericInterface _ f) t = TSObject (f SZ_ t)
--- tsApply p@(TSPrimTypeF _ _) _ = TSApplied p Nil
+-- tsApply p@(TSPrimTypeF _ _) _ = TSApplied pil
 
 tsApply1
-    :: TSTypeF p k n '[a] b      -- ^ type function
-    -> TSType_ p n a         -- ^ thing to apply
-    -> TSType p k n b
+    :: TSTypeF p k '[a] b      -- ^ type function
+    -> TSType_ p a         -- ^ thing to apply
+    -> TSType p k b
 tsApply1 (TSGeneric _ f) t = f SZ_ (t :* Nil)
 tsApply1 (TSGenericInterface _ f) t = TSObject (f SZ_ (t :* Nil))
 
@@ -375,9 +369,9 @@ weakenFin = \case
     FS i -> FS (weakenFin @_ @bs i)
 
 tsApplyVar1
-    :: forall p k n a b r. ()
-    => TSTypeF p k n '[a] b
-    -> (TSType ('Nat.S p) k n b -> r)
+    :: forall p k a b r. ()
+    => TSTypeF p k '[a] b
+    -> (TSType ('Nat.S p) k b -> r)
     -> r
 tsApplyVar1 (TSGeneric _ g) f =
     f (g (SS_ SZ_) (TSType_ (TSVar FZ) :* Nil))
@@ -385,9 +379,9 @@ tsApplyVar1 (TSGenericInterface _ g) f =
     f (TSObject (g (SS_ SZ_) (TSType_ (TSVar FZ) :* Nil)))
 
 tsApplyVar
-    :: forall p k n as b r. ()
-    => TSTypeF p k n as b
-    -> (forall s. Vec s Text -> TSType (Plus s p) k n b -> r)
+    :: forall p k as b r. ()
+    => TSTypeF p k as b
+    -> (forall s. Vec s Text -> TSType (Plus s p) k b -> r)
     -> r
 tsApplyVar (TSGeneric ps g) f = withParams ps $ \rs es ->
      f rs   -- shodowing should happen on the level of withParams?
@@ -419,13 +413,13 @@ vecToSNat_ = \case
     _ Vec.::: xs -> SS_ (vecToSNat_ xs)
 
 tsShift
-    :: forall r p k n a. ()
+    :: forall r p k a. ()
     => SNat_ r
-    -> TSType p k n a
-    -> TSType (Plus r p) k n a
+    -> TSType p k a
+    -> TSType (Plus r p) k a
 tsShift n = go
   where
-    go :: forall q j b. TSType q j n b -> TSType (Plus r q) j n b
+    go :: forall q j b. TSType q j b -> TSType (Plus r q) j b
     go = \case
       TSArray ts -> TSArray (hmap go ts)
       TSNullable ts -> TSNullable (hmap go ts)
@@ -448,7 +442,6 @@ tsShift n = go
           (hmap (mapTSType_ go) xs)
         TSNPrimType ps -> TSNamedType (TSNamed nm (TSNPrimType ps)) Nil
       TSIntersection t -> TSIntersection (hmap go t)
-      TSExternal m t ps -> TSExternal m t ps
       TSVar i    -> TSVar (shiftFin n i)
       TSPrimType t -> TSPrimType t
 
@@ -474,7 +467,7 @@ data SNat_ :: Nat -> Type where
     SS_ :: SNat_ n -> SNat_ ('Nat.S n)
 
 tsObjType
-    :: TSType p k n a
+    :: TSType p k a
     -> SIsObjType k
 tsObjType = \case
     TSArray  _                    -> SNotObj
@@ -489,46 +482,21 @@ tsObjType = \case
       TSNPrimType _                  -> SNotObj
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
-    TSExternal o _ _              -> o
     TSPrimType _                  -> SNotObj
 
 
 onTSType_
-    :: (TSType p 'NotObj n a -> r)
-    -> (TSType p 'IsObj  n a -> r)
-    -> TSType_ p n a
+    :: (TSType p 'NotObj a -> r)
+    -> (TSType p 'IsObj  a -> r)
+    -> TSType_ p a
     -> r
 onTSType_ f g (TSType_ t) = case tsObjType t of
     SNotObj -> f t
     SIsObj  -> g t
 
-decideTSType_ :: TSType_ p n ~> (TSType p 'NotObj n :+: TSType p 'IsObj n)
+decideTSType_ :: TSType_ p ~> (TSType p 'NotObj :+: TSType p 'IsObj)
 decideTSType_ = onTSType_ L1 R1
 
-
-mapName :: forall p k n m. (m -> n) -> (n -> m) -> TSType p k n ~> TSType p k m
-mapName f g = go
-  where
-    go :: TSType us j n ~> TSType us j m
-    go = \case
-      TSArray l         -> TSArray (hmap go l)
-      TSNullable l      -> TSNullable (hmap go l)
-      TSTuple ts        -> TSTuple (hmap (mapTSType_ go) ts)
-      TSObject ts       -> TSObject (hmap (hmap (mapTSType_ go)) ts)
-      TSSingle ts       -> TSSingle (go ts)
-      TSUnion ts        -> TSUnion (hmap (mapTSType_ go) ts)
-      TSNamedType (TSNamed nm nt) xs -> case nt of
-        TSNFunc (TSGeneric p h) -> TSNamedType
-          (TSNamed nm (TSNFunc $ TSGeneric p (\q -> go . h q . hmap (mapTSType_ (mapName g f)))))
-          (hmap (mapTSType_ go) xs)
-        TSNFunc (TSGenericInterface p h) -> TSNamedType
-          (TSNamed nm (TSNFunc $ TSGenericInterface p (\q -> hmap (hmap (mapTSType_ go)) . h q . hmap (mapTSType_ (mapName g f)))))
-          (hmap (mapTSType_ go) xs)
-        TSNPrimType p -> TSNamedType (TSNamed nm (TSNPrimType p)) Nil
-      TSVar i           -> TSVar i
-      TSIntersection ts -> TSIntersection (hmap go ts)
-      TSExternal o n ps -> TSExternal o (g n) ps
-      TSPrimType t      -> TSPrimType t
 
 ppScientific :: Scientific -> PP.Doc x
 ppScientific n = maybe (PP.pretty (show n)) PP.pretty
@@ -576,25 +544,18 @@ ppNamedPrim n = \case
       ]
 
 ppType
-    :: TSType_ 'Nat.Z Void a
+    :: TSType 'Nat.Z k a
     -> PP.Doc x
 ppType = ppType' Vec.VNil
 
 ppType'
-    :: Vec p Text
-    -> TSType_ p Void a
+    :: forall p k a x. ()
+    => Vec p Text
+    -> TSType p k a
     -> PP.Doc x
-ppType' ps = withTSType_ (ppTypeWith absurd ps)
-
-ppTypeWith
-    :: forall p k n a x. ()
-    => (n -> PP.Doc x)
-    -> Vec p Text
-    -> TSType p k n a
-    -> PP.Doc x
-ppTypeWith f = go
+ppType' = go
   where
-    go :: Vec q Text -> TSType q j n b -> PP.Doc x
+    go :: Vec q Text -> TSType q j b -> PP.Doc x
     go ps = \case
       TSArray t   -> getConst (interpretILan (Const . go ps) t) <> "[]"
       TSNullable t -> getConst (interpretILan (Const . go ps) t) PP.<+> "| null"
@@ -617,81 +578,67 @@ ppTypeWith f = go
               )
       TSVar i -> PP.pretty (ps Vec.! i)
       TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
-      TSExternal _ n qs -> f n <>
-        if null qs
-          then mempty
-          else PP.encloseSep "<" ">" "," (PP.pretty <$> qs)
       TSPrimType PS{..} -> ppPrim psItem
 
 ppTypeF
-    :: PP.Pretty n
-    => Text
-    -> TSTypeF_ 'Nat.Z n a b
+    :: Text
+    -> TSTypeF 'Nat.Z k a b
     -> PP.Doc x
 ppTypeF nm = ppTypeF' nm Vec.VNil
 
-ppTypeF'
-    :: PP.Pretty n
-    => Text
-    -> Vec p Text
-    -> TSTypeF_ p n a b
-    -> PP.Doc x
-ppTypeF' n ps = withTSTypeF_ (ppTypeFWith PP.pretty n ps)
-
 -- TODO: figure out shadowing
-ppTypeFWith
-    :: (n -> PP.Doc x)
-    -> Text
+ppTypeF'
+    :: Text
     -> Vec p Text
-    -> TSTypeF p k n a b
+    -> TSTypeF p k a b
     -> PP.Doc x
-ppTypeFWith f n ps tf@(TSGeneric vs _) = PP.hsep [
+ppTypeF' n ps tf@(TSGeneric vs _) = PP.hsep [
       "type"
         PP.<+> PP.pretty n
         PP.<> (if null args then ""
                             else PP.encloseSep "<" ">" "," args
               )
     , "="
-    , tsApplyVar tf $ \rs -> ppTypeWith f (rs Vec.++ ps)
+    , tsApplyVar tf $ \rs -> ppType' (rs Vec.++ ps)
     ]
   where
     args = htoList (PP.pretty . SOP.unK) vs
-ppTypeFWith f n ps tf@(TSGenericInterface vs _) = PP.hsep [
+ppTypeF' n ps tf@(TSGenericInterface vs _) = PP.hsep [
       "interface"
         PP.<> PP.pretty n
         PP.<> (if null args then ""
                             else PP.encloseSep "<" ">" "," args
               )
     , "="
-    , tsApplyVar tf $ \rs -> ppTypeWith f (rs Vec.++ ps)
+    , tsApplyVar tf $ \rs -> ppType' (rs Vec.++ ps)
     ]
   where
     args = htoList (PP.pretty . SOP.unK) vs
 
 typeExports_
-    :: TSType_ 'Nat.Z Void a
+    :: TSType_ 'Nat.Z a
     -> PP.Doc x
 typeExports_ = withTSType_ typeExports
 
 typeExports
-    :: TSType 'Nat.Z k Void a
+    :: TSType 'Nat.Z k a
     -> PP.Doc x
 typeExports = typeExports' Vec.VNil
 
 typeExports'
     :: Vec p Text
-    -> TSType p k Void a
+    -> TSType p k a
     -> PP.Doc x
 typeExports' ps = ppMap . flattenType ps
 
 namedTypeExports
-    :: TSNamed 'Nat.Z k Void as a
+    :: TSNamed 'Nat.Z k as a
     -> PP.Doc x
 namedTypeExports = namedTypeExports' Vec.VNil
 
 namedTypeExports'
     :: Vec p Text
-    -> TSNamed p k Void as a
+    -> TSNamed p k as a
     -> PP.Doc x
 namedTypeExports' ps = ppMap . flattenNamedType ps
 
@@ -717,21 +664,21 @@ ppMap (M.mapKeys Down->mp) = PP.vcat $
 -- have create a map of all of those declarations.
 flattenNamedType
     :: Vec p Text
-    -> TSNamed p k Void as a
+    -> TSNamed p k as a
     -> Map Text (Set Text, PP.Doc x)
 flattenNamedType ps t = execState (flattenNamedType_ ps t) M.empty
 
 -- | Ignores the top level type, so why even bother?
 flattenType
     :: Vec p Text
-    -> TSType p k Void a
+    -> TSType p k a
     -> Map Text (Set Text, PP.Doc x)
 flattenType ps t = execState (flattenType_ ps t) M.empty
 
 flattenNamedType_
     :: forall p k a as x. ()
     => Vec p Text
-    -> TSNamed p k Void as a
+    -> TSNamed p k as a
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
 flattenNamedType_ ps TSNamed{..} = case tsnType of
     TSNPrimType PS{..} -> do
@@ -740,18 +687,18 @@ flattenNamedType_ ps TSNamed{..} = case tsnType of
     TSNFunc tsf -> do
       deps <- tsApplyVar tsf $ \rs t -> flattenType_ (rs Vec.++ ps) t
       modify $ M.insert tsnName $
-        (deps, ppTypeFWith PP.pretty tsnName ps tsf)
+        (deps, ppTypeF' tsnName ps tsf)
       pure deps
 
 flattenType_
     :: forall p k a x. ()
     => Vec p Text
-    -> TSType p k Void a
+    -> TSType p k a
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
 flattenType_ ps = go
   where
     go  :: forall j b. ()
-        => TSType p j Void b
+        => TSType p j b
         -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
     go = \case
       TSArray ts   -> hfoldMap SOP.unK <$> htraverse (fmap K . go) ts
@@ -805,21 +752,21 @@ namedPrimToEncoding :: TSNamedPrim a -> a -> A.Encoding
 namedPrimToEncoding = \case
     TSEnum e -> \i -> encodeEnumLit (snd (e Vec.! i))
 
-objTypeToEncoding :: TSType 'Nat.Z 'IsObj Void a -> Op A.Series a
+objTypeToEncoding :: TSType 'Nat.Z 'IsObj a -> Op A.Series a
 objTypeToEncoding = \case
     TSObject       ts -> keyValToValue ts
     TSIntersection ts -> preDivisibleT objTypeToEncoding ts
     TSNamedType (TSNamed _ nt) xs -> case nt of
       TSNFunc f -> objTypeToEncoding (tsApply f xs)
   where
-    keyValToValue :: TSKeyVal 'Nat.Z Void ~> Op A.Series
+    keyValToValue :: TSKeyVal 'Nat.Z ~> Op A.Series
     keyValToValue = preDivisibleT
         ( interpretObjMember
             (\k t -> Op           $ \x -> k A..= withTSType_ typeToValue t x)
             (\k t -> Op . foldMap $ \x -> k A..= withTSType_ typeToValue t x)
         )
 
-typeToEncoding :: TSType 'Nat.Z k Void a -> a -> A.Encoding
+typeToEncoding :: TSType 'Nat.Z k a -> a -> A.Encoding
 typeToEncoding = \case
     TSArray ts        -> AE.list id
                        . getOp (interpretILan (\t -> Op ( map (typeToEncoding t))) ts)
@@ -865,14 +812,14 @@ namedPrimToValue :: TSNamedPrim a -> a -> A.Value
 namedPrimToValue = \case
     TSEnum e -> \i -> enumLitToValue (snd (e Vec.! i))
 
-objTypeToValue :: TSType 'Nat.Z 'IsObj Void a -> Op [A.Pair] a
+objTypeToValue :: TSType 'Nat.Z 'IsObj a -> Op [A.Pair] a
 objTypeToValue = \case
     TSObject       ts -> keyValToValue ts
     TSIntersection ts -> preDivisibleT objTypeToValue ts
     TSNamedType (TSNamed _ nt) xs -> case nt of
       TSNFunc f -> objTypeToValue (tsApply f xs)
   where
-    keyValToValue :: TSKeyVal 'Nat.Z Void ~> Op [A.Pair]
+    keyValToValue :: TSKeyVal 'Nat.Z ~> Op [A.Pair]
     keyValToValue = preDivisibleT
         ( interpretObjMember
             (\k t -> Op           $ \x -> [k A..= withTSType_ typeToValue t x])
@@ -880,7 +827,7 @@ objTypeToValue = \case
         )
 
 typeToValue
-    :: TSType 'Nat.Z k Void a -> a -> A.Value
+    :: TSType 'Nat.Z k a -> a -> A.Value
 typeToValue = \case
     TSArray ts        -> A.Array
                        . V.fromList
@@ -947,7 +894,7 @@ type Parse = ABE.ParseT ParseErr Identity
 
 parseType
     :: forall k a. ()
-    => TSType 'Nat.Z k Void a
+    => TSType 'Nat.Z k a
     -> Parse a
 parseType = \case
     TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType) ts
@@ -976,7 +923,7 @@ parseType = \case
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
   where
-    parseKeyVal :: TSKeyVal 'Nat.Z Void ~> Parse
+    parseKeyVal :: TSKeyVal 'Nat.Z ~> Parse
     parseKeyVal = interpret
         ( unwrapFunctor . interpretObjMember
             (\k -> WrapFunctor . ABE.key    k . withTSType_ parseType)
