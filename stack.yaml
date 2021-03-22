@@ -45,6 +45,8 @@ extra-deps:
 - prettyprinter-1.7.0
 - functor-combinators-0.3.6.0
 - vinyl-0.13.0
+# - fin-0.2
+# - dec-0.0.4
 # - type-level-sets-0.8.9.0
 
 # Override default flag values for local packages and extra-deps

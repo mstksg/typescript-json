@@ -24,6 +24,7 @@
 module Typescript.Json.Generics (
   -- * Typeclass-based
     GTSType(..)
+  , TSOpts(..)
   , GTSNamed(..)
   , GTSSum(..)
   , GTSObject(..)
@@ -33,6 +34,8 @@ module Typescript.Json.Generics (
   , GTSSumF(..)
   , GTSObjectF(..)
   , GTSTupleF(..)
+  , GTSEnum(..)
+  , EnumOpts(..)
   -- * Default instances
   , ToTSType(..)
   , genericToTSType
@@ -45,6 +48,7 @@ module Typescript.Json.Generics (
   , genericToTSTypeF_
   , genericToTSNamedF
   , genericToTSNamedF_
+  , genericNamedEnum
   -- * Util
   , type (++)
   , splitNP
@@ -52,16 +56,24 @@ module Typescript.Json.Generics (
   -- , TestType(..)
   ) where
 
+import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Default.Class
+import           Data.Fin hiding                   (absurd)
+import           Data.Foldable
 import           Data.Functor.Combinator
 import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Invariant
 import           Data.Kind
+import           Data.List
+import           Data.Maybe
 import           Data.Proxy
 import           Data.SOP                          (NP(..), K(..), hpure, All, Top)
+import           Data.Scientific                   (Scientific)
+import           Data.Set                          (Set)
 import           Data.Text                         (Text)
+import           Data.Vec.Lazy                     (Vec(..))
 import           Data.Void
 import           GHC.Generics
 import           GHC.TypeLits
@@ -69,7 +81,10 @@ import           Typescript.Json
 import           Typescript.Json.Core
 import qualified Data.Aeson                        as A
 import qualified Data.SOP                          as SOP
+import qualified Data.Set                          as S
 import qualified Data.Text                         as T
+import qualified Data.Type.Nat                     as N
+import qualified Data.Vec.Lazy                     as Vec
 
 class ToTSType a where
     toTSType :: TSType_ p a
@@ -85,6 +100,9 @@ instance ToTSType Double where
 
 instance ToTSType Bool where
     toTSType = TSType_ tsBoolean
+
+instance ToTSType Ordering where
+    toTSType = TSType_ $ TSNamedType (genericNamedEnum @Ordering def) Nil
 
 instance ToTSType Text where
     toTSType = TSType_ tsText
@@ -475,6 +493,98 @@ instance GTSTypeF f => GTSTupleF (M1 S ('MetaSel 'Nothing a b c) f) where
                         (TSType_ (tsApply tsg (TSType_ t :* Nil)))
       )
       (gtoTSTypeF @f tso lts)
+
+
+
+data EnumOpts = EnumOpts
+    { eoSelector :: String -> Text
+    , eoLiteral  :: String -> Maybe EnumLit -- ^ if Nothing, picked from free integers, starting from 0
+    }
+
+instance Default EnumOpts where
+    def = EnumOpts
+        { eoSelector = T.pack
+        , eoLiteral  = Just . ELString . T.toUpper . T.pack . A.camelTo2 '_'
+        }
+
+
+genericNamedEnum
+    :: forall a p. (Generic a, GTSEnum (Rep a))
+    => EnumOpts
+    -> TSNamed p 'NotObj '[] a
+genericNamedEnum = invmap to from . gtsNamedEnum @(Rep a)
+
+class GTSEnum (f :: Type -> Type) where
+    gtsNamedEnum :: EnumOpts -> TSNamed p 'NotObj '[] (f x)
+
+instance (KnownSymbol nm, GTSEnumBranches f) => GTSEnum (M1 D ('MetaData nm a b c) f) where
+    gtsNamedEnum EnumOpts{..} = tsEnumWith (knownSymbolText @nm)
+        (invmap M1 unM1 (gtsebIso @f))
+        (evalState (traverse populate constrVec) initInt)
+      where
+        constrVec = gtsebVec @f
+        seen  = S.fromList
+          [ i
+          | Just (ELNumber i) <- eoLiteral <$> toList constrVec
+          ]
+        initInt
+          | null seen = 0
+          | otherwise = max 0 . (+ 1) . floor . maximum $ seen
+        populate :: String -> State Int (Text, EnumLit)
+        populate str = do
+          lit <- case eoLiteral str of
+            Nothing -> findValid
+            Just x  -> pure x
+          pure (eoSelector str, lit)
+        findValid :: State Int EnumLit
+        findValid = do
+          i <- state $ \i -> (i, i+1)
+          let tester = fromIntegral i
+          if tester `S.member` seen
+            then findValid
+            else pure (ELNumber tester)
+
+-- TODO: add the error messages for bad instances
+class N.InlineInduction (Cardinality f) => GTSEnumBranches (f :: Type -> Type) where
+    type Cardinality f :: N.Nat
+
+    gtsebIso :: FinIso (Cardinality f) (f x)
+    gtsebVec :: Vec (Cardinality f) String   -- the constructor name
+
+instance GTSEnumBranches V1 where
+    type Cardinality V1 = 'N.Z
+
+    gtsebIso = FinIso
+      { fiGet = \case {}
+      , fiPut = \case {}
+      }
+    gtsebVec = VNil
+
+instance (GTSEnumBranches f, GTSEnumBranches g, N.InlineInduction (N.Plus (Cardinality f) (Cardinality g)))
+        => GTSEnumBranches (f :+: g) where
+    type Cardinality (f :+: g) = N.Plus (Cardinality f) (Cardinality g)
+
+    gtsebIso = FinIso
+        { fiGet = either (L1 . fiGet fiF) (R1 . fiGet fiG) . split
+        , fiPut = append . (\case L1 x -> Left $ fiPut fiF x; R1 y -> Right $ fiPut fiG y)
+        }
+      where
+        fiF = gtsebIso @f
+        fiG = gtsebIso @g
+    gtsebVec = gtsebVec @f Vec.++ gtsebVec @g
+
+instance KnownSymbol ctr => GTSEnumBranches (M1 C ('MetaCons ctr p q) U1) where
+    type Cardinality (M1 C ('MetaCons ctr p q) U1) = 'N.S 'N.Z
+
+    gtsebIso = FinIso
+      { fiGet = \_ -> M1 U1
+      , fiPut = \_ -> FZ
+      }
+    gtsebVec = symbolVal (Proxy @ctr) ::: VNil
+
+
+
+
 
 knownSymbolText :: forall s. KnownSymbol s => Text
 knownSymbolText = T.pack (symbolVal (Proxy @s))

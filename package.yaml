@@ -31,16 +31,18 @@ dependencies:
 - assoc
 - base >= 4.7 && < 5
 - bytestring
-- profunctors
 - containers
 - contravariant
-- dependent-sum
 - data-default-class
+- dependent-sum
+- fgl
 - fin
 - free
 - functor-combinators >= 0.3.6
 - invariant
+- nonempty-containers
 - prettyprinter >= 1.7
+- profunctors
 - recursion-schemes
 - scientific
 - semigroupoids
@@ -51,7 +53,6 @@ dependencies:
 - unordered-containers
 - vec
 - vector
-- fgl
 
 
 library:
