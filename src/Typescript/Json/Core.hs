@@ -44,7 +44,6 @@ module Typescript.Json.Core (
   , TSNameable(..)
   , ObjMember(..)
   , TSKeyVal
-  , IsInterface(..)
   , onTSType_
   , decideTSType_
   , mapTSType_
@@ -69,13 +68,14 @@ module Typescript.Json.Core (
   , ppPrim
   , ppType'
   , ppType
-  , ppTypeF'
-  , ppTypeF
+  , ppNamed'
+  , ppNamed
   , typeExports'
   , typeExports
   , typeExports_
   , namedTypeExports'
   , namedTypeExports
+  , namedTypeExports_
   -- * to value
   , enumLitToValue
   , primToValue
@@ -189,16 +189,6 @@ mapTSType_
     -> TSType_ us b
 mapTSType_ f = withTSType_ (TSType_ . f)
 
--- traverseTSType_
---     :: Functor f
---     => (forall k. TSType p k a -> f (TSType p k m b))
---     -> TSType_ p a
---     -> f (TSType_ p m b)
--- traverseTSType_ f (TSType_ t) = TSType_ <$> f t
-
-data IsInterface n = NotInterface | IsInterface n
-  deriving (Show, Eq, Ord, Functor)
-
 data ObjMember f a = ObjMember
     { objMemberKey :: Text
     , objMemberVal :: (f :+: ILan Maybe f) a
@@ -274,21 +264,6 @@ instance Invariant (TSNamed p k as) where
 
 instance Invariant (TSNamed_ p as) where
     invmap f g (TSNamed_ x) = TSNamed_ (invmap f g x)
-
--- TODO: new idea...no need for n type variable if we always just directly
--- encode into text on-the-fly?  so flatten returns docs directly instead
--- of types.  then we don't need External either
---
--- yeah, external really only lives inside the library, and there's no
--- reason to actually expose it to the user.
---
--- hm...unless maybe the user specifically wants to make it external
---
--- maybe there could be a "custom" that just lets us parse/make a json.
--- a Prim with a name, that could just contain the PS serialization
--- directly for when we actually need to encode/decode
---
--- then we don't ever need any externals as a part of the API
 
 data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
     TSGeneric
@@ -585,41 +560,41 @@ ppType' = go
       TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
       TSPrimType PS{..} -> ppPrim psItem
 
--- TODO: these typeF should probably be TSName instead of TSTypeF
-ppTypeF
-    :: Text
-    -> TSTypeF 'Nat.Z k a b
+ppNamed
+    :: TSNamed 'Nat.Z k as a
     -> PP.Doc x
-ppTypeF nm = ppTypeF' nm Vec.VNil
+ppNamed = ppNamed' Vec.VNil
 
--- TODO: figure out shadowing
-ppTypeF'
-    :: Text
-    -> Vec p Text
-    -> TSTypeF p k a b
+ppNamed'
+    :: Vec p Text
+    -> TSNamed p k as a
     -> PP.Doc x
-ppTypeF' n ps tf@(TSGeneric vs _) = PP.hsep [
-      "type"
-        PP.<+> PP.pretty n
-        PP.<> (if null args then ""
-                            else PP.encloseSep "<" ">" "," args
-              )
-    , "="
-    , tsApplyVar tf $ \rs -> ppType' (rs Vec.++ ps)
-    ]
-  where
-    args = htoList (PP.pretty . SOP.unK) vs
-ppTypeF' n ps tf@(TSGenericInterface vs _) = PP.hsep [
-      "interface"
-        PP.<> PP.pretty n
-        PP.<> (if null args then ""
-                            else PP.encloseSep "<" ">" "," args
-              )
-    , "="
-    , tsApplyVar tf $ \rs -> ppType' (rs Vec.++ ps)
-    ]
-  where
-    args = htoList (PP.pretty . SOP.unK) vs
+ppNamed' ps TSNamed{..} = case tsnType of
+    TSNFunc tsf -> case tsf of
+      TSGeneric vs _ ->
+        let args = htoList (PP.pretty . SOP.unK) vs
+        in  PP.hsep [
+              "type"
+                PP.<+> PP.pretty tsnName
+                PP.<> (if null args then ""
+                                    else PP.encloseSep "<" ">" "," args
+                      )
+            , "="
+            , tsApplyVar tsf $ \rs -> ppType' (rs Vec.++ ps)
+            ]
+      TSGenericInterface vs _ ->
+        let args = htoList (PP.pretty . SOP.unK) vs
+        in  PP.hsep [
+              "interface"
+                PP.<+> PP.pretty tsnName
+                PP.<> (if null args then ""
+                                    else PP.encloseSep "<" ">" "," args
+                      )
+            , "="
+            , tsApplyVar tsf $ \rs -> ppType' (rs Vec.++ ps)
+            ]
+    TSNPrimType PS{..} -> ppNamedPrim tsnName psItem
+    TSNExternal PS{..} -> PP.pretty tsnName
 
 typeExports_
     :: TSType_ 'Nat.Z a
@@ -636,6 +611,11 @@ typeExports'
     -> TSType p k a
     -> PP.Doc x
 typeExports' ps = ppMap . flattenType ps
+
+namedTypeExports_
+    :: TSNamed_ 'Nat.Z as a
+    -> PP.Doc x
+namedTypeExports_ = withTSNamed_ namedTypeExports
 
 namedTypeExports
     :: TSNamed 'Nat.Z k as a
@@ -686,16 +666,17 @@ flattenNamedType_
     => Vec p Text
     -> TSNamed p k as a
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
-flattenNamedType_ ps TSNamed{..} = case tsnType of
+flattenNamedType_ ps tsn@TSNamed{..} = case tsnType of
     TSNFunc tsf -> do
       deps <- tsApplyVar tsf $ \rs t -> flattenType_ (rs Vec.++ ps) t
-      modify $ M.insert tsnName $
-        (deps, ppTypeF' tsnName ps tsf)
+      modify $ M.insert tsnName (deps, pp)
       pure deps
     TSNPrimType PS{..} -> do
-      modify $ M.insert tsnName (S.empty, ppNamedPrim tsnName psItem)
+      modify $ M.insert tsnName (S.empty, pp)
       pure S.empty
     TSNExternal _ -> pure S.empty
+  where
+    pp = ppNamed' ps tsn
 
 flattenType_
     :: forall p k a x. ()

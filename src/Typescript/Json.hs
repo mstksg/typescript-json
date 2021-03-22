@@ -67,12 +67,13 @@ module Typescript.Json (
   , tsUnknown, tsAny, tsVoid, tsUndefined, tsNull, tsNever
   -- * Printing
   , ppType
-  , ppTypeF
-  -- , typeExports
-  -- , typeExports_
-  -- , typeFExports
-  -- , typeFExports_
-  , IsInterface(..)
+  , ppNamed
+  , typeExports'
+  , typeExports
+  , typeExports_
+  , namedTypeExports'
+  , namedTypeExports
+  , namedTypeExports_
   -- * Serializing
   , encodeType
   , encodeTypeStrict

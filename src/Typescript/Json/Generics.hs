@@ -382,7 +382,6 @@ instance GTSTypeF f => GTSTypeF (M1 S ('MetaSel s a b c) f) where
 instance GTSTypeF f => GTSTypeF (M1 C ('MetaCons constr a b) f) where
     gtoTSTypeF tso lts = mapTSTypeF_ (invmap M1 unM1) (gtoTSTypeF @f tso lts)
 
--- TODO: hm....
 instance GTSTypeF Par1 where
     gtoTSTypeF _ _ = TSTypeF_ $
       TSGeneric (K "T" :* Nil) $ \_ (x :* Nil) ->
