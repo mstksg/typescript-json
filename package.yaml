@@ -45,10 +45,12 @@ dependencies:
 - profunctors
 - recursion-schemes
 - scientific
+- semialign
 - semigroupoids
 - some
 - sop-core
 - text
+- these
 - transformers
 - unordered-containers
 - vec

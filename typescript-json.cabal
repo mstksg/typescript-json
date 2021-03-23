@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3a19801e538391b0e675ef5111ece89ebf3c9dc5974cd3a0382b0a094c454abd
+-- hash: d391573f205837f428ee59a9ea2e2128681c0a434c0a7026d7d92f488a4e4705
 
 name:           typescript-json
 version:        0.1.0.0
@@ -56,10 +56,12 @@ library
     , profunctors
     , recursion-schemes
     , scientific
+    , semialign
     , semigroupoids
     , some
     , sop-core
     , text
+    , these
     , transformers
     , unordered-containers
     , vec

@@ -89,6 +89,7 @@ module Typescript.Json.Core (
   , ParseErr(..)
   -- * utility func
   , interpretObjMember
+  , reAssign
   ) where
 
 import           Control.Applicative
@@ -98,7 +99,6 @@ import           Data.Bifunctor
 import           Data.Fin                                  (Fin(..))
 import           Data.Foldable
 import           Data.Functor
-import           Data.Ord
 import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
@@ -109,11 +109,14 @@ import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.Map                                  (Map)
 import           Data.Maybe
+import           Data.Ord
+import           Data.Profunctor
 import           Data.SOP                                  (NP(..), K(..))
 import           Data.Scientific                           (Scientific, toBoundedInteger)
 import           Data.Set                                  (Set)
 import           Data.Some                                 (Some(..))
 import           Data.Text                                 (Text)
+import           Data.These
 import           Data.Type.Equality
 import           Data.Type.Nat
 import           Data.Vec.Lazy                             (Vec)
@@ -133,6 +136,7 @@ import qualified Data.Text                                 as T
 import qualified Data.Type.Nat                             as Nat
 import qualified Data.Vec.Lazy                             as Vec
 import qualified Data.Vector                               as V
+import qualified Data.Zip                                  as Z
 import qualified Prettyprinter                             as PP
 
 data EnumLit = ELString Text | ELNumber Scientific
@@ -188,6 +192,7 @@ mapTSType_
     -> TSType_ us b
 mapTSType_ f = withTSType_ (TSType_ . f)
 
+-- TODO: technically the key can be an Int? { [n : number]: unknown }
 data ObjMember f a = ObjMember
     { objMemberKey :: Text
     , objMemberVal :: (f :+: ILan Maybe f) a
@@ -265,6 +270,58 @@ instance Invariant (TSNamed_ p as) where
     invmap f g (TSNamed_ x) = TSNamed_ (invmap f g x)
 
 data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
+    -- TODO: the next big thing: this must support "extends"
+    -- semantics: anything "named" can be extended with an interface
+    -- but also anything that is a parameter can require an interface
+    -- so extends happens in two places:
+    --
+    -- 1. when declaring something with a name, so as a field in these
+    -- constructors.  hm actaully wait it looks like for X extends Y, it
+    -- only is allowed when X is an interface.  Y only needs to be an
+    -- object. so that means it really can
+    -- go only in TSGenericInterface.  And it could pretty much be like an
+    -- intersection type, it adds to the fields.
+    --
+    -- The rule is: "An interface can only extend an object type or
+    -- intersection of object types with statically known members.
+    -- "
+    -- 2. as a requirement for a paraemeter...so would have to go in NP (K
+    -- Text) as?  And then so should we make it a type error if we use it
+    -- in a case where it does not actually extend?  that means we have to
+    -- have a type specifically only for interfaces?  or should extends
+    -- always be to just a name, that is "inactive"?  yeah, actually hm.
+    -- does it ever actually matter?  could the extending thing always just
+    -- be a no-thing?  even in that case though, it chances that type to be
+    -- an Object now, if it is extended.
+    --
+    -- okay, so does extending really matter?  hm yeah, we *could* make it
+    -- matter if we do a check on the application.  like the application
+    -- might yield Nothing
+    --
+    -- actually after some testing it seems like for Thing<X extends Y>,
+    -- Y can really be anything. what does that even mean?
+    --
+    -- the error message seems to imply Y is some kind of constrataint:
+    -- "Type 'X' does not satisfy the constraint 'Y'"
+    --
+    -- ooh fancy: function getProperty<Type, Key extends keyof Type>(obj:
+    -- Type, key: Key) {
+    -- https://www.typescriptlang.org/docs/handbook/2/generics.html
+    --
+    -- hm, testing to return Bool might not work because we want to have
+    -- a "verified" version such that any TSNamedType is going to be
+    -- valid.
+    --
+    -- oh no :( i guess it has to be a "smart constructor".  maybe we
+    -- should smart-constructorize the object keys too
+    --
+    -- but this doesn't work for the generic deriving mechanisms,
+    -- then...since they return Nothing/Just "dynamically", hm.
+    --
+    -- well, i guess we can say that the generics mechanisms are "safe"
+    -- because they will never insert an extends
+    --
+    -- https://basarat.gitbook.io/typescript/type-system/type-compatibility
     TSGeneric
         :: NP (K Text) as
         -> (forall r. SNat_ r -> NP (TSType_ (Plus r p)) as -> TSType (Plus r p) k b)
@@ -534,6 +591,8 @@ ppType' = go
     go :: Vec q Text -> TSType q j b -> PP.Doc x
     go ps = \case
       TSArray t   -> getConst (interpretILan (Const . go ps) t) <> "[]"
+      -- TODO: hm, should this be not a primitive?
+      -- i guess in a sense it does matter because of optional chaining?
       TSNullable t -> getConst (interpretILan (Const . go ps) t) PP.<+> "| null"
       TSTuple ts  -> PP.encloseSep "[ " " ]" ", " (htoList (withTSType_ (go ps)) ts)
       TSObject ts -> PP.encloseSep "{ " " }" ", " $
@@ -910,3 +969,97 @@ parseType = \case
             (\k -> WrapFunctor . ABE.keyMay k . withTSType_ parseType)
         )
 
+---- | answers: is X assignable to Y?
+----
+---- actually maybe we should even have a "convert" functionality... so no
+---- boolean blindness
+----
+---- https://basarat.gitbook.io/typescript/type-system/type-compatibility
+--isAssignable :: TSType p k a -> TSType q j b -> Bool
+--isAssignable = \case
+--    TSArray (ILan _ _ t) -> \case
+--      TSArray (ILan _ _ u) -> isAssignable t u
+--      _                    -> False
+--    TSNullable _ -> undefined   -- need to address semantics of this type in ts
+--    TSTuple xs -> \case
+--      TSTuple ys ->
+--        let xs' = icollect Some xs
+--            ys' = icollect Some ys
+--        in  flip all (Z.align xs' ys') $ \case
+--              This _ -> False
+--              That _ -> False
+--              These (Some (TSType_ x)) (Some (TSType_ y)) -> isAssignable x y
+
+-- | If X is assignable to Y, then convert x to the more general y,
+-- potentially losing information.
+--
+-- TODO: technically all of these can be assignable to nullable versions of
+-- themselves?
+reAssign :: TSType p k a -> TSType p j b -> a -> Maybe b
+reAssign = \case
+    TSArray (ILan _ g t) -> \case
+      TSArray (ILan f' _ u) -> fmap f' . traverse (reAssign t u) . g
+      TSNullable (ILan q _ (TSArray (ILan f' _ u))) ->
+        -- hm...should this be Just . fmap q, or fmap (q . Just)
+        fmap (q . Just) . fmap f' . traverse (reAssign t u) . g
+      _ -> const Nothing
+    TSNullable (ILan _ g t) -> \case
+      TSNullable (ILan f' _ u) -> fmap f' . traverse (reAssign t u) . g
+      _ -> const Nothing
+    TSTuple (PreT xs) -> \case
+      TSTuple (PreT ys) -> reAssignTuple xs ys
+      TSNullable (ILan q _ (TSTuple (PreT ys))) -> fmap (q . Just) . reAssignTuple xs ys
+      _ -> const Nothing
+    TSObject xs -> \case
+      TSObject ys -> (`assembleKeyVal` ys) . (`splitKeyVal` xs)
+      TSNullable (ILan q _ (TSObject ys)) -> fmap (q . Just) . (`assembleKeyVal` ys) . (`splitKeyVal` xs)
+      _ -> const Nothing
+
+reAssignTuple :: Ap (Pre a (TSType_ p)) c -> Ap (Pre b (TSType_ p)) d -> a -> Maybe d
+reAssignTuple = \case
+    Pure _ -> \case
+      Pure y -> \_ -> Just y
+      Ap _ _ -> \_ -> Nothing
+    Ap (f :>$<: TSType_ x) xs -> \case
+      Pure _ -> \_ -> Nothing
+      Ap (_ :>$<: TSType_ y) ys -> \r ->
+         liftA2 (flip ($)) (reAssign x y (f r)) (reAssignTuple xs ys r)
+
+
+splitAp :: forall f a b. a -> Ap (Pre a f) b -> [Some (f :*: Identity)]
+splitAp r = go
+  where
+    go :: Ap (Pre a f) c -> [Some (f :*: Identity)]
+    go = \case
+      Pure _ -> []
+      Ap (f :>$<: x) xs -> Some (x :*: Identity (f r)) : go xs
+
+
+splitKeyVal :: a -> TSKeyVal p a -> Map Text (Some (TSType_ p :*: Identity))
+splitKeyVal x (PreT p) = M.fromList $ splitAp x p <&> \case
+    Some (ObjMember{..} :*: y) ->
+      ( objMemberKey
+      , case objMemberVal of
+          L1 z -> Some $ z :*: y
+          R1 (ILan f g (TSType_ w)) -> Some $
+            TSType_ (TSNullable (ILan f g w)) :*: y
+      )
+
+assembleKeyVal
+    :: forall p b. ()
+    => Map Text (Some (TSType_ p :*: Identity))
+    -> TSKeyVal p b
+    -> Maybe b
+assembleKeyVal mp (PreT p) = go p
+  where
+    go :: Ap (Pre a (ObjMember (TSType_ p))) c -> Maybe c
+    go = \case
+      Pure x -> Just x
+      Ap (_ :>$<: ObjMember{..}) xs -> do
+        Some (TSType_ u :*: Identity y) <- M.lookup objMemberKey mp
+        -- if the original is Non-Nullable, we can assign it to anything
+        -- if the original is Nullable, we can only assign it to Nullable
+        let objVal = case objMemberVal of
+              L1 t                      -> t
+              R1 (ILan g h (TSType_ t)) -> TSType_ $ TSNullable (ILan g h t)
+        (`withTSType_` objVal) $ \t -> reAssign u t y <**> go xs
