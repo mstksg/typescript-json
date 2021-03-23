@@ -94,6 +94,7 @@ module Typescript.Json.Core (
 
 import           Control.Applicative
 import           Control.Applicative.Free
+import           Control.Monad
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Fin                                  (Fin(..))
@@ -164,8 +165,52 @@ deriving instance Ord (TSPrim a)
 instance GShow TSPrim where
     gshowsPrec = showsPrec
 
+eqTSPrim :: TSPrim a -> TSPrim b -> Maybe (a :~: b)
+eqTSPrim = \case
+    TSBoolean -> \case
+      TSBoolean -> Just Refl
+      _ -> Nothing
+    TSNumber -> \case
+      TSNumber -> Just Refl
+      _ -> Nothing
+    TSBigInt -> \case
+      TSBigInt -> Just Refl
+      _ -> Nothing
+    TSString -> \case
+      TSString -> Just Refl
+      _ -> Nothing
+    TSStringLit x -> \case
+      TSStringLit y -> Refl <$ guard (x == y)
+      _ -> Nothing
+    TSNumericLit x -> \case
+      TSNumericLit y -> Refl <$ guard (x == y)
+      _ -> Nothing
+    TSBigIntLit x -> \case
+      TSBigIntLit y -> Refl <$ guard (x == y)
+      _ -> Nothing
+    TSUnknown -> \case
+      TSUnknown -> Just Refl
+      _ -> Nothing
+    TSAny -> \case
+      TSAny -> Just Refl
+      _ -> Nothing
+    TSVoid -> \case
+      TSVoid -> Just Refl
+      _ -> Nothing
+    TSUndefined -> \case
+      TSUndefined -> Just Refl
+      _ -> Nothing
+    TSNull -> \case
+      TSNull -> Just Refl
+      _ -> Nothing
+    TSNever -> \case
+      TSNever -> Just Refl
+      _ -> Nothing
+
 -- | "Named" primitive types, that cannot be anonymous
 data TSNamedPrim :: Type -> Type where
+    -- TODO: maybe this should return Maybe (Fin n) since it is inhabitable
+    -- by any Int
     TSEnum       :: Vec n (Text, EnumLit) -> TSNamedPrim (Fin n)
 
 deriving instance Show (TSNamedPrim a)
@@ -229,6 +274,11 @@ type TSKeyVal p = PreT Ap (ObjMember (TSType_ p))
 
 data TSType :: Nat -> IsObjType -> Type -> Type where
     TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
+    -- this doesn't really make sense nakedly, but it's used internally
+    -- a lot.  It's a bit like TSSingle, maybe.  but also maybe i wonder if
+    -- tssingle, tsnullabe, and tsnfunc should all be commutative.
+    -- also because it doesn't make sense nakedly, is its k param returned
+    -- meaningful?
     TSNullable     :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
     TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
     TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
@@ -995,7 +1045,7 @@ parseType = \case
 --
 -- TODO: technically all of these can be assignable to nullable versions of
 -- themselves?
-reAssign :: TSType p k a -> TSType p j b -> a -> Maybe b
+reAssign :: TSType 'Nat.Z k a -> TSType p j b -> a -> Maybe b
 reAssign = \case
     TSArray (ILan _ g t) -> \case
       TSArray (ILan f' _ u) -> fmap f' . traverse (reAssign t u) . g
@@ -1014,8 +1064,29 @@ reAssign = \case
       TSObject ys -> (`assembleKeyVal` ys) . (`splitKeyVal` xs)
       TSNullable (ILan q _ (TSObject ys)) -> fmap (q . Just) . (`assembleKeyVal` ys) . (`splitKeyVal` xs)
       _ -> const Nothing
+    TSSingle x -> reAssign x
+      -- TSSingle y -> reAssign x y
+      -- TSNullable (ILan q _ (TSSingle y)) -> fmap (q . Just) . reAssign x y
+      -- _ -> const Nothing
+    -- care must be taken here to ensure that a Number/String is assignable to
+    -- Enum.  but actually now this will be partial? :(  because we can't
+    -- always give a b even if it is compatible
+    TSPrimType (PS xi xp xs) -> \case
+      TSPrimType (PS yi yp ys) -> \r -> do
+        Refl <- eqTSPrim xi yi
+        -- this should *really* return Just, so we really have Just Nothing
+        either (const Nothing) Just . yp . xs $ r
 
-reAssignTuple :: Ap (Pre a (TSType_ p)) c -> Ap (Pre b (TSType_ p)) d -> a -> Maybe d
+-- data PS f a = forall r. PS
+--     { psItem       :: f r
+--     , psParser     :: r -> Either Text a
+--     , psSerializer :: a -> r
+--     }
+    -- TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
+
+      
+
+reAssignTuple :: Ap (Pre a (TSType_ 'Nat.Z)) c -> Ap (Pre b (TSType_ p)) d -> a -> Maybe d
 reAssignTuple = \case
     Pure _ -> \case
       Pure y -> \_ -> Just y
@@ -1047,7 +1118,7 @@ splitKeyVal x (PreT p) = M.fromList $ splitAp x p <&> \case
 
 assembleKeyVal
     :: forall p b. ()
-    => Map Text (Some (TSType_ p :*: Identity))
+    => Map Text (Some (TSType_ 'Nat.Z :*: Identity))
     -> TSKeyVal p b
     -> Maybe b
 assembleKeyVal mp (PreT p) = go p
