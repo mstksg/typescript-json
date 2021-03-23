@@ -66,12 +66,8 @@ import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Invariant
 import           Data.Kind
-import           Data.List
-import           Data.Maybe
 import           Data.Proxy
 import           Data.SOP                          (NP(..), K(..), hpure, All, Top)
-import           Data.Scientific                   (Scientific)
-import           Data.Set                          (Set)
 import           Data.Text                         (Text)
 import           Data.Vec.Lazy                     (Vec(..))
 import           Data.Void
@@ -403,6 +399,7 @@ instance GTSTypeF f => GTSTypeF (M1 C ('MetaCons constr a b) f) where
 instance GTSTypeF Par1 where
     gtoTSTypeF _ _ = TSTypeF_ $
       TSGeneric (K "T" :* Nil) $ \_ (x :* Nil) ->
+        -- TODO: can we do this without TSSingle ...
         onTSType_ id TSSingle (invmap Par1 unPar1 x)
 
 instance GTSTypeF (K1 i x) where

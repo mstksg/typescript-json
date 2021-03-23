@@ -100,15 +100,11 @@ import           Data.Foldable
 import           Data.Functor.Apply
 import           Data.Functor.Combinator
 import           Data.Functor.Contravariant
-import           Data.Functor.Contravariant.Conclude
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Contravariant.Divisible.Free
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
-import           Data.Kind
-import           Data.List.NonEmpty                        (NonEmpty(..))
 import           Data.Map                                  (Map)
-import           Data.Map.NonEmpty                         (NEMap)
 import           Data.Profunctor
 import           Data.SOP                                  (NP(..), NS(..), I(..), K(..))
 import           Data.Scientific
@@ -117,7 +113,6 @@ import           Data.Traversable
 import           Data.Type.Nat                             (Plus)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
-import           GHC.TypeLits
 import           Typescript.Json.Core
 import           Typescript.Json.Core.Combinators
 import qualified Control.Applicative.Lift                  as Lift
@@ -128,7 +123,6 @@ import qualified Data.ByteString                           as BS
 import qualified Data.ByteString.Lazy                      as BSL
 import qualified Data.Fin.Enum                             as FE
 import qualified Data.Map                                  as M
-import qualified Data.Map.NonEmpty                         as NEM
 import qualified Data.Text                                 as T
 import qualified Data.Text.Lazy                            as TL
 import qualified Data.Type.Nat                             as Nat
@@ -322,8 +316,8 @@ tsTuple = TSTuple . PreT . getTupleVals
 -- combinators that uses heterogeneous lists, which can potentially make
 -- things cleaner.
 newtype UnionBranches p a b = UnionBranches
-    { getUnionBranches :: Dec (Post a (TSType_ p)) b }
-  deriving newtype (Contravariant, Decide, Conclude, Invariant)
+    { getUnionBranches :: Dec1 (Post a (TSType_ p)) b }
+  deriving newtype (Contravariant, Decide, Invariant)
 
 -- | Create a singleton 'UnionBranches', to be combined with 'Decide'
 -- combinators with others.  Can also be used with 'tsUnions' if you want
@@ -369,10 +363,10 @@ tsUnion = TSUnion . PostT . getUnionBranches
 -- This is essentially a wrapper over repeated 'decide's and 'tsUnion', but
 -- can be cleaner than peeling of 'Either's.
 tsUnions
-    :: (a -> NS I as)
-    -> NP (UnionBranches p a) as
+    :: (a -> NS I (b ': bs))
+    -> NP (UnionBranches p a) (b ': bs)
     -> TSType p 'NotObj a
-tsUnions f = tsUnion . contramap f . concludeN
+tsUnions f = tsUnion . contramap f . decideN
 
 data Branch p a = Branch
     { branchTag   :: Text
@@ -391,8 +385,8 @@ instance Invariant (Branch p) where
 -- Meant to be constructed using 'taggedBranch' and other 'Decide'
 -- combinators.
 newtype TaggedBranches p a b = TaggedBranches
-    { getTaggedBranches :: Dec (Post a (Branch p)) b }
-  deriving newtype (Contravariant, Decide, Conclude, Invariant)
+    { getTaggedBranches :: Dec1 (Post a (Branch p)) b }
+  deriving newtype (Contravariant, Decide, Invariant)
 
 fmapTaggedBranches :: (a -> c) -> TaggedBranches p a b -> TaggedBranches p c b
 fmapTaggedBranches f = TaggedBranches . hmap (mapPost f) . getTaggedBranches
@@ -421,8 +415,8 @@ tsTaggedUnion tvo = tsUnion . runTaggedBranches tvo
 
 tsTaggedUnions
     :: TaggedValueOpts
-    -> (a -> NS I as)
-    -> NP (TaggedBranches p a) as
+    -> (a -> NS I (b ': bs))
+    -> NP (TaggedBranches p a) (b ': bs)
     -> TSType p 'NotObj a
 tsTaggedUnions tvo f = tsUnions f . hmap (runTaggedBranches tvo)
 
@@ -509,7 +503,7 @@ taggedObject
     -> TSType p 'IsObj a
 taggedObject tag val obj = tsIntersection $
        intersectVal (const ()) (tsObject (tagVal tag val))
-    *> intersectVal id         obj
+    .> intersectVal id         obj
 
 -- | High-level utility to wrap a 'TSType_' with a "tag".
 --
@@ -587,7 +581,7 @@ taggedValue TaggedValueOpts{..} tagValue t
 --
 -- myTaggedType :: IntersectVals p MyType MyType
 -- myTaggedType = intersectVal tagType
---             *> intersectVal myType
+--             .> intersectVal myType
 -- @
 --
 -- @
@@ -608,8 +602,8 @@ taggedValue TaggedValueOpts{..} tagValue t
 -- will most likely not typecheck in typescript.  for decoding, the result
 -- will most likely fail to parse.
 newtype IntersectVals p a b = IntersectVals
-    { getIntersectVals :: Ap (Pre a (TSType p 'IsObj)) b }
-  deriving newtype (Functor, Apply, Applicative)
+    { getIntersectVals :: Ap1 (Pre a (TSType p 'IsObj)) b }
+  deriving newtype (Functor, Apply)
 
 instance Invariant (IntersectVals p a) where
     invmap f _ = fmap f

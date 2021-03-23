@@ -16,7 +16,6 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE OverloadedLabels           #-}
-{-# LANGUAGE OverloadedLabels           #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE PolyKinds                  #-}
@@ -90,6 +89,8 @@ module Typescript.Json.Core (
   -- * utility func
   , interpretObjMember
   , reAssign
+  , isAssignable
+  , eqTSPrim
   ) where
 
 import           Control.Applicative
@@ -101,8 +102,9 @@ import           Data.Fin                                  (Fin(..))
 import           Data.Foldable
 import           Data.Functor
 import           Data.Functor.Combinator hiding            (Comp(..))
+import           Data.Functor.Compose
 import           Data.Functor.Contravariant
-import           Data.Functor.Contravariant.Divisible.Free (Dec(..))
+import           Data.Functor.Contravariant.Divisible.Free (Dec1(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
 import           Data.GADT.Show
@@ -112,21 +114,24 @@ import           Data.Map                                  (Map)
 import           Data.Maybe
 import           Data.Ord
 import           Data.Profunctor
+import           Data.Proxy
 import           Data.SOP                                  (NP(..), K(..))
 import           Data.Scientific                           (Scientific, toBoundedInteger)
+import           Data.Semigroup                            (First(..))
 import           Data.Set                                  (Set)
 import           Data.Some                                 (Some(..))
 import           Data.Text                                 (Text)
-import           Data.These
 import           Data.Type.Equality
 import           Data.Type.Nat
-import           Data.Vec.Lazy                             (Vec)
+import           Data.Vec.Lazy                             (Vec(..))
 import           Data.Void
 import           Typescript.Json.Core.Combinators
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Encoding                       as AE
 import qualified Data.Aeson.Types                          as A
+import qualified Data.Fin                                  as Fin
+import qualified Data.Functor.Combinator.Unsafe            as FCU
 import qualified Data.Graph.Inductive.Graph                as FGL
 import qualified Data.Graph.Inductive.PatriciaTree         as FGL
 import qualified Data.Graph.Inductive.Query.DFS            as FGL
@@ -137,7 +142,6 @@ import qualified Data.Text                                 as T
 import qualified Data.Type.Nat                             as Nat
 import qualified Data.Vec.Lazy                             as Vec
 import qualified Data.Vector                               as V
-import qualified Data.Zip                                  as Z
 import qualified Prettyprinter                             as PP
 
 data EnumLit = ELString Text | ELNumber Scientific
@@ -209,8 +213,6 @@ eqTSPrim = \case
 
 -- | "Named" primitive types, that cannot be anonymous
 data TSNamedPrim :: Type -> Type where
-    -- TODO: maybe this should return Maybe (Fin n) since it is inhabitable
-    -- by any Int
     TSEnum       :: Vec n (Text, EnumLit) -> TSNamedPrim (Fin n)
 
 deriving instance Show (TSNamedPrim a)
@@ -279,14 +281,18 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     -- tssingle, tsnullabe, and tsnfunc should all be commutative.
     -- also because it doesn't make sense nakedly, is its k param returned
     -- meaningful?
+    --
+    -- OKAY so, there is a good evidence that this behaves like 'IsObj,
+    -- because it needs to be comparable across different fields in an
+    -- object (nullable vs non-nullable same version)
     TSNullable     :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
     TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
     TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
     TSSingle       :: TSType p 'IsObj a -> TSType p 'NotObj a
-    TSUnion        :: PostT Dec (TSType_ p) a -> TSType p 'NotObj a
+    TSUnion        :: PostT Dec1 (TSType_ p) a -> TSType p 'NotObj a
     TSNamedType    :: TSNamed p k as a -> NP (TSType_ p) as -> TSType p k a
     TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
-    TSIntersection :: PreT Ap (TSType p 'IsObj) a -> TSType p 'IsObj a
+    TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
     TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
 
 data TSNameable :: Nat -> IsObjType -> [Type] -> Type -> Type where
@@ -321,7 +327,7 @@ instance Invariant (TSNamed_ p as) where
 
 data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
     -- TODO: the next big thing: this must support "extends"
-    -- semantics: anything "named" can be extended with an interface
+    -- semantics: anything "named" (er no, only interfaces) can be extended with an interface
     -- but also anything that is a parameter can require an interface
     -- so extends happens in two places:
     --
@@ -329,7 +335,7 @@ data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
     -- constructors.  hm actaully wait it looks like for X extends Y, it
     -- only is allowed when X is an interface.  Y only needs to be an
     -- object. so that means it really can
-    -- go only in TSGenericInterface.  And it could pretty much be like an
+    -- go only in TSGenericInterface.  neato. And it could pretty much be like an
     -- intersection type, it adds to the fields.
     --
     -- The rule is: "An interface can only extend an object type or
@@ -425,7 +431,6 @@ tsApply
     -> TSType p k b
 tsApply (TSGeneric _ f) t = f SZ_ t
 tsApply (TSGenericInterface _ f) t = TSObject (f SZ_ t)
--- tsApply p@(TSPrimTypeF _ _) _ = TSApplied pil
 
 tsApply1
     :: TSTypeF p k '[a] b      -- ^ type function
@@ -439,9 +444,9 @@ withParams
     -> (forall bs. Vec bs Text -> NP (K (Fin bs)) as -> r)
     -> r
 withParams = \case
-    Nil -> \f -> f Vec.VNil Nil
+    Nil -> \f -> f VNil Nil
     K p :* ps -> \f -> withParams ps $ \bs (es :: NP (K (Fin bs)) as) ->
-      f (p Vec.::: bs) (K FZ :* hmap (K . FS . SOP.unK) es)
+      f (p ::: bs) (K FZ :* hmap (K . FS . SOP.unK) es)
 
 weakenFin
     :: forall as bs. ()
@@ -468,32 +473,15 @@ tsApplyVar
     -> r
 tsApplyVar (TSGeneric ps g) f = withParams ps $ \rs es ->
      f rs   -- shodowing should happen on the level of withParams?
-     -- f (fmap (shadow oldVars) rs)
        (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es))
-  -- where
-  --   oldVars :: Set Text
-  --   oldVars = S.fromList (htoList SOP.unK ps)
 tsApplyVar (TSGenericInterface ps g) f = withParams ps $ \rs es ->
      f rs
        (TSObject (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)))
--- tsApplyVar (TSPrimTypeF n p) f = f Vec.VNil (TSApplied (TSPrimTypeF n p) Nil)   -- is this going to be a problem?
-
--- shadow :: Set Text -> Text -> Text
--- shadow ps t0 = go Nothing
-  -- where
-  --   go i
-  --       | t `S.member` ps = go (Just (maybe 0 (+1) i))
-  --       | otherwise       = t
-  --     where
-  --       t = appendNum i t0
-  --   appendNum Nothing  = id
-  --   appendNum (Just i) = (<> T.pack (show @Int i))
-
 
 vecToSNat_ :: forall n b. Vec n b -> SNat_ n
 vecToSNat_ = \case
-    Vec.VNil     -> SZ_
-    _ Vec.::: xs -> SS_ (vecToSNat_ xs)
+    VNil     -> SZ_
+    _ ::: xs -> SS_ (vecToSNat_ xs)
 
 tsShift
     :: forall r p k a. ()
@@ -629,7 +617,7 @@ ppNamedPrim n = \case
 ppType
     :: TSType 'Nat.Z k a
     -> PP.Doc x
-ppType = ppType' Vec.VNil
+ppType = ppType' VNil
 
 ppType'
     :: forall p k a x. ()
@@ -668,7 +656,7 @@ ppType' = go
 ppNamed
     :: TSNamed 'Nat.Z k as a
     -> PP.Doc x
-ppNamed = ppNamed' Vec.VNil
+ppNamed = ppNamed' VNil
 
 ppNamed'
     :: Vec p Text
@@ -708,7 +696,7 @@ typeExports_ = withTSType_ typeExports
 typeExports
     :: TSType 'Nat.Z k a
     -> PP.Doc x
-typeExports = typeExports' Vec.VNil
+typeExports = typeExports' VNil
 
 typeExports'
     :: Vec p Text
@@ -724,7 +712,7 @@ namedTypeExports_ = withTSNamed_ namedTypeExports
 namedTypeExports
     :: TSNamed 'Nat.Z k as a
     -> PP.Doc x
-namedTypeExports = namedTypeExports' Vec.VNil
+namedTypeExports = namedTypeExports' VNil
 
 namedTypeExports'
     :: Vec p Text
@@ -948,6 +936,9 @@ data ParseErr = PEInvalidEnum    [(Text, EnumLit)]
               | PENever
   deriving (Show)
 
+showParseErr :: ParseErr -> String
+showParseErr = show -- TODO
+
 parseEnumLit :: EnumLit -> ABE.Parse () ()
 parseEnumLit = \case
     ELString t -> ABE.withText $ eqOrFail (const ()) t
@@ -1008,7 +999,9 @@ parseType = \case
       TSNPrimType PS{..}
             -> either (ABE.throwCustomError . PENamedPrimitive nm (Some psItem)) pure . psParser
            =<< parseNamedPrim psItem
-    TSIntersection ts -> interpret parseType ts
+                        -- remove this unsafeApply if ParseT ever gets an Apply instance
+    TSIntersection ts -> FCU.unsafeApply (Proxy @(ABE.ParseT ParseErr Identity)) $
+        interpret parseType ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
   where
@@ -1019,118 +1012,252 @@ parseType = \case
             (\k -> WrapFunctor . ABE.keyMay k . withTSType_ parseType)
         )
 
----- | answers: is X assignable to Y?
-----
----- actually maybe we should even have a "convert" functionality... so no
----- boolean blindness
-----
----- https://basarat.gitbook.io/typescript/type-system/type-compatibility
---isAssignable :: TSType p k a -> TSType q j b -> Bool
---isAssignable = \case
---    TSArray (ILan _ _ t) -> \case
---      TSArray (ILan _ _ u) -> isAssignable t u
---      _                    -> False
---    TSNullable _ -> undefined   -- need to address semantics of this type in ts
---    TSTuple xs -> \case
---      TSTuple ys ->
---        let xs' = icollect Some xs
---            ys' = icollect Some ys
---        in  flip all (Z.align xs' ys') $ \case
---              This _ -> False
---              That _ -> False
---              These (Some (TSType_ x)) (Some (TSType_ y)) -> isAssignable x y
+-- | answers: is X assignable to Y?
+--
+-- actually maybe we should even have a "convert" functionality... so no
+-- boolean blindness
+--
+-- https://basarat.gitbook.io/typescript/type-system/type-compatibility
+isAssignable :: TSType 'Nat.Z k a -> TSType 'Nat.Z j b -> Bool
+isAssignable t u = isJust $ reAssign t u
+
+-- | a can be assigned as a b.  the function will "lose" information.
+--
+-- assumes --stictNullChecks
+-- https://www.typescriptlang.org/docs/handbook/type-compatibility.html#advanced-topics
+reAssignPrim :: (r -> a) -> TSPrim a -> TSType 'Nat.Z k b -> Maybe (r -> Either Text b)
+reAssignPrim z = \case
+    TSBoolean -> \case
+      TSPrimType (PS TSBoolean f _) -> Just $ f . z
+      _ -> Nothing
+    TSNumber -> \case
+      TSPrimType (PS TSNumber f _) -> Just $ f . z
+      -- compatible with num as long as there is at least one number, or is
+      -- empty.  this is different than the spec but w/e
+      TSNamedType (TSNamed{..}) _ -> case tsnType of
+        TSNPrimType (PS (TSEnum cs) f _)
+          | null cs   -> Just $ \_ -> Left $ "Number out of range for empty Enum"
+          | otherwise -> do
+              let numberOpts =
+                    [ (i, n)
+                    | (i, (_, ELNumber n)) <- Vec.toList $ Vec.imap (,) cs
+                    ]
+              guard $ not (null numberOpts)
+              pure $ \(z->m) ->
+                case getFirst <$> foldMap (\(i, n) -> First i <$ guard (n == m)) numberOpts of
+                  Nothing -> Left $ "Number " <> T.pack (show m) <> " out of range for Enum: " <> T.pack (show cs)
+                  Just x  -> f x
+        TSNFunc _ -> Nothing
+      _ -> Nothing
+    TSBigInt -> \case
+      TSPrimType (PS TSBigInt f _) -> Just $ f . z
+      _ -> Nothing
+    TSString -> \case
+      TSPrimType (PS TSString f _) -> Just $ f . z
+      _ -> Nothing
+    TSStringLit s -> \case
+      TSPrimType (PS (TSStringLit t) f _) -> f . z <$ guard (s == t)
+      _ -> Nothing
+    TSNumericLit s -> \case
+      TSPrimType (PS (TSNumericLit t) f _) -> f . z <$ guard (s == t)
+      _ -> Nothing
+    TSBigIntLit s -> \case
+      TSPrimType (PS (TSBigIntLit t) f _) -> f . z <$ guard (s == t)
+      _ -> Nothing
+    TSUnknown -> \case
+      TSPrimType (PS TSUnknown f _) -> Just $ f . z
+      _ -> Nothing
+    TSAny -> \case
+      TSPrimType (PS TSNever _ _) -> Nothing
+      t -> Just $ first (T.unlines . ABE.displayError (T.pack . showParseErr)) . ABE.parseValue (parseType t) . z
+    TSVoid -> \case
+      TSPrimType (PS TSAny f _) -> Just $ \_ -> f A.Null
+      TSPrimType (PS TSUnknown f _) -> Just $ \_ -> f A.Null
+      TSPrimType (PS TSVoid f _) -> Just $ f . z
+      _ -> Nothing
+    TSUndefined -> \case
+      TSPrimType (PS TSAny f _) -> Just $ \_ -> f A.Null
+      TSPrimType (PS TSUnknown f _) -> Just $ \_ -> f A.Null
+      TSPrimType (PS TSVoid f _) -> Just $ f . z
+      TSPrimType (PS TSUndefined f _) -> Just $ f . z
+      _ -> Nothing
+    TSNull -> \case
+      TSPrimType (PS TSAny f _) -> Just $ \_ -> f A.Null
+      TSPrimType (PS TSUnknown f _) -> Just $ \_ -> f A.Null
+      TSPrimType (PS TSNull f _) -> Just $ f . z
+      _ -> Nothing
+    -- never can be anything
+    TSNever -> \_ -> Just $ Right . absurd . z
+
+
+-- | converts a Nullable x to x | null
+unNullable :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
+unNullable (ILan f g t) = TSUnion $ PostT $
+    Dec1 (maybe (Right ()) Left . g) (f . Just :<$>: TSType_ t) $
+      injectPost (\_ -> f Nothing) $ TSType_ (TSPrimType (inject TSNull))
 
 -- | If X is assignable to Y, then convert x to the more general y,
 -- potentially losing information.
---
--- TODO: technically all of these can be assignable to nullable versions of
--- themselves?
-reAssign :: TSType 'Nat.Z k a -> TSType p j b -> a -> Maybe b
-reAssign = \case
-    TSArray (ILan _ g t) -> \case
-      TSArray (ILan f' _ u) -> fmap f' . traverse (reAssign t u) . g
-      TSNullable (ILan q _ (TSArray (ILan f' _ u))) ->
-        -- hm...should this be Just . fmap q, or fmap (q . Just)
-        fmap (q . Just) . fmap f' . traverse (reAssign t u) . g
-      _ -> const Nothing
-    TSNullable (ILan _ g t) -> \case
-      TSNullable (ILan f' _ u) -> fmap f' . traverse (reAssign t u) . g
-      _ -> const Nothing
-    TSTuple (PreT xs) -> \case
+reAssign :: TSType 'Nat.Z k a -> TSType 'Nat.Z j b -> Maybe (a -> Either Text b)
+reAssign t0 = case t0 of
+    TSArray (ILan _ g t) -> loopReAssign t0 $ \case
+      TSArray (ILan f' _ u) ->
+        dimap g (fmap f' . sequence) . map <$> reAssign t u
+      _ -> Nothing
+    -- this is going to be funky
+    TSNullable t -> reAssign (unNullable t)
+    TSTuple (PreT xs) -> loopReAssign t0 $ \case
       TSTuple (PreT ys) -> reAssignTuple xs ys
-      TSNullable (ILan q _ (TSTuple (PreT ys))) -> fmap (q . Just) . reAssignTuple xs ys
-      _ -> const Nothing
-    TSObject xs -> \case
-      TSObject ys -> (`assembleKeyVal` ys) . (`splitKeyVal` xs)
-      TSNullable (ILan q _ (TSObject ys)) -> fmap (q . Just) . (`assembleKeyVal` ys) . (`splitKeyVal` xs)
-      _ -> const Nothing
-    TSSingle x -> reAssign x
-      -- TSSingle y -> reAssign x y
-      -- TSNullable (ILan q _ (TSSingle y)) -> fmap (q . Just) . reAssign x y
-      -- _ -> const Nothing
-    -- care must be taken here to ensure that a Number/String is assignable to
-    -- Enum.  but actually now this will be partial? :(  because we can't
-    -- always give a b even if it is compatible
-    TSPrimType (PS xi xp xs) -> \case
-      TSPrimType (PS yi yp ys) -> \r -> do
-        Refl <- eqTSPrim xi yi
-        -- this should *really* return Just, so we really have Just Nothing
-        either (const Nothing) Just . yp . xs $ r
+      _ -> Nothing
+    TSObject xs -> reAssignIsObj (TSObject xs)
+    TSSingle x -> loopReAssign t0 (reAssign x)
+    TSUnion (PostT xs) -> \y -> fmap getOp . getCompose $
+      interpret (withTSType_ (Compose . fmap Op . (`reAssign` y)) . getPost) xs
+    TSIntersection xs -> reAssignIsObj (TSIntersection xs)
+    TSNamedType TSNamed{..} ps -> case tsnType of
+      TSNFunc tf -> reAssign (tsApply tf ps)
+      TSNPrimType (PS{..}) -> case psItem of
+        TSEnum cs -> loopReAssign t0 $ \case
+          -- compatible with num as long as there is at least one number, or is
+          -- empty.  this is different than the spec but w/e
+          TSPrimType (PS TSNumber f _) -> case cs of
+            VNil -> Just $ \i -> Right $ Fin.absurd (psSerializer i)
+            _ ->
+              let numberOpts =
+                    [ (i, n)
+                    | (i, (_, ELNumber n)) <- Vec.toList $ Vec.imap (,) cs
+                    ]
+              in  guard (not (null numberOpts)) $> \i ->
+                     case snd $ cs Vec.! psSerializer i of
+                       ELNumber n -> f n
+                       ELString s -> Left $ "Enum mismatch: expected number, got " <> s
+          TSNamedType (TSNamed nm nt) _ -> case nt of
+            TSNPrimType (PS (TSEnum ds) f _) -> do
+              guard $ tsnName == nm
+              Refl <- vecSame (snd <$> cs) (snd <$> ds)
+              guard $ cs == ds
+              pure $ f . psSerializer
+            TSNFunc _ -> Nothing
+          _ -> Nothing
+    TSPrimType (PS xi _ xs) -> loopReAssign t0 $ reAssignPrim xs xi
 
--- data PS f a = forall r. PS
---     { psItem       :: f r
---     , psParser     :: r -> Either Text a
---     , psSerializer :: a -> r
---     }
-    -- TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
+vecSame :: Vec n a -> Vec m a -> Maybe (n :~: m)
+vecSame = \case
+  VNil -> \case
+    VNil -> Just Refl
+    _    -> Nothing
+  _ ::: xs -> \case
+    VNil -> Nothing
+    _ ::: ys -> (\case Refl -> Refl) <$> vecSame xs ys
 
-      
+-- | Loops on being TSNullable or TSSingle or TSNamedType TSNFunc.
+loopReAssign
+    :: forall a b k l. ()
+    => TSType 'Nat.Z l a
+    -> (forall j c. TSType 'Nat.Z j c -> Maybe (a -> Either Text c))
+    -> TSType 'Nat.Z k b
+    -> Maybe (a -> Either Text b)
+loopReAssign z f = go
+  where
+    go :: TSType 'Nat.Z j c -> Maybe (a -> Either Text c)
+    go = \case
+    -- TODO: need to loop
+      TSNullable t -> go (unNullable t)
+      TSSingle t -> go t
+      TSNamedType (TSNamed _ (TSNFunc tf)) ps -> go (tsApply tf ps)
+      TSUnion ts -> fmap runStar . getCompose $ postAltT (Compose . fmap Star . withTSType_ go) ts
+      TSPrimType (PS TSAny g _) -> Just $ g . typeToValue z
+      TSPrimType (PS TSUnknown g _) -> Just $ g . typeToValue z
+      t -> f t
 
-reAssignTuple :: Ap (Pre a (TSType_ 'Nat.Z)) c -> Ap (Pre b (TSType_ p)) d -> a -> Maybe d
+reAssignTuple
+    :: Ap (Pre a (TSType_ 'Nat.Z)) c
+    -> Ap (Pre b (TSType_ 'Nat.Z)) d
+    -> Maybe (a -> Either Text d)
 reAssignTuple = \case
     Pure _ -> \case
-      Pure y -> \_ -> Just y
-      Ap _ _ -> \_ -> Nothing
+      Pure y -> Just $ \_ -> Right y
+      Ap _ _ -> Nothing
     Ap (f :>$<: TSType_ x) xs -> \case
-      Pure _ -> \_ -> Nothing
-      Ap (_ :>$<: TSType_ y) ys -> \r ->
-         liftA2 (flip ($)) (reAssign x y (f r)) (reAssignTuple xs ys r)
+      Pure _ -> Nothing
+      Ap (_ :>$<: TSType_ y) ys -> do
+        rxs <- reAssign x y
+        rys <- reAssignTuple xs ys
+        Just $ \r -> rys r <*> rxs (f r)
 
-
-splitAp :: forall f a b. a -> Ap (Pre a f) b -> [Some (f :*: Identity)]
-splitAp r = go
+splitAp :: forall f b. Ap f b -> [Some f]
+splitAp = go
   where
-    go :: Ap (Pre a f) c -> [Some (f :*: Identity)]
+    go :: Ap f c -> [Some f]
     go = \case
       Pure _ -> []
-      Ap (f :>$<: x) xs -> Some (x :*: Identity (f r)) : go xs
+      Ap x xs -> Some x : go xs
 
+reAssignIsObj :: TSType 'Nat.Z 'IsObj a -> TSType 'Nat.Z k b -> Maybe (a -> Either Text b)
+reAssignIsObj x = \case
+    TSArray _  -> Nothing
+    TSNullable t -> reAssignIsObj x (unNullable t)
+    TSTuple _ -> Nothing
+    TSSingle y -> reAssignIsObj x y
+    TSObject y -> assembleIsObj mp (TSObject y)
+    TSUnion  _ -> undefined -- TODO: do the whole thing
+    TSNamedType TSNamed{..} ps -> case tsnType of
+      TSNFunc tf -> reAssignIsObj x (tsApply tf ps)
+      TSNPrimType _ -> Nothing
+    TSIntersection y -> assembleIsObj mp (TSIntersection y)
+    TSPrimType _ -> Nothing
+  where
+    mp = isObjKeyVals x
 
-splitKeyVal :: a -> TSKeyVal p a -> Map Text (Some (TSType_ p :*: Identity))
-splitKeyVal x (PreT p) = M.fromList $ splitAp x p <&> \case
-    Some (ObjMember{..} :*: y) ->
+isObjKeyVals
+    :: TSType p 'IsObj a
+    -> Map Text (Some (Pre a (TSType_ p)))
+isObjKeyVals = \case
+    TSObject ts -> splitKeyVal ts
+    TSIntersection (PreT ts) -> hfoldMap
+      (\(f :>$<: t) -> isObjKeyVals t <&> \case Some p -> Some (mapPre f p))
+      ts
+    TSNamedType _ _ -> undefined
+
+assembleIsObj
+    :: forall a b. ()
+    => Map Text (Some (Pre a (TSType_ 'Nat.Z)))
+    -> TSType 'Nat.Z 'IsObj b
+    -> Maybe (a -> Either Text b)
+assembleIsObj mp = \case
+    TSObject ts -> assembleKeyVal mp ts
+    TSIntersection ts -> fmap runReaderT . getCompose $
+        interpret (Compose . fmap ReaderT . assembleIsObj mp) ts
+    TSNamedType _ _ -> undefined
+
+splitKeyVal :: TSKeyVal p a -> Map Text (Some (Pre a (TSType_ p)))
+splitKeyVal (PreT p) = M.fromList $ splitAp p <&> \case
+    Some (q :>$<: ObjMember{..}) ->
       ( objMemberKey
       , case objMemberVal of
-          L1 z -> Some $ z :*: y
+          L1 z -> Some $ q :>$<: z
           R1 (ILan f g (TSType_ w)) -> Some $
-            TSType_ (TSNullable (ILan f g w)) :*: y
+            q :>$<: TSType_ (TSNullable (ILan f g w))
       )
 
 assembleKeyVal
-    :: forall p b. ()
-    => Map Text (Some (TSType_ 'Nat.Z :*: Identity))
-    -> TSKeyVal p b
-    -> Maybe b
+    :: forall a b. ()
+    => Map Text (Some (Pre a (TSType_ 'Nat.Z)))
+    -> TSKeyVal 'Nat.Z b
+    -> Maybe (a -> Either Text b)
 assembleKeyVal mp (PreT p) = go p
   where
-    go :: Ap (Pre a (ObjMember (TSType_ p))) c -> Maybe c
+    go :: Ap (Pre d (ObjMember (TSType_ 'Nat.Z))) c -> Maybe (a -> Either Text c)
     go = \case
-      Pure x -> Just x
+      Pure x -> Just $ \_ -> Right x
       Ap (_ :>$<: ObjMember{..}) xs -> do
-        Some (TSType_ u :*: Identity y) <- M.lookup objMemberKey mp
+        Some (q :>$<: TSType_ u) <- M.lookup objMemberKey mp
         -- if the original is Non-Nullable, we can assign it to anything
         -- if the original is Nullable, we can only assign it to Nullable
         let objVal = case objMemberVal of
               L1 t                      -> t
               R1 (ILan g h (TSType_ t)) -> TSType_ $ TSNullable (ILan g h t)
-        (`withTSType_` objVal) $ \t -> reAssign u t y <**> go xs
+        (`withTSType_` objVal) $ \t -> do
+          rx  <- reAssign u t
+          rxs <- go xs
+          pure $ \r -> rxs r <*> rx (q r)

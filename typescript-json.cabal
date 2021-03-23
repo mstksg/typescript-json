@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d391573f205837f428ee59a9ea2e2128681c0a434c0a7026d7d92f488a4e4705
+-- hash: c8eb2e479a89bbb1e519c8c97d36e1ac038aa667252a6a8a025ea120ca3ba644
 
 name:           typescript-json
 version:        0.1.0.0
@@ -41,6 +41,7 @@ library
     , aeson-better-errors
     , assoc
     , base >=4.7 && <5
+    , bifunctors
     , bytestring
     , containers
     , contravariant
