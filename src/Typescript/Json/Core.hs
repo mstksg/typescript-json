@@ -55,6 +55,8 @@ module Typescript.Json.Core (
   -- * Generics
   , TSTypeF(..)
   , TSTypeF_(..)
+  , TSApplied(..)
+  , TSAppliedF(..)
   , mapTSTypeF_
   , withTSTypeF_
   , tsApply
@@ -343,6 +345,9 @@ data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
     -- The rule is: "An interface can only extend an object type or
     -- intersection of object types with statically known members.
     -- "
+    --
+    -- DONE
+    --
     -- 2. as a requirement for a paraemeter...so would have to go in NP (K
     -- Text) as?  And then so should we make it a type error if we use it
     -- in a case where it does not actually extend?  that means we have to
@@ -388,12 +393,7 @@ data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
         :: NP (K Text) as
         -> (a -> b -> c)            -- ^ day convolution: combine base and new
         -> (c -> (a, b))
-        -> Lift (TSApplied (Plus (Length as) p) 'IsObj) a
-        -- -> TSType p 'IsObj a        -- ^ extends: could be empty object
-        -- -- TODO: no! has to be a named type!
-        -- -- and! it has to be fully saturated, too...but it can be
-        -- -- saturated with the VARIABLES (gr!) introduced by the
-        -- -- parameters in the bindings above! waaaaaluigi!
+        -> Lift (TSAppliedF p 'IsObj as) a
         -> (forall r. SNat_ r -> NP (TSType_ (Plus r p)) as -> TSKeyVal (Plus r p) b)
         -> TSTypeF p 'IsObj as c
 
@@ -411,11 +411,16 @@ data TSApplied p k a = forall as. (:$)
     , tsaArgs :: NP (TSType_ p) as
     }
 
+data TSAppliedF p k as a = forall bs. (:?)
+    { tsafFunc :: TSNamed p k bs a
+    , tsafArgs :: NP (TSTypeF_ p as) bs
+    }
+
 instance Invariant (TSTypeF p k as) where
     invmap f g (TSGeneric xs h) =
         TSGeneric xs (\q -> invmap f g . h q)
-    -- invmap f g (TSGenericInterface xs fe ext h) =
-    --     TSGenericInterface xs (\x y -> f (fe x y)) ext h
+    invmap f g (TSGenericInterface xs fe ef ext h) =
+        TSGenericInterface xs (\x y -> f (fe x y)) (ef . g) ext h
 
 data TSTypeF_ p as b = forall k. TSTypeF_ { unTSTypeF_ :: TSTypeF p k as b }
 
@@ -454,25 +459,24 @@ tsApply
     -> NP (TSType_ p) as     -- ^ thing to apply
     -> TSType p k b
 tsApply (TSGeneric _ f) t = f SZ_ t
-tsApply (TSGenericInterface ps fe ef ext f) t = case ext of
+tsApply (TSGenericInterface _ fe ef ext f) t = case ext of
     Lift.Pure  x -> invmap (fe x) (snd . ef) $ TSObject (f SZ_ t)
-    Lift.Other (TSNamed _ (TSNFunc tf) :$ qs) -> TSObject . PreT $
-        -- ah yeah, this system isn't going to work.  we can't ever
-        -- substitute in variables because of the Nat nature, we can't
-        -- guarantee they have the right types
-        fe <$> undefined (collapseIsObj (tsApply tf qs))
+    Lift.Other (TSNamed _ (TSNFunc tf) :? qs) -> TSObject . PreT $
+        fe <$> hmap (mapPre (fst . ef)) (unPreT $ collapseIsObj (tsApplyF tf qs t))
            <.> hmap (mapPre (snd . ef)) (unPreT $ f SZ_ t)
 
--- tsApply (TSGenericInterface _ fe ef _ f) t = TSObject $
---     case
---     (f SZ_ t)
+tsApplyF
+    :: TSTypeF p k as b
+    -> NP (TSTypeF_ p bs) as
+    -> NP (TSType_ p) bs
+    -> TSType p k b
+tsApplyF tf qs rs = tf `tsApply` hmap (withTSTypeF_ (TSType_ . (`tsApply` rs))) qs
 
 tsApply1
     :: TSTypeF p k '[a] b      -- ^ type function
     -> TSType_ p a         -- ^ thing to apply
     -> TSType p k b
-tsApply1 (TSGeneric _ f) t = f SZ_ (t :* Nil)
--- tsApply1 (TSGenericInterface _ _ _ f) t = _ $ TSObject (f SZ_ (t :* Nil))
+tsApply1 f t = tsApply f (t :* Nil)
 
 toParams
     :: NP (K Text) as
@@ -496,12 +500,17 @@ tsApplyVar (TSGeneric ps g) =
 tsApplyVar (TSGenericInterface ps fe ef ext g) = case ext of
     Lift.Pure x -> invmap (fe x) (snd . ef) . TSObject $
       g n (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
-    Lift.Other (TSNamed _ (TSNFunc tf) :$ qs) -> TSObject . PreT $
+    Lift.Other (TSNamed _ (TSNFunc tf) :? qs) -> TSObject . PreT $
       fe <$> hmap (mapPre (fst . ef))
-               (unPreT $ collapseIsObj (tsApply tf qs))
+               (unPreT . collapseIsObj $
+                  tsApplyF
+                    (shiftTypeF n tf)
+                    (hmap (mapTSTypeF_ (shiftTypeF n)) qs)
+                    (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
+               )
          <.> hmap (mapPre (snd . ef))
-               (unPreT $ g n
-                 (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
+               (unPreT . g n $
+                  hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es
                )
   where
     (n, es) = toParams ps
@@ -547,6 +556,11 @@ shiftApplied n (TSNamed nm nt :$ xs) =
         TSNamed nm (shiftNameable n nt)
      :$ hmap (mapTSType_ (tsShift n)) xs
 
+shiftAppliedF :: SNat_ r -> TSAppliedF p k as a -> TSAppliedF (Plus r p) k as a
+shiftAppliedF n (TSNamed nm nt :? xs) =
+        TSNamed nm (shiftNameable n nt)
+     :? hmap (mapTSTypeF_ (shiftTypeF n)) xs
+
 shiftNameable :: SNat_ r -> TSNameable p k as a -> TSNameable (Plus r p) k as a
 shiftNameable n = \case
     TSNFunc tf     -> TSNFunc (shiftTypeF n tf)
@@ -562,7 +576,7 @@ shiftTypeF n = \case
              (case assocPlus @_ @(Length as) @p n of
                 Refl -> case commutePlus n m of
                   Refl -> case assocPlus @_ @r @p m of
-                    Refl -> (hmap (shiftApplied n) ext)
+                    Refl -> (hmap (shiftAppliedF n) ext)
              )
              (\q -> case assocPlus @_ @r @p q of Refl -> f (plusNat q n))
 
@@ -582,41 +596,6 @@ weakenFin
 weakenFin = \case
     FZ   -> FZ
     FS i -> FS (weakenFin @_ @bs i)
-
--- -- this is fundamentally impossible bc there no way to indicate the
--- -- matching types
--- tsUnshift
---     :: forall r p k a. ()
---     => Vec r (Some (TSType_ p))
---     -> TSType (Plus r p) k a
---     -> TSType p k a
--- tsUnshift vs = go
---   where
---     go :: forall q j b. TSType (Plus r q) j b -> TSType q j b
---     go = \case
---       TSArray ts -> TSArray (hmap go ts)
---       TSNullable ts -> TSNullable (hmap go ts)
---       TSTuple ts -> TSTuple (hmap (mapTSType_ go) ts)
---       TSUnion ts -> TSUnion (hmap (mapTSType_ go) ts)
---       TSObject ts -> TSObject (hmap (hmap (mapTSType_ go)) ts)
---       TSSingle t  -> TSSingle (go t)
---       -- TSNamedType a -> TSNamedType (shiftApplied n a)
---       TSIntersection t -> TSIntersection (hmap go t)
---       TSVar i -> case splitFin (vecToSNat_ vs) i of
---         Left j -> case vs Vec.! j of
---           Some (TSType_ x) -> _ x
---         Right k -> TSVar k
---         -- case vs Vec.! _ i of
---       -- --   Some t -> _
---       -- -- TSVar i    -> TSVar (shiftFin n i)
---       TSPrimType t -> TSPrimType t
-
--- splitFin :: SNat_ n -> Fin (Plus n m) -> Either (Fin n) (Fin m)
--- splitFin = \case
---     SZ_ -> Right
---     SS_ n -> \case
---       FZ -> Left FZ
---       FS i -> bimap FS id $ splitFin n i
 
 plusNat
     :: SNat_ as
@@ -678,14 +657,6 @@ ppPrim = \case
     TSNumber       -> "number"
     TSBigInt       -> "bigint"
     TSString       -> "string"
-    -- TSEnum n es    -> PP.fillSep
-    --   [ "enum"
-    --   , PP.pretty n
-    --   , PP.encloseSep "{" "}" ","
-    --       [ PP.pretty e PP.<+> "=" PP.<+> ppEnumLit x
-    --       | (e, x) <- toList es
-    --       ]
-    --   ]
     TSStringLit t  -> PP.pretty (show t)
     TSNumericLit n -> ppScientific n
     TSBigIntLit n  -> PP.pretty n
@@ -778,8 +749,8 @@ ppNamed' ps TSNamed{..} = case tsnType of
                       )
             , case ext of
                 Lift.Pure _ -> Nothing
-                Lift.Other (tf :$ _) -> Just $
-                  "extends" PP.<+> ppNamed' (prodVec vs Vec.++ ps) tf
+                Lift.Other (tf :? _) -> Just $
+                  "extends" PP.<+> ppNamed' ps tf
             , Just $ ppType' (prodVec vs Vec.++ ps) (tsApplyVar tsf)
             ]
     TSNPrimType PS{..} -> ppNamedPrim tsnName psItem
@@ -991,7 +962,6 @@ primToValue = \case
     -- hm...
     TSBigInt  -> A.Number . fromIntegral
     TSString  -> A.String
-    -- TSEnum _ e -> \i -> enumLitToValue (snd (e Vec.! i))
     TSStringLit t -> \_ -> A.String t
     TSNumericLit n -> \_ -> A.Number n
     -- hm...

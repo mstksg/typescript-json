@@ -797,15 +797,14 @@ tsApplied
     :: TSNamed p k as b
     -> NP (TSType_ p) as
     -> TSType p k b
-tsApplied = TSNamedType
+tsApplied f x = TSNamedType (f :$ x)
 
 tsApply2
     :: TSNamed p k '[a, b] c      -- ^ type function
     -> TSType_ p a                -- ^ thing to apply
     -> TSType_ p b                -- ^ thing to apply
     -> TSType p k c
-tsApply2 (TSNamed _ (TSNFunc (TSGeneric _ f))) tx ty = f SZ_ (tx :* ty :* Nil)
-tsApply2 (TSNamed _ (TSNFunc (TSGenericInterface _ f))) tx ty = TSObject $ f SZ_ (tx :* ty :* Nil)
+tsApply2 (TSNamed _ (TSNFunc f)) tx ty = tsApply f (tx :* ty :* Nil)
 
 tsApply3
     :: TSNamed p k '[a, b, c] d      -- ^ type function
@@ -813,8 +812,7 @@ tsApply3
     -> TSType_ p b                   -- ^ thing to apply
     -> TSType_ p c                   -- ^ thing to apply
     -> TSType p k d
-tsApply3 (TSNamed _ (TSNFunc (TSGeneric _ f))) tx ty tz = f SZ_ (tx :* ty :* tz :* Nil)
-tsApply3 (TSNamed _ (TSNFunc (TSGenericInterface _ f))) tx ty tz = TSObject $ f SZ_ (tx :* ty :* tz :* Nil)
+tsApply3 (TSNamed _ (TSNFunc f)) tx ty tz = tsApply f (tx :* ty :* tz :* Nil)
 
 tsApplied1
     :: TSNamed p k '[a] b

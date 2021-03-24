@@ -98,7 +98,7 @@ instance ToTSType Bool where
     toTSType = TSType_ tsBoolean
 
 instance ToTSType Ordering where
-    toTSType = TSType_ $ TSNamedType (genericNamedEnum @Ordering def) Nil
+    toTSType = TSType_ $ TSNamedType (genericNamedEnum @Ordering def :$ Nil)
 
 instance ToTSType Text where
     toTSType = TSType_ tsText
@@ -154,7 +154,7 @@ genericToTSType1
     -> TSType_ p a
     -> TSType_ p (f a)
 genericToTSType1 tso lts tx =
-    withTSNamed_ (TSType_ . (`TSNamedType` (tx :* Nil))) $
+    withTSNamed_ (TSType_ . TSNamedType . (:$ (tx :* Nil))) $
       genericToTSNamedF @f tso lts
 
 genericToTSTypeF_
@@ -220,7 +220,7 @@ class GTSType (f :: Type -> Type) where
 
 instance (KnownSymbol nm, GTSType f) => GTSType (M1 D ('MetaData nm a b c) f) where
     gtoTSType tso lts =
-        withTSNamed_ (TSType_ . (`TSNamedType` Nil)) (gtoTSNamed tso lts)
+        withTSNamed_ (TSType_ . TSNamedType . (:$ Nil)) (gtoTSNamed tso lts)
 
 instance GTSType f => GTSType (M1 S ('MetaSel s a b c) f) where
     gtoTSType tso lts = mapTSType_ (invmap M1 unM1) (gtoTSType @f tso lts)
