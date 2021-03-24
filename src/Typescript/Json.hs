@@ -113,8 +113,11 @@ import           Data.Traversable
 import           Data.Type.Nat                             (Plus)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
-import           Typescript.Json.Core
-import           Typescript.Json.Core.Combinators
+import           Typescript.Json.Core.Encode
+import           Typescript.Json.Core.Parse
+import           Typescript.Json.Core.Print
+import           Typescript.Json.Types
+import           Typescript.Json.Types.Combinators
 import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE

@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.2.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c8eb2e479a89bbb1e519c8c97d36e1ac038aa667252a6a8a025ea120ca3ba644
+-- hash: ce843a686e2a98b1bfdc579d78ea40b04d3e095862a4f05d0b63772cc4f46a12
 
 name:           typescript-json
 version:        0.1.0.0
@@ -29,8 +29,14 @@ library
   exposed-modules:
       Typescript.Json
       Typescript.Json.Core
-      Typescript.Json.Core.Combinators
+      Typescript.Json.Core.Assign
+      Typescript.Json.Core.Encode
+      Typescript.Json.Core.Parse
+      Typescript.Json.Core.Print
       Typescript.Json.Generics
+      Typescript.Json.Types
+      Typescript.Json.Types.Combinators
+      Typescript.Json.Types.SNat
   other-modules:
       Paths_typescript_json
   hs-source-dirs:

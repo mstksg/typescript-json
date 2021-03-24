@@ -1,19 +1,23 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE RankNTypes                #-}
 
-module Typescript.Json.Core.Combinators (
+module Typescript.Json.Types.Combinators (
     PS(..)
   , ILan(..)
   , ilan
   , interpretILan
   , interpretCoILan
   , interpretContraILan
+  , splitAp
   ) where
 
+import           Control.Applicative.Free
 import           Data.Functor.Combinator
-import           Data.Functor.Invariant
 import           Data.Functor.Contravariant
-import           Data.Text (Text)
+import           Data.Functor.Invariant
+import           Data.Some                  (Some(..))
+import           Data.Text                  (Text)
 
 data PS f a = forall r. PS
     { psItem       :: f r
@@ -67,4 +71,12 @@ interpretContraILan
     -> ILan g h a
     -> f a
 interpretContraILan f = unwrapContravariant . interpretILan (WrapContravariant . f)
+
+splitAp :: forall f b. Ap f b -> [Some f]
+splitAp = go
+  where
+    go :: Ap f c -> [Some f]
+    go = \case
+      Pure _ -> []
+      Ap x xs -> Some x : go xs
 

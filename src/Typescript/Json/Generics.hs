@@ -74,7 +74,7 @@ import           Data.Void
 import           GHC.Generics
 import           GHC.TypeLits
 import           Typescript.Json
-import           Typescript.Json.Core
+import           Typescript.Json.Types
 import qualified Data.Aeson                        as A
 import qualified Data.SOP                          as SOP
 import qualified Data.Set                          as S
