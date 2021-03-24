@@ -60,7 +60,6 @@ module Typescript.Json.Core (
   , tsApply
   , tsApply1
   , tsApplyVar
-  , tsApplyVar1
   -- * prettyprint
   , ppEnumLit
   , ppPrim
@@ -101,6 +100,8 @@ import           Data.Bifunctor
 import           Data.Fin                                  (Fin(..))
 import           Data.Foldable
 import           Data.Functor
+import           Data.Functor.Apply
+import           Data.Functor.Apply.Free
 import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Compose
 import           Data.Functor.Contravariant
@@ -126,6 +127,7 @@ import           Data.Type.Nat
 import           Data.Vec.Lazy                             (Vec(..))
 import           Data.Void
 import           Typescript.Json.Core.Combinators
+import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.Aeson                                as A
 import qualified Data.Aeson.BetterErrors                   as ABE
 import qualified Data.Aeson.Encoding                       as AE
@@ -290,7 +292,7 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
     TSSingle       :: TSType p 'IsObj a -> TSType p 'NotObj a
     TSUnion        :: PostT Dec1 (TSType_ p) a -> TSType p 'NotObj a
-    TSNamedType    :: TSNamed p k as a -> NP (TSType_ p) as -> TSType p k a
+    TSNamedType    :: TSApplied p k a -> TSType p k a
     TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
     TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
     TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
@@ -384,14 +386,36 @@ data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
         -> TSTypeF p k as b
     TSGenericInterface
         :: NP (K Text) as
+        -> (a -> b -> c)            -- ^ day convolution: combine base and new
+        -> (c -> (a, b))
+        -> Lift (TSApplied (Plus (Length as) p) 'IsObj) a
+        -- -> TSType p 'IsObj a        -- ^ extends: could be empty object
+        -- -- TODO: no! has to be a named type!
+        -- -- and! it has to be fully saturated, too...but it can be
+        -- -- saturated with the VARIABLES (gr!) introduced by the
+        -- -- parameters in the bindings above! waaaaaluigi!
         -> (forall r. SNat_ r -> NP (TSType_ (Plus r p)) as -> TSKeyVal (Plus r p) b)
-        -> TSTypeF p 'IsObj as b
+        -> TSTypeF p 'IsObj as c
+
+type family Length (as :: [k]) :: Nat where
+    Length '[] = 'Nat.Z
+    Length (a ': as) = 'Nat.S (Length as)
+
+prodVec :: NP (K a) as -> Vec (Length as) a
+prodVec = \case
+    Nil -> VNil
+    K x :* xs -> x ::: prodVec xs
+
+data TSApplied p k a = forall as. (:$)
+    { tsaFunc :: TSNamed p k as a
+    , tsaArgs :: NP (TSType_ p) as
+    }
 
 instance Invariant (TSTypeF p k as) where
     invmap f g (TSGeneric xs h) =
         TSGeneric xs (\q -> invmap f g . h q)
-    invmap f g (TSGenericInterface xs h) =
-        TSGenericInterface xs (\q -> invmap f g . h q)
+    -- invmap f g (TSGenericInterface xs fe ext h) =
+    --     TSGenericInterface xs (\x y -> f (fe x y)) ext h
 
 data TSTypeF_ p as b = forall k. TSTypeF_ { unTSTypeF_ :: TSTypeF p k as b }
 
@@ -406,9 +430,9 @@ instance Invariant (TSType p k) where
       TSObject ts -> TSObject (invmap f g ts)
       TSSingle ts -> TSSingle (invmap f g ts)
       TSUnion  ts -> TSUnion (invmap f g ts)
-      TSNamedType (TSNamed nm nt) xs -> case nt of
-        TSNFunc tf     -> TSNamedType (TSNamed nm (TSNFunc     (invmap f g tf))) xs
-        TSNPrimType ps -> TSNamedType (TSNamed nm (TSNPrimType (invmap f g ps))) xs
+      TSNamedType (TSNamed nm nt :$ xs) -> case nt of
+        TSNFunc tf     -> TSNamedType $ TSNamed nm (TSNFunc     (invmap f g tf)) :$ xs
+        TSNPrimType ps -> TSNamedType $ TSNamed nm (TSNPrimType (invmap f g ps)) :$ xs
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
       TSPrimType p -> TSPrimType (invmap f g p)
@@ -430,53 +454,68 @@ tsApply
     -> NP (TSType_ p) as     -- ^ thing to apply
     -> TSType p k b
 tsApply (TSGeneric _ f) t = f SZ_ t
-tsApply (TSGenericInterface _ f) t = TSObject (f SZ_ t)
+tsApply (TSGenericInterface ps fe ef ext f) t = case ext of
+    Lift.Pure  x -> invmap (fe x) (snd . ef) $ TSObject (f SZ_ t)
+    Lift.Other (TSNamed _ (TSNFunc tf) :$ qs) -> TSObject . PreT $
+        -- ah yeah, this system isn't going to work.  we can't ever
+        -- substitute in variables because of the Nat nature, we can't
+        -- guarantee they have the right types
+        fe <$> undefined (collapseIsObj (tsApply tf qs))
+           <.> hmap (mapPre (snd . ef)) (unPreT $ f SZ_ t)
+
+-- tsApply (TSGenericInterface _ fe ef _ f) t = TSObject $
+--     case
+--     (f SZ_ t)
 
 tsApply1
     :: TSTypeF p k '[a] b      -- ^ type function
     -> TSType_ p a         -- ^ thing to apply
     -> TSType p k b
 tsApply1 (TSGeneric _ f) t = f SZ_ (t :* Nil)
-tsApply1 (TSGenericInterface _ f) t = TSObject (f SZ_ (t :* Nil))
+-- tsApply1 (TSGenericInterface _ _ _ f) t = _ $ TSObject (f SZ_ (t :* Nil))
 
-withParams
+toParams
     :: NP (K Text) as
-    -> (forall bs. Vec bs Text -> NP (K (Fin bs)) as -> r)
-    -> r
-withParams = \case
-    Nil -> \f -> f VNil Nil
-    K p :* ps -> \f -> withParams ps $ \bs (es :: NP (K (Fin bs)) as) ->
-      f (p ::: bs) (K FZ :* hmap (K . FS . SOP.unK) es)
+    -> (SNat_ (Length as), NP (K (Fin (Length as))) as)
+toParams = \case
+    Nil -> (SZ_, Nil)
+    K _ :* ps -> case toParams ps of
+      (n, qs) -> (SS_ n, K FZ :* hmap (K . FS . SOP.unK) qs)
 
-weakenFin
-    :: forall as bs. ()
-    => Fin as
-    -> Fin (Plus as bs)
-weakenFin = \case
-    FZ   -> FZ
-    FS i -> FS (weakenFin @_ @bs i)
+-- shadowing?
 
-tsApplyVar1
-    :: forall p k a b r. ()
-    => TSTypeF p k '[a] b
-    -> (TSType ('Nat.S p) k b -> r)
-    -> r
-tsApplyVar1 (TSGeneric _ g) f =
-    f (g (SS_ SZ_) (TSType_ (TSVar FZ) :* Nil))
-tsApplyVar1 (TSGenericInterface _ g) f =
-    f (TSObject (g (SS_ SZ_) (TSType_ (TSVar FZ) :* Nil)))
-
+-- | Apply a TypeF with free variables
 tsApplyVar
-    :: forall p k as b r. ()
+    :: forall p k as b. ()
     => TSTypeF p k as b
-    -> (forall s. Vec s Text -> TSType (Plus s p) k b -> r)
-    -> r
-tsApplyVar (TSGeneric ps g) f = withParams ps $ \rs es ->
-     f rs   -- shodowing should happen on the level of withParams?
-       (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es))
-tsApplyVar (TSGenericInterface ps g) f = withParams ps $ \rs es ->
-     f rs
-       (TSObject (g (vecToSNat_ rs) (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)))
+    -> TSType (Plus (Length as) p) k b
+tsApplyVar (TSGeneric ps g) =
+    g n (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
+  where
+    (n, es) = toParams ps
+tsApplyVar (TSGenericInterface ps fe ef ext g) = case ext of
+    Lift.Pure x -> invmap (fe x) (snd . ef) . TSObject $
+      g n (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
+    Lift.Other (TSNamed _ (TSNFunc tf) :$ qs) -> TSObject . PreT $
+      fe <$> hmap (mapPre (fst . ef))
+               (unPreT $ collapseIsObj (tsApply tf qs))
+         <.> hmap (mapPre (snd . ef))
+               (unPreT $ g n
+                 (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
+               )
+  where
+    (n, es) = toParams ps
+
+tsfParams :: TSTypeF p k as b -> Vec (Length as) Text
+tsfParams = \case
+    TSGeneric ps _ -> prodVec ps
+    TSGenericInterface ps _ _ _ _ -> prodVec ps
+
+collapseIsObj :: TSType p 'IsObj a -> TSKeyVal p a
+collapseIsObj = \case
+    TSObject kv -> kv
+    TSNamedType (TSNamed _ (TSNFunc tf) :$ xs) -> collapseIsObj $ tsApply tf xs
+    TSIntersection (PreT xs) -> PreT $ interpret (\(f :>$<: x) -> hmap (mapPre f) . unPreT $ collapseIsObj x) xs
 
 vecToSNat_ :: forall n b. Vec n b -> SNat_ n
 vecToSNat_ = \case
@@ -498,23 +537,34 @@ tsShift n = go
       TSUnion ts -> TSUnion (hmap (mapTSType_ go) ts)
       TSObject ts -> TSObject (hmap (hmap (mapTSType_ go)) ts)
       TSSingle t  -> TSSingle (go t)
-      TSNamedType (TSNamed nm nt) xs -> case nt of
-        TSNFunc (TSGeneric ps f) -> TSNamedType (TSNamed nm
-          (TSNFunc $ TSGeneric ps $ \q ->
-             case assocPlus @_ @r @q q of
-               Refl -> f (plusNat q n)
-          ))
-          (hmap (mapTSType_ go) xs)
-        TSNFunc (TSGenericInterface ps f) -> TSNamedType (TSNamed nm
-          (TSNFunc $ TSGenericInterface ps $ \q ->
-             case assocPlus @_ @r @q q of
-               Refl -> f (plusNat q n)
-          ))
-          (hmap (mapTSType_ go) xs)
-        TSNPrimType ps -> TSNamedType (TSNamed nm (TSNPrimType ps)) Nil
+      TSNamedType a -> TSNamedType (shiftApplied n a)
       TSIntersection t -> TSIntersection (hmap go t)
       TSVar i    -> TSVar (shiftFin n i)
       TSPrimType t -> TSPrimType t
+
+shiftApplied :: SNat_ r -> TSApplied p k a -> TSApplied (Plus r p) k a
+shiftApplied n (TSNamed nm nt :$ xs) =
+        TSNamed nm (shiftNameable n nt)
+     :$ hmap (mapTSType_ (tsShift n)) xs
+
+shiftNameable :: SNat_ r -> TSNameable p k as a -> TSNameable (Plus r p) k as a
+shiftNameable n = \case
+    TSNFunc tf     -> TSNFunc (shiftTypeF n tf)
+    TSNPrimType ps -> TSNPrimType ps
+
+shiftTypeF :: forall r p k as a. SNat_ r -> TSTypeF p k as a -> TSTypeF (Plus r p) k as a
+shiftTypeF n = \case
+    TSGeneric ps f -> TSGeneric ps $ \q -> case assocPlus @_ @r @p q of
+      Refl -> f (plusNat q n)
+    TSGenericInterface ps fe ef ext f ->
+        let m = vecToSNat_ (prodVec ps)
+        in TSGenericInterface ps fe ef
+             (case assocPlus @_ @(Length as) @p n of
+                Refl -> case commutePlus n m of
+                  Refl -> case assocPlus @_ @r @p m of
+                    Refl -> (hmap (shiftApplied n) ext)
+             )
+             (\q -> case assocPlus @_ @r @p q of Refl -> f (plusNat q n))
 
 shiftFin
     :: forall as bs. ()
@@ -524,6 +574,49 @@ shiftFin
 shiftFin = \case
     SZ_ -> id
     SS_ n -> FS . shiftFin n
+
+weakenFin
+    :: forall as bs. ()
+    => Fin as
+    -> Fin (Plus as bs)
+weakenFin = \case
+    FZ   -> FZ
+    FS i -> FS (weakenFin @_ @bs i)
+
+-- -- this is fundamentally impossible bc there no way to indicate the
+-- -- matching types
+-- tsUnshift
+--     :: forall r p k a. ()
+--     => Vec r (Some (TSType_ p))
+--     -> TSType (Plus r p) k a
+--     -> TSType p k a
+-- tsUnshift vs = go
+--   where
+--     go :: forall q j b. TSType (Plus r q) j b -> TSType q j b
+--     go = \case
+--       TSArray ts -> TSArray (hmap go ts)
+--       TSNullable ts -> TSNullable (hmap go ts)
+--       TSTuple ts -> TSTuple (hmap (mapTSType_ go) ts)
+--       TSUnion ts -> TSUnion (hmap (mapTSType_ go) ts)
+--       TSObject ts -> TSObject (hmap (hmap (mapTSType_ go)) ts)
+--       TSSingle t  -> TSSingle (go t)
+--       -- TSNamedType a -> TSNamedType (shiftApplied n a)
+--       TSIntersection t -> TSIntersection (hmap go t)
+--       TSVar i -> case splitFin (vecToSNat_ vs) i of
+--         Left j -> case vs Vec.! j of
+--           Some (TSType_ x) -> _ x
+--         Right k -> TSVar k
+--         -- case vs Vec.! _ i of
+--       -- --   Some t -> _
+--       -- -- TSVar i    -> TSVar (shiftFin n i)
+--       TSPrimType t -> TSPrimType t
+
+-- splitFin :: SNat_ n -> Fin (Plus n m) -> Either (Fin n) (Fin m)
+-- splitFin = \case
+--     SZ_ -> Right
+--     SS_ n -> \case
+--       FZ -> Left FZ
+--       FS i -> bimap FS id $ splitFin n i
 
 plusNat
     :: SNat_ as
@@ -547,8 +640,8 @@ tsObjType = \case
     TSObject _                    -> SIsObj
     TSSingle _                    -> SNotObj
     TSUnion  _                    -> SNotObj
-    TSNamedType (TSNamed _ nt) _     -> case nt of
-      TSNFunc tsf@(TSGeneric{})      -> tsApplyVar tsf $ \_ -> tsObjType
+    TSNamedType (TSNamed _ nt :$ _)     -> case nt of
+      TSNFunc tsf@(TSGeneric{})      -> tsObjType (tsApplyVar tsf)
       TSNFunc (TSGenericInterface{}) -> SIsObj
       TSNPrimType _                  -> SNotObj
     TSVar _                       -> SNotObj
@@ -643,7 +736,7 @@ ppType' = go
       TSSingle ts -> go ps ts
       TSUnion ts  -> PP.encloseSep "" "" " | " (htoList (withTSType_ (go ps)) ts)
       -- this is the benefit of delaying application
-      TSNamedType (TSNamed nm _) xs ->
+      TSNamedType (TSNamed nm _ :$ xs) ->
         let args = htoList (withTSType_ (go ps)) xs
         in  PP.pretty nm <>
               (if null args then ""
@@ -673,18 +766,21 @@ ppNamed' ps TSNamed{..} = case tsnType of
                                     else PP.encloseSep "<" ">" "," args
                       )
             , "="
-            , tsApplyVar tsf $ \rs -> ppType' (rs Vec.++ ps)
+            , ppType' (prodVec vs Vec.++ ps) (tsApplyVar tsf)
             ]
-      TSGenericInterface vs _ ->
+      TSGenericInterface vs _ _ ext _ ->
         let args = htoList (PP.pretty . SOP.unK) vs
-        in  PP.hsep [
-              "interface"
-                PP.<+> PP.pretty tsnName
+        in  PP.hsep . catMaybes $ [
+              Just "interface"
+            , Just $ PP.pretty tsnName
                 PP.<> (if null args then ""
                                     else PP.encloseSep "<" ">" "," args
                       )
-            , "="
-            , tsApplyVar tsf $ \rs -> ppType' (rs Vec.++ ps)
+            , case ext of
+                Lift.Pure _ -> Nothing
+                Lift.Other (tf :$ _) -> Just $
+                  "extends" PP.<+> ppNamed' (prodVec vs Vec.++ ps) tf
+            , Just $ ppType' (prodVec vs Vec.++ ps) (tsApplyVar tsf)
             ]
     TSNPrimType PS{..} -> ppNamedPrim tsnName psItem
 
@@ -760,7 +856,7 @@ flattenNamedType_
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
 flattenNamedType_ ps tsn@TSNamed{..} = case tsnType of
     TSNFunc tsf -> do
-      deps <- tsApplyVar tsf $ \rs t -> flattenType_ (rs Vec.++ ps) t
+      deps <- flattenType_ (tsfParams tsf Vec.++ ps) (tsApplyVar tsf)
       modify $ M.insert tsnName (deps, pp)
       pure deps
     TSNPrimType PS{..} -> do
@@ -786,7 +882,7 @@ flattenType_ ps = go
       TSObject ts  -> hfoldMap (hfoldMap SOP.unK) <$> htraverse (htraverse (withTSType_ (fmap K . go))) ts
       TSSingle t   -> go t
       TSUnion ts   -> hfoldMap SOP.unK <$> htraverse (withTSType_ (fmap K . go)) ts
-      TSNamedType tsn args -> do
+      TSNamedType (tsn :$ args) -> do
         deps1 <- hfoldMap SOP.unK <$> htraverse (withTSType_ (fmap K . go)) args
         deps2 <- flattenNamedType_ ps tsn
         pure $ deps1 <> deps2
@@ -802,6 +898,27 @@ assocPlus = \case
     SZ_ -> Refl
     SS_ n -> case assocPlus @_ @b @c n  of
       Refl -> Refl
+
+commutePlus
+    :: forall a b. ()
+    => SNat_ a
+    -> SNat_ b
+    -> Plus a b :~: Plus b a
+commutePlus = \case
+    SZ_ -> \m -> case zeroPlus m of Refl -> Refl
+    SS_ n -> \m -> case commutePlus n m of
+      Refl -> case rightSuccPlus m n of
+        Refl -> Refl
+
+rightSuccPlus :: SNat_ a -> SNat_ b -> 'Nat.S (Plus a b) :~: Plus a ('Nat.S b)
+rightSuccPlus = \case
+    SZ_ -> \_ -> Refl
+    SS_ n -> \m -> case rightSuccPlus n m of Refl -> Refl
+
+zeroPlus :: SNat_ a -> a :~: Plus a 'Nat.Z
+zeroPlus = \case
+    SZ_ -> Refl
+    SS_ n -> case zeroPlus n of Refl -> Refl
 
 encodeEnumLit :: EnumLit -> A.Encoding
 encodeEnumLit = \case
@@ -835,7 +952,7 @@ objTypeToEncoding :: TSType 'Nat.Z 'IsObj a -> Op A.Series a
 objTypeToEncoding = \case
     TSObject       ts -> keyValToValue ts
     TSIntersection ts -> preDivisibleT objTypeToEncoding ts
-    TSNamedType (TSNamed _ nt) xs -> case nt of
+    TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> objTypeToEncoding (tsApply f xs)
   where
     keyValToValue :: TSKeyVal 'Nat.Z ~> Op A.Series
@@ -856,7 +973,7 @@ typeToEncoding = \case
     TSObject    ts    -> A.pairs . getOp (objTypeToEncoding (TSObject ts))
     TSSingle ts       -> typeToEncoding ts
     TSUnion ts        -> iapply (withTSType_ typeToEncoding) ts
-    TSNamedType (TSNamed _ nt) xs -> case nt of
+    TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> typeToEncoding (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToEncoding psItem . psSerializer
     TSIntersection ts -> A.pairs . getOp (objTypeToEncoding (TSIntersection ts))
@@ -895,7 +1012,7 @@ objTypeToValue :: TSType 'Nat.Z 'IsObj a -> Op [A.Pair] a
 objTypeToValue = \case
     TSObject       ts -> keyValToValue ts
     TSIntersection ts -> preDivisibleT objTypeToValue ts
-    TSNamedType (TSNamed _ nt) xs -> case nt of
+    TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> objTypeToValue (tsApply f xs)
   where
     keyValToValue :: TSKeyVal 'Nat.Z ~> Op [A.Pair]
@@ -919,7 +1036,7 @@ typeToValue = \case
     TSObject    ts    -> A.object . getOp (objTypeToValue (TSObject ts))
     TSSingle ts       -> typeToValue ts
     TSUnion ts        -> iapply (withTSType_ typeToValue) ts
-    TSNamedType (TSNamed _ nt) xs -> case nt of
+    TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> typeToValue (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToValue psItem . psSerializer
     TSIntersection ts -> A.object . getOp (objTypeToValue (TSIntersection ts))
@@ -994,7 +1111,7 @@ parseType = \case
       let us = icollect (withTSType_ ppType) ts
       in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
             icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
-    TSNamedType (TSNamed nm nt) xs -> case nt of
+    TSNamedType (TSNamed nm nt :$ xs) -> case nt of
       TSNFunc t -> parseType (tsApply t xs)
       TSNPrimType PS{..}
             -> either (ABE.throwCustomError . PENamedPrimitive nm (Some psItem)) pure . psParser
@@ -1034,7 +1151,7 @@ reAssignPrim z = \case
       TSPrimType (PS TSNumber f _) -> Just $ f . z
       -- compatible with num as long as there is at least one number, or is
       -- empty.  this is different than the spec but w/e
-      TSNamedType (TSNamed{..}) _ -> case tsnType of
+      TSNamedType (TSNamed{..} :$ _) -> case tsnType of
         TSNPrimType (PS (TSEnum cs) f _)
           | null cs   -> Just $ \_ -> Left $ "Number out of range for empty Enum"
           | otherwise -> do
@@ -1114,7 +1231,7 @@ reAssign t0 = case t0 of
     TSUnion (PostT xs) -> \y -> fmap getOp . getCompose $
       interpret (withTSType_ (Compose . fmap Op . (`reAssign` y)) . getPost) xs
     TSIntersection xs -> reAssignIsObj (TSIntersection xs)
-    TSNamedType TSNamed{..} ps -> case tsnType of
+    TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
       TSNFunc tf -> reAssign (tsApply tf ps)
       TSNPrimType (PS{..}) -> case psItem of
         TSEnum cs -> loopReAssign t0 $ \case
@@ -1131,7 +1248,7 @@ reAssign t0 = case t0 of
                      case snd $ cs Vec.! psSerializer i of
                        ELNumber n -> f n
                        ELString s -> Left $ "Enum mismatch: expected number, got " <> s
-          TSNamedType (TSNamed nm nt) _ -> case nt of
+          TSNamedType (TSNamed nm nt :$ _) -> case nt of
             TSNPrimType (PS (TSEnum ds) f _) -> do
               guard $ tsnName == nm
               Refl <- vecSame (snd <$> cs) (snd <$> ds)
@@ -1161,10 +1278,9 @@ loopReAssign z f = go
   where
     go :: TSType 'Nat.Z j c -> Maybe (a -> Either Text c)
     go = \case
-    -- TODO: need to loop
       TSNullable t -> go (unNullable t)
       TSSingle t -> go t
-      TSNamedType (TSNamed _ (TSNFunc tf)) ps -> go (tsApply tf ps)
+      TSNamedType (TSNamed _ (TSNFunc tf) :$ ps) -> go (tsApply tf ps)
       TSUnion ts -> fmap runStar . getCompose $ postAltT (Compose . fmap Star . withTSType_ go) ts
       TSPrimType (PS TSAny g _) -> Just $ g . typeToValue z
       TSPrimType (PS TSUnknown g _) -> Just $ g . typeToValue z
@@ -1201,7 +1317,7 @@ reAssignIsObj x = \case
     TSSingle y -> reAssignIsObj x y
     TSObject y -> assembleIsObj mp (TSObject y)
     TSUnion  _ -> undefined -- TODO: do the whole thing
-    TSNamedType TSNamed{..} ps -> case tsnType of
+    TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
       TSNFunc tf -> reAssignIsObj x (tsApply tf ps)
       TSNPrimType _ -> Nothing
     TSIntersection y -> assembleIsObj mp (TSIntersection y)
@@ -1217,7 +1333,7 @@ isObjKeyVals = \case
     TSIntersection (PreT ts) -> hfoldMap
       (\(f :>$<: t) -> isObjKeyVals t <&> \case Some p -> Some (mapPre f p))
       ts
-    TSNamedType _ _ -> undefined
+    TSNamedType _ -> undefined  -- TODO: what
 
 assembleIsObj
     :: forall a b. ()
@@ -1228,7 +1344,7 @@ assembleIsObj mp = \case
     TSObject ts -> assembleKeyVal mp ts
     TSIntersection ts -> fmap runReaderT . getCompose $
         interpret (Compose . fmap ReaderT . assembleIsObj mp) ts
-    TSNamedType _ _ -> undefined
+    TSNamedType _ -> undefined -- TODO: what
 
 splitKeyVal :: TSKeyVal p a -> Map Text (Some (Pre a (TSType_ p)))
 splitKeyVal (PreT p) = M.fromList $ splitAp p <&> \case
