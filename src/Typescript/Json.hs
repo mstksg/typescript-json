@@ -28,6 +28,7 @@ module Typescript.Json (
   -- ** Tuple
   , TupleVals(..)
   , tupleVal, tsTuple
+  , stripObjectVals
   -- ** Unions
   , UnionBranches(..)
   , unionBranch, tsUnions
@@ -281,6 +282,14 @@ tsTuple
     :: TupleVals p a a
     -> TSType p 'NotObj a
 tsTuple = TSTuple . PreT . getTupleVals
+
+stripObjectVals :: ObjectProps p a b -> TupleVals p a b
+stripObjectVals = TupleVals
+                . hmap (hmap ((id !*! go) . objMemberVal))
+                . getObjectProps
+  where
+    go (ILan f g (TSType_ x)) = TSType_ $ unNullable (ILan f g x)
+
 
 -- | A type aggregating branches in a union type.  Meant to
 -- be assembled using 'unionBranch' and combined using its 'Decide'

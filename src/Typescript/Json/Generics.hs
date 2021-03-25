@@ -1,25 +1,27 @@
-{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE EmptyCase             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE IncoherentInstances   #-}
-{-# LANGUAGE InstanceSigs          #-}
-{-# LANGUAGE KindSignatures        #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
+{-# LANGUAGE ConstraintKinds        #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE DefaultSignatures      #-}
+{-# LANGUAGE DeriveGeneric          #-}
+{-# LANGUAGE EmptyCase              #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE IncoherentInstances    #-}
+{-# LANGUAGE InstanceSigs           #-}
+{-# LANGUAGE KindSignatures         #-}
+{-# LANGUAGE LambdaCase             #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE PolyKinds              #-}
+{-# LANGUAGE QuantifiedConstraints  #-}
+{-# LANGUAGE RecordWildCards        #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE TypeFamilies           #-}
+{-# LANGUAGE TypeOperators          #-}
+{-# LANGUAGE UndecidableInstances   #-}
 
 module Typescript.Json.Generics (
   -- * Typeclass-based
@@ -27,13 +29,11 @@ module Typescript.Json.Generics (
   , TSOpts(..)
   , GTSNamed(..)
   , GTSSum(..)
-  , GTSObject(..)
-  , GTSTuple(..)
+  , GTSProduct(..)
   , GTSTypeF(..)
   , GTSNamedF(..)
   , GTSSumF(..)
-  , GTSObjectF(..)
-  , GTSTupleF(..)
+  , GTSProductF(..)
   , GTSEnum(..)
   , EnumOpts(..)
   -- * Default instances
@@ -52,6 +52,7 @@ module Typescript.Json.Generics (
   -- * Util
   , type (++)
   , splitNP
+  -- , Foo(..)
   , FooBar(..)
   -- , TestType(..)
   ) where
@@ -66,6 +67,7 @@ import           Data.Functor.Contravariant
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Invariant
 import           Data.Kind
+import           Data.Maybe
 import           Data.Proxy
 import           Data.SOP                          (NP(..), K(..), hpure, All, Top)
 import           Data.Text                         (Text)
@@ -255,19 +257,11 @@ instance (All Top (LeafTypes f), GTSSum f, GTSSum g) => GTSType (f :+: g) where
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance (All Top (LeafTypes f), KnownSymbol k, GTSType f, GTSObject g)
-      => GTSType ((M1 S ('MetaSel ('Just k) a b c) f) :*: g) where
-    gtoTSType tso lts = TSType_ . tsObject $
-        (:*:) <$> (gtsObject @(M1 S ('MetaSel ('Just k) a b c) f) tso as (\(x :*: _) -> x))
-              <*> (gtsObject @g tso bs (\(_ :*: y) -> y))
-      where
-        (as, bs) = splitNP (hpure Proxy) lts
-
-instance (All Top (LeafTypes f), GTSType f, GTSTuple g)
-      => GTSType ((M1 S ('MetaSel 'Nothing a b c) f) :*: g) where
-    gtoTSType tso lts = TSType_ . tsTuple $
-        (:*:) <$> gtsTuple @(M1 S ('MetaSel 'Nothing a b c) f) tso as (\(x :*: _) -> x)
-              <*> gtsTuple @g tso bs (\(_ :*: y) -> y)
+instance (All Top (LeafTypes f), GTSProduct t f, GTSProduct t g, WrapProduct k t)
+      => GTSType (f :*: g) where
+    gtoTSType tso lts = TSType_ . wrapProduct $
+        (:*:) <$> (gtsProduct @_ @f tso as (\(x :*: _) -> x))
+              <*> (gtsProduct @_ @g tso bs (\(_ :*: y) -> y))
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
@@ -298,35 +292,36 @@ instance (KnownSymbol constr, GTSType f)
                     . taggedBranch (f . M1) (tsoConstructorModifier (symbolVal (Proxy @constr)))
                     $ gtoTSType @f tso lts
 
-class GTSObject (f :: Type -> Type) where
-    gtsObject :: TSOpts -> NP (TSType_ p) (LeafTypes f) -> (a -> f x) -> ObjectProps p a (f x)
+class WrapProduct k t | t -> k where
+    wrapProduct :: t p a a -> TSType p k a
 
-instance (All Top (LeafTypes f), GTSObject f, GTSObject g) => GTSObject (f :*: g) where
-    gtsObject oo lts f =
-        (:*:) <$> gtsObject @f oo as ((\(x :*: _) -> x) . f)
-              <*> gtsObject @g oo bs ((\(_ :*: y) -> y) . f)
+instance WrapProduct 'IsObj ObjectProps where
+    wrapProduct = tsObject
+
+instance WrapProduct 'NotObj TupleVals where
+    wrapProduct = tsTuple
+
+
+class (forall p b. Applicative (t p b)) => GTSProduct (t :: N.Nat -> Type -> Type -> Type) (f :: Type -> Type) | f -> t where
+    gtsProduct  :: TSOpts -> NP (TSType_ p) (LeafTypes f) -> (a -> f x) -> t p a (f x)
+
+instance (All Top (LeafTypes f), GTSProduct t f, GTSProduct t g) => GTSProduct t (f :*: g) where
+    gtsProduct tso lts f =
+      (:*:) <$> gtsProduct @_ @f tso as ((\(x :*: _) -> x) . f)
+            <*> gtsProduct @_ @g tso bs ((\(_ :*: y) -> y) . f)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance (KnownSymbol k, GTSType f) => GTSObject (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsObject tso@TSOpts{..} lts f = M1 <$>
+instance (KnownSymbol k, GTSType f) => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c) f) where
+    gtsProduct tso@TSOpts{..} lts f = M1 <$>
         keyVal tsoNullableFields
             (unM1 . f)
             (tsoFieldModifier (symbolVal (Proxy @k)))
             (gtoTSType @f tso lts)
 
-class GTSTuple (f :: Type -> Type) where
-    gtsTuple :: TSOpts -> NP (TSType_ p) (LeafTypes f) -> (a -> f x) -> TupleVals p a (f x)
+instance GTSType f => GTSProduct TupleVals (M1 S ('MetaSel 'Nothing a b c) f) where
+    gtsProduct tso lts f =  M1 <$> tupleVal (unM1 . f) (gtoTSType @f tso lts)
 
-instance (All Top (LeafTypes f), GTSTuple f, GTSTuple g) => GTSTuple (f :*: g) where
-    gtsTuple tso lts f =
-      (:*:) <$> gtsTuple @f tso as ((\(x :*: _) -> x) . f)
-            <*> gtsTuple @g tso bs ((\(_ :*: y) -> y) . f)
-      where
-        (as, bs) = splitNP (hpure Proxy) lts
-
-instance GTSType f => GTSTuple (M1 S ('MetaSel 'Nothing a b c) f) where
-    gtsTuple tso lts f =  M1 <$> tupleVal (unM1 . f) (gtoTSType @f tso lts)
 
 
 
@@ -351,39 +346,12 @@ instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSTypeF (f :+: g) whe
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance (All Top (LeafTypes f), KnownSymbol k, GTSTypeF f, GTSObjectF g)
-      => GTSTypeF ((M1 S ('MetaSel ('Just k) a b c) f) :*: g) where
+instance (All Top (LeafTypes f), GTSProductF t f, GTSProductF t g, WrapProduct k t) => GTSTypeF (f :*: g) where
     gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric (Param' "T" :** Nil2) $ \rs (Arg_ (Arg' t) :** Nil2) ->
-          tsObject $
-            (:*:) <$> gtsObjectF @(M1 S ('MetaSel ('Just k) a b c) f)
-                        tso
-                        (hmap (mapTSType_ (tsShift rs)) as)
-                        (\(x :*: _) -> x)
-                        t
-                  <*> gtsObjectF @g
-                        tso
-                        (hmap (mapTSType_ (tsShift rs)) bs)
-                        (\(_ :*: y) -> y)
-                        t
-      where
-        (as, bs) = splitNP (hpure Proxy) lts
-
-instance (All Top (LeafTypes f), GTSTypeF f, GTSTupleF g)
-      => GTSTypeF ((M1 S ('MetaSel 'Nothing a b c) f) :*: g) where
-    gtoTSTypeF tso lts = TSTypeF_ $
-        TSGeneric (Param' "T" :** Nil2) $ \rs (Arg_ (Arg' t) :** Nil2) ->
-          tsTuple $
-            (:*:) <$> gtsTupleF @(M1 S ('MetaSel 'Nothing a b c) f)
-                        tso
-                        (hmap (mapTSType_ (tsShift rs)) as)
-                        (\(x :*: _) -> x)
-                        t
-                  <*> gtsTupleF @g
-                        tso
-                        (hmap (mapTSType_ (tsShift rs)) bs)
-                        (\(_ :*: y) -> y)
-                        t
+        TSGeneric (Param' "T" :** Nil2) $ \r (Arg_ (Arg' t) :** Nil2) ->
+          wrapProduct $
+            (:*:) <$> gtsProductF @t @f tso (hmap (mapTSType_ (tsShift r)) as) (\(x :*: _) -> x) t
+                  <*> gtsProductF @t @g tso (hmap (mapTSType_ (tsShift r)) bs) (\(_ :*: y) -> y) t
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
@@ -448,44 +416,31 @@ instance (KnownSymbol constr, GTSTypeF f)
       )
       (gtoTSTypeF @f tso lts)
 
-class GTSObjectF (f :: Type -> Type) where
-    gtsObjectF
-        :: TSOpts
-        -> NP (TSType_ p) (LeafTypes f)
-        -> (b -> f a)
-        -> TSType p k a
-        -> ObjectProps p b (f a)
-
-instance (All Top (LeafTypes f), GTSObjectF f, GTSObjectF g) => GTSObjectF (f :*: g) where
-    gtsObjectF tso lts f t =
-        (:*:) <$> gtsObjectF @f tso as ((\(x :*: _) -> x) . f) t
-              <*> gtsObjectF @g tso bs ((\(_ :*: y) -> y) . f) t
-      where
-        (as, bs) = splitNP (hpure Proxy) lts
-
-instance (KnownSymbol k, GTSTypeF f) => GTSObjectF (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsObjectF tso@TSOpts{..} lts f t = withTSTypeF_
-      (\tsg -> M1 <$> keyVal tsoNullableFields (unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
-                        (TSType_ (tsApply tsg (Arg_ (Arg' t) :** Nil2)))
-      )
-      (gtoTSTypeF @f tso lts)
-
-class GTSTupleF (f :: Type -> Type) where
-    gtsTupleF :: TSOpts
+class (forall p b. Applicative (t p b)) => GTSProductF (t :: N.Nat -> Type -> Type -> Type) (f :: Type -> Type) | f -> t where
+    gtsProductF
+              :: TSOpts
               -> NP (TSType_ p) (LeafTypes f)
               -> (b -> f a)
               -> TSType p k a
-              -> TupleVals p b (f a)
+              -> t p b (f a)
 
-instance (All Top (LeafTypes f), GTSTupleF f, GTSTupleF g) => GTSTupleF (f :*: g) where
-    gtsTupleF tso lts f t =
-        (:*:) <$> gtsTupleF @f tso as ((\(x :*: _) -> x) . f) t
-              <*> gtsTupleF @g tso bs ((\(_ :*: y) -> y) . f) t
+instance (All Top (LeafTypes f), GTSProductF t f, GTSProductF t g) => GTSProductF t (f :*: g) where
+    gtsProductF tso lts f t =
+        (:*:) <$> gtsProductF @_ @f tso as ((\(x :*: _) -> x) . f) t
+              <*> gtsProductF @_ @g tso bs ((\(_ :*: y) -> y) . f) t
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance GTSTypeF f => GTSTupleF (M1 S ('MetaSel 'Nothing a b c) f) where
-    gtsTupleF tso lts f t = withTSTypeF_
+instance (KnownSymbol k, GTSTypeF f) => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) f) where
+    gtsProductF tso@TSOpts{..} lts f t =
+      withTSTypeF_
+        (\tsg -> M1 <$> keyVal tsoNullableFields (unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
+                          (TSType_ (tsApply tsg (Arg_ (Arg' t) :** Nil2)))
+        )
+        (gtoTSTypeF @f tso lts)
+
+instance GTSTypeF f => GTSProductF TupleVals (M1 S ('MetaSel 'Nothing a b c) f) where
+    gtsProductF tso lts f t = withTSTypeF_
       (\tsg -> M1 <$> tupleVal (unM1 . f)
                         (TSType_ (tsApply tsg (Arg_ (Arg' t) :** Nil2)))
       )
@@ -589,6 +544,8 @@ knownSymbolText = T.pack (symbolVal (Proxy @s))
 data Foo = Foo
     { foo1 :: Int
     , foo2 :: Bool
+    , foo3 :: Int
+    , foo4 :: Bool
     }
   deriving Generic
 
