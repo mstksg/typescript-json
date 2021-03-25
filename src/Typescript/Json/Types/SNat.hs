@@ -4,6 +4,7 @@
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -15,6 +16,7 @@ module Typescript.Json.Types.SNat (
   , plusNat
   , vecToSNat_
   , prodVec
+  , prodVec2
   , shiftFin
   , weakenFin
   , assocPlus
@@ -28,6 +30,7 @@ import           Data.Fin           (Fin(..))
 import           Data.Kind
 import           Data.SOP           (NP(..), K(..))
 import           Data.Type.Equality
+import           Typescript.Json.Types.Combinators
 import           Data.Type.Nat
 import           Data.Vec.Lazy      (Vec(..))
 
@@ -52,10 +55,13 @@ vecToSNat_ = \case
     VNil     -> SZ_
     _ ::: xs -> SS_ (vecToSNat_ xs)
 
-prodVec :: NP (K a) as -> Vec (Length as) a
-prodVec = \case
-    Nil -> VNil
-    K x :* xs -> x ::: prodVec xs
+prodVec :: forall f as b. (forall a. f a -> b) -> NP f as -> Vec (Length as) b
+prodVec f = go
+  where
+    go :: forall bs. NP f bs -> Vec (Length bs) b
+    go = \case
+      Nil -> VNil
+      x :* xs -> f x ::: go xs
 
 shiftFin
     :: forall as bs. ()
@@ -113,3 +119,12 @@ vecSame = \case
     VNil -> Nothing
     _ ::: ys -> (\case Refl -> Refl) <$> vecSame xs ys
 
+prodVec2 :: forall f as bs c. (forall a b. f a b -> c) -> NP2 f as bs -> Vec (Length as) c
+prodVec2 f = go
+  where
+    go :: NP2 f cs ds -> Vec (Length cs) c
+    go = \case
+      Nil2 -> VNil
+      x :** xs -> f x ::: go xs
+
+    

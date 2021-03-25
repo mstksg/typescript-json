@@ -35,6 +35,7 @@ import           Data.Maybe
 import           Data.Ord
 import           Data.SOP                          (K(..))
 import           Data.Scientific                   (Scientific, toBoundedInteger)
+import qualified Data.DList as DL
 import           Data.Set                          (Set)
 import           Data.Text                         (Text)
 import           Data.Type.Nat
@@ -121,7 +122,7 @@ ppType' = go
       TSUnion ts  -> PP.encloseSep "" "" " | " (htoList (withTSType_ (go ps)) ts)
       -- this is the benefit of delaying application
       TSNamedType (TSNamed nm _ :$ xs) ->
-        let args = htoList (withTSType_ (go ps)) xs
+        let args = DL.toList $ hfoldMap2 (\(Arg_ Arg{..}) -> DL.singleton (go ps argType)) xs
         in  PP.pretty nm <>
               (if null args then ""
                             else PP.encloseSep "<" ">" "," args
@@ -131,40 +132,40 @@ ppType' = go
       TSPrimType PS{..} -> ppPrim psItem
 
 ppNamed
-    :: TSNamed 'Z k as a
+    :: TSNamed 'Z k as es a
     -> PP.Doc x
 ppNamed = ppNamed' VNil
 
 ppNamed'
     :: Vec p Text
-    -> TSNamed p k as a
+    -> TSNamed p k as es a
     -> PP.Doc x
 ppNamed' ps TSNamed{..} = case tsnType of
     TSNFunc tsf -> case tsf of
       TSGeneric vs _ ->
-        let args = htoList (PP.pretty . SOP.unK) vs
+        let args = prodVec2 paramName vs
         in  PP.hsep [
               "type"
                 PP.<+> PP.pretty tsnName
                 PP.<> (if null args then ""
-                                    else PP.encloseSep "<" ">" "," args
+                                    else PP.encloseSep "<" ">" "," (PP.pretty <$> toList args)
                       )
             , "="
-            , ppType' (prodVec vs Vec.++ ps) (tsApplyVar tsf)
+            , ppType' (args Vec.++ ps) (tsApplyVar tsf)
             ]
       TSGenericInterface vs _ _ ext _ ->
-        let args = htoList (PP.pretty . SOP.unK) vs
+        let args = prodVec2 paramName vs
         in  PP.hsep . catMaybes $ [
               Just "interface"
             , Just $ PP.pretty tsnName
                 PP.<> (if null args then ""
-                                    else PP.encloseSep "<" ">" "," args
+                                    else PP.encloseSep "<" ">" "," (PP.pretty <$> toList args)
                       )
             , case ext of
                 Lift.Pure _ -> Nothing
                 Lift.Other (tf :? _) -> Just $
                   "extends" PP.<+> ppNamed' ps tf
-            , Just $ ppType' (prodVec vs Vec.++ ps) (tsApplyVar tsf)
+            , Just $ ppType' (args Vec.++ ps) (tsApplyVar tsf)
             ]
     TSNPrimType PS{..} -> ppNamedPrim tsnName psItem
 
@@ -185,18 +186,18 @@ typeExports'
 typeExports' ps = ppMap . flattenType ps
 
 namedTypeExports_
-    :: TSNamed_ 'Z as a
+    :: TSNamed_ 'Z as es a
     -> PP.Doc x
 namedTypeExports_ = withTSNamed_ namedTypeExports
 
 namedTypeExports
-    :: TSNamed 'Z k as a
+    :: TSNamed 'Z k as es a
     -> PP.Doc x
 namedTypeExports = namedTypeExports' VNil
 
 namedTypeExports'
     :: Vec p Text
-    -> TSNamed p k as a
+    -> TSNamed p k as es a
     -> PP.Doc x
 namedTypeExports' ps = ppMap . flattenNamedType ps
 
@@ -222,7 +223,7 @@ ppMap (M.mapKeys Down->mp) = PP.vcat $
 -- have create a map of all of those declarations.
 flattenNamedType
     :: Vec p Text
-    -> TSNamed p k as a
+    -> TSNamed p k as es a
     -> Map Text (Set Text, PP.Doc x)
 flattenNamedType ps t = execState (flattenNamedType_ ps t) M.empty
 
@@ -234,9 +235,9 @@ flattenType
 flattenType ps t = execState (flattenType_ ps t) M.empty
 
 flattenNamedType_
-    :: forall p k a as x. ()
+    :: forall p k a as es x. ()
     => Vec p Text
-    -> TSNamed p k as a
+    -> TSNamed p k as es a
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
 flattenNamedType_ ps tsn@TSNamed{..} = case tsnType of
     TSNFunc tsf -> do
@@ -267,7 +268,7 @@ flattenType_ ps = go
       TSSingle t   -> go t
       TSUnion ts   -> hfoldMap SOP.unK <$> htraverse (withTSType_ (fmap K . go)) ts
       TSNamedType (tsn :$ args) -> do
-        deps1 <- hfoldMap SOP.unK <$> htraverse (withTSType_ (fmap K . go)) args
+        deps1 <- hfoldMap2 getConstF <$> htraverse2 (\(Arg_ Arg{..}) -> ConstF <$> go argType) args
         deps2 <- flattenNamedType_ ps tsn
         pure $ deps1 <> deps2
       TSVar _      -> pure S.empty

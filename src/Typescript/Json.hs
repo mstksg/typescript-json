@@ -46,19 +46,19 @@ module Typescript.Json (
   , intersectVal, tsIntersection
   -- ** Named
   , tsNamed, tsNamed_
-  -- ** Generics
-  , tsGeneric1
-  , tsGeneric2
-  , tsGeneric3
-  -- , tsGeneric
-  , tsApplied1
-  , tsApplied2
-  , tsApplied3
-  , tsApplied
-  , tsApply1
-  , tsApply2
-  , tsApply3
-  , tsApply
+  -- -- ** Generics
+  -- , tsGeneric1
+  -- , tsGeneric2
+  -- , tsGeneric3
+  -- -- , tsGeneric
+  -- , tsApplied1
+  -- , tsApplied2
+  -- , tsApplied3
+  -- , tsApplied
+  -- , tsApply1
+  -- , tsApply2
+  -- , tsApply3
+  -- , tsApply
   -- ** Primitives
   , tsBoolean
   , tsNumber, tsBoundedInteger, tsInteger, tsRealFloat, tsDouble, tsBigInt
@@ -113,6 +113,7 @@ import           Data.Traversable
 import           Data.Type.Nat                             (Plus)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
+import           Typescript.Json.Core
 import           Typescript.Json.Core.Encode
 import           Typescript.Json.Core.Parse
 import           Typescript.Json.Core.Print
@@ -655,14 +656,14 @@ runEnumMap EnumMap{..} f = Vec.reifyList (M.toList emGet) $ \(xs :: Vec n (EnumL
           }
     in  f fi res
 
-tsEnumMap :: Text -> EnumMap a -> TSNamed p 'NotObj '[] a
+tsEnumMap :: Text -> EnumMap a -> TSNamed p 'NotObj '[] '[] a
 tsEnumMap nm em = runEnumMap em (tsEnumWith nm)
 
 tsFinEnum
     :: FE.Enum a
     => Text
     -> Vec (FE.EnumSize a) (Text, EnumLit)
-    -> TSNamed p 'NotObj '[] a
+    -> TSNamed p 'NotObj '[] '[] a
 tsFinEnum nm = tsEnumWith nm $ FinIso
     { fiGet = FE.to
     , fiPut = FE.from
@@ -672,7 +673,7 @@ tsFinIntEnum
     :: FE.Enum a
     => Text
     -> Vec (FE.EnumSize a) Text
-    -> TSNamed p 'NotObj '[] a
+    -> TSNamed p 'NotObj '[] '[] a
 tsFinIntEnum nm = tsIntEnum nm $ FinIso
     { fiGet = FE.to
     , fiPut = FE.from
@@ -691,7 +692,7 @@ tsEnumWith
     :: Text
     -> FinIso n a
     -> Vec n (Text, EnumLit)
-    -> TSNamed p 'NotObj '[] a
+    -> TSNamed p 'NotObj '[] '[] a
 tsEnumWith nm FinIso{..} xs = TSNamed
     { tsnName = nm
     , tsnType = TSNPrimType $
@@ -702,7 +703,7 @@ tsIntEnum
     :: Text
     -> FinIso n a
     -> Vec n Text
-    -> TSNamed p 'NotObj '[] a
+    -> TSNamed p 'NotObj '[] '[] a
 tsIntEnum nm = tsIntEnumFrom nm 0
 
 tsIntEnumFrom
@@ -710,7 +711,7 @@ tsIntEnumFrom
     -> Int
     -> FinIso n a
     -> Vec n Text
-    -> TSNamed p 'NotObj '[] a
+    -> TSNamed p 'NotObj '[] '[] a
 tsIntEnumFrom nm i0 fi xs = tsEnumWith nm fi xs'
   where
     xs' = flip evalState i0 . for xs $ \x -> state $ \i ->
@@ -722,10 +723,10 @@ tsIntEnumFrom nm i0 fi xs = tsEnumWith nm fi xs'
 tsNamed
     :: Text
     -> TSType p k a
-    -> TSNamed p k '[] a
+    -> TSNamed p k '[] '[] a
 tsNamed nm t = TSNamed
     { tsnName = nm
-    , tsnType = TSNFunc (TSGeneric Nil (\n _ -> tsShift n t))
+    , tsnType = TSNFunc (TSGeneric Nil2 (\n _ -> tsShift n t))
     }
 -- TODO: namespacing
 
@@ -740,52 +741,52 @@ tsNamed nm t = TSNamed
 tsNamed_
     :: Text
     -> TSType_ p a
-    -> TSNamed_ p '[] a
+    -> TSNamed_ p '[] '[] a
 tsNamed_ nm = withTSType_ (TSNamed_ . tsNamed nm)
 
--- | Create a single-argument generic (parameterized) type.
---
--- For example, we could make a type imitating 'Maybe' in Haskell:
---
--- @
--- mkMaybe :: TSType_ p a -> TSType_ p (Maybe a)
--- mkMaybe = tsUnion $ decide (maybe (Left ()) Right) $
---     (tsTagged
--- @
-tsGeneric1
-    :: Text                     -- ^ Name of the type
-    -> Text                     -- ^ Name of the parameter (used for printing)
-    -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType (Plus r p) k b)         -- ^ Make a type, given the type parameter
-    -> TSNamed p k '[a] b
-tsGeneric1 n p f = TSNamed
-    { tsnName = n
-    , tsnType = TSNFunc $ TSGeneric (K p :* Nil) (\rs (t :* Nil) -> f rs t)
-    }
+---- | Create a single-argument generic (parameterized) type.
+----
+---- For example, we could make a type imitating 'Maybe' in Haskell:
+----
+---- @
+---- mkMaybe :: TSType_ p a -> TSType_ p (Maybe a)
+---- mkMaybe = tsUnion $ decide (maybe (Left ()) Right) $
+----     (tsTagged
+---- @
+--tsGeneric1
+--    :: Text                     -- ^ Name of the type
+--    -> Text                     -- ^ Name of the parameter (used for printing)
+--    -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType (Plus r p) k b)         -- ^ Make a type, given the type parameter
+--    -> TSNamed p k '[a] '[ 'Nothing ] b
+--tsGeneric1 n p f = TSNamed
+--    { tsnName = n
+--    , tsnType = TSNFunc $ TSGeneric (K p :* Nil) (\rs (t :* Nil) -> f rs t)
+--    }
 
-tsGeneric2
-    :: Text
-    -> Text
-    -> Text
-    -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType (Plus r p) k c)
-    -> TSNamed p k '[a, b] c
-tsGeneric2 n p q f = TSNamed
-    { tsnName = n
-    , tsnType = TSNFunc $
-        TSGeneric (K p :* K q :* Nil) (\rs (t :* u :* Nil) -> f rs t u)
-    }
+-- tsGeneric2
+--     :: Text
+--     -> Text
+--     -> Text
+--     -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType (Plus r p) k c)
+--     -> TSNamed p k '[a, b] c
+-- tsGeneric2 n p q f = TSNamed
+--     { tsnName = n
+--     , tsnType = TSNFunc $
+--         TSGeneric (paramSimple p :* paramSimple q :* Nil) (\rs (t :* u :* Nil) -> f rs t u)
+--     }
 
-tsGeneric3
-    :: Text
-    -> Text
-    -> Text
-    -> Text
-    -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType_ (Plus r p) c -> TSType (Plus r p) k d)
-    -> TSNamed p k '[a, b, c] d
-tsGeneric3 n p q r f = TSNamed
-    { tsnName = n
-    , tsnType = TSNFunc $
-        TSGeneric (K p :* K q :* K r :* Nil) (\rs (t :* u :* v :* Nil) -> f rs t u v)
-    }
+-- tsGeneric3
+--     :: Text
+--     -> Text
+--     -> Text
+--     -> Text
+--     -> (forall r. SNat_ r -> TSType_ (Plus r p) a -> TSType_ (Plus r p) b -> TSType_ (Plus r p) c -> TSType (Plus r p) k d)
+--     -> TSNamed p k '[a, b, c] d
+-- tsGeneric3 n p q r f = TSNamed
+--     { tsnName = n
+--     , tsnType = TSNFunc $
+--         TSGeneric (paramSimple p :* paramSimple q :* paramSimple r :* Nil) (\rs (t :* u :* v :* Nil) -> f rs t u v)
+--     }
 
 -- -- | A parameterized type with multiple parameters.  Prefer
 -- tsGeneric
@@ -796,47 +797,47 @@ tsGeneric3 n p q r f = TSNamed
 --     -> TSTypeF p k as b
 -- tsGeneric = TSGeneric
 
-tsApplied
-    :: TSNamed p k as b
-    -> NP (TSType_ p) as
-    -> TSType p k b
-tsApplied f x = TSNamedType (f :$ x)
+-- tsApplied
+--     :: TSNamed p k as b
+--     -> NP (TSType_ p) as
+--     -> TSType p k b
+-- tsApplied f x = TSNamedType (f :$ x)
 
-tsApply2
-    :: TSNamed p k '[a, b] c      -- ^ type function
-    -> TSType_ p a                -- ^ thing to apply
-    -> TSType_ p b                -- ^ thing to apply
-    -> TSType p k c
-tsApply2 (TSNamed _ (TSNFunc f)) tx ty = tsApply f (tx :* ty :* Nil)
+-- tsApply2
+--     :: TSNamed p k '[a, b] c      -- ^ type function
+--     -> TSType_ p a                -- ^ thing to apply
+--     -> TSType_ p b                -- ^ thing to apply
+--     -> TSType p k c
+-- tsApply2 (TSNamed _ (TSNFunc f)) tx ty = tsApply f (tx :* ty :* Nil)
 
-tsApply3
-    :: TSNamed p k '[a, b, c] d      -- ^ type function
-    -> TSType_ p a                   -- ^ thing to apply
-    -> TSType_ p b                   -- ^ thing to apply
-    -> TSType_ p c                   -- ^ thing to apply
-    -> TSType p k d
-tsApply3 (TSNamed _ (TSNFunc f)) tx ty tz = tsApply f (tx :* ty :* tz :* Nil)
+-- tsApply3
+--     :: TSNamed p k '[a, b, c] d      -- ^ type function
+--     -> TSType_ p a                   -- ^ thing to apply
+--     -> TSType_ p b                   -- ^ thing to apply
+--     -> TSType_ p c                   -- ^ thing to apply
+--     -> TSType p k d
+-- tsApply3 (TSNamed _ (TSNFunc f)) tx ty tz = tsApply f (tx :* ty :* tz :* Nil)
 
-tsApplied1
-    :: TSNamed p k '[a] b
-    -> TSType_ p a
-    -> TSType p k b
-tsApplied1 tf tx = tsApplied tf (tx :* Nil)
+-- tsApplied1
+--     :: TSNamed p k '[a] b
+--     -> TSType_ p a
+--     -> TSType p k b
+-- tsApplied1 tf tx = tsApplied tf (tx :* Nil)
 
-tsApplied2
-    :: TSNamed p k '[a, b] c
-    -> TSType_ p a
-    -> TSType_ p b
-    -> TSType p k c
-tsApplied2 tf tx ty = tsApplied tf (tx :* ty :* Nil)
+-- tsApplied2
+--     :: TSNamed p k '[a, b] c
+--     -> TSType_ p a
+--     -> TSType_ p b
+--     -> TSType p k c
+-- tsApplied2 tf tx ty = tsApplied tf (tx :* ty :* Nil)
 
-tsApplied3
-    :: TSNamed p k '[a, b, c] d
-    -> TSType_ p a
-    -> TSType_ p b
-    -> TSType_ p c
-    -> TSType p k d
-tsApplied3 tf tx ty tz = tsApplied tf (tx :* ty :* tz :* Nil)
+-- tsApplied3
+--     :: TSNamed p k '[a, b, c] '[ea, eb, ec] d
+--     -> TSType_ p a ea
+--     -> TSType_ p b eb
+--     -> TSType_ p c ec
+--     -> TSType p k d
+-- tsApplied3 tf tx ty tz = tsApplied tf (tx :* ty :* tz :* Nil)
 
 tsList :: TSType_ p a -> TSType p 'NotObj [a]
 tsList = withTSType_ (TSArray . ilan)

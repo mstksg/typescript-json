@@ -41,7 +41,12 @@ module Typescript.Json.Types (
   , TSNamed(..)
   , TSNamed_(..)
   , withTSNamed_
+  , Assign(..)
   , TSNameable(..)
+  , Param(..)
+  , Arg(..)
+  , Arg_(..)
+  , withArg_
   , ObjMember(..)
   , TSKeyVal
   , mapTSType_
@@ -62,13 +67,18 @@ module Typescript.Json.Types (
   , TSTypeF_(..)
   , TSApplied(..)
   , TSAppliedF(..)
+  , ArgF(..)
+  , ArgF_(..)
+  , withArgF_
   , mapTSTypeF_
   , withTSTypeF_
+  , pattern Param'
+  , pattern Arg'
   , ParseErr(..)
   , tsApply
   , tsApply1
   , tsApplyF
-  , toParams
+  -- , toParams
   , tsApplyVar
   , tsfParams
   , tsShift
@@ -80,6 +90,7 @@ module Typescript.Json.Types (
 
 import           Control.Applicative.Free
 import           Control.Monad
+import           Data.Bifunctor
 import           Data.Fin                                  (Fin(..))
 import           Data.Functor
 import           Data.Functor.Apply
@@ -91,6 +102,7 @@ import           Data.GADT.Show
 import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.Map                                  (Map)
+import           Data.Profunctor
 import           Data.SOP                                  (NP(..), K(..))
 import           Data.Scientific                           (Scientific)
 import           Data.Some                                 (Some(..))
@@ -195,32 +207,70 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
     TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
 
-data TSNameable :: Nat -> IsObjType -> [Type] -> Type -> Type where
-    TSNFunc     :: TSTypeF p k as a -> TSNameable p k as a
-    TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj '[] a
+data TSNameable :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type where
+    TSNFunc     :: TSTypeF p k as es a -> TSNameable p k as es a
+    TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj '[] '[] a
     -- REMOVED: use a named Any instead, and remove it from the exports
     -- TSNExternal :: PS ((:~:) A.Value) a -> TSNameable p 'NotObj '[] a
 
-instance Invariant (TSNameable p k as) where
+instance Invariant (TSNameable p k as es) where
     invmap f g = \case
       TSNFunc x     -> TSNFunc (invmap f g x)
       TSNPrimType x -> TSNPrimType (invmap f g x)
 
-data TSNamed_ p as a = forall k. TSNamed_ (TSNamed p k as a)
+data TSNamed_ p as es a = forall k. TSNamed_ (TSNamed p k as es a)
 
 
-data TSNamed p k as a = TSNamed
+data TSNamed p k as es a = TSNamed
     { tsnName :: Text
-    , tsnType :: TSNameable p k as a
+    , tsnType :: TSNameable p k as es a
     }
 
-instance Invariant (TSNamed p k as) where
+instance Invariant (TSNamed p k as es) where
     invmap f g (TSNamed n t) = TSNamed n (invmap f g t)
 
-instance Invariant (TSNamed_ p as) where
+instance Invariant (TSNamed_ p as es) where
     invmap f g (TSNamed_ x) = TSNamed_ (invmap f g x)
 
-data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
+newtype Assign a b = Assign { runAssign :: a -> Either Text b }
+  deriving (Functor)
+
+deriving via (Star (Either Text)) instance Profunctor Assign
+deriving via (Star (Either Text) a) instance Applicative (Assign a)
+deriving via (WrappedApplicative (Assign a)) instance Apply (Assign a)
+
+data Param p a b = Param
+    { paramName    :: Text
+    , paramExtends :: MP (TSType_ p) b
+    }
+
+paramSimple :: Text -> Param p a 'Nothing
+paramSimple t = Param t MPNothing
+
+data Arg p k a b = Arg
+    { argType   :: TSType p k a
+    , argAssign :: MP (Assign a) b
+    }
+
+data Arg_ p a b = forall k. Arg_ (Arg p k a b)
+
+withArg_
+    :: (forall k. Arg p k a e -> r)
+    -> Arg_ p a e
+    -> r
+withArg_ f (Arg_ x) = f x
+
+argSimple :: TSType p k a -> Arg_ p a 'Nothing
+argSimple t = Arg_ $ Arg t MPNothing
+
+pattern Arg' :: TSType p k a -> Arg p k a 'Nothing
+pattern Arg' t = Arg t MPNothing
+
+pattern Param' :: Text -> Param p a 'Nothing
+pattern Param' t = Param t MPNothing
+
+
+data TSTypeF :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type where
     -- TODO: the next big thing: this must support "extends"
     -- semantics: anything "named" (er no, only interfaces) can be extended with an interface
     -- but also anything that is a parameter can require an interface
@@ -282,7 +332,7 @@ data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
         -- parameter...oh! maybe we could even make it require to be
         -- extendable here by requiring the a -> Either text b?  nah hm.
         -- maybe just simple type.
-        :: NP (K Text) as
+        :: NP2 (Param p) as es
         -- oh hey! proof of assignability can go here!!
         -- we can have it take NP (Proof (Plus r p)) as
         -- data Proof p a = forall b. Proof
@@ -294,35 +344,48 @@ data TSTypeF :: Nat -> IsObjType -> [Type] -> Type -> Type where
         -- we could even do an "unsafe" version, since pAssign is
         -- essentially ignored anyway.
         --
-        -> (forall r. SNat_ r -> NP (TSType_ (Plus r p)) as -> TSType (Plus r p) k b)
-        -> TSTypeF p k as b
+        -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSType (Plus r p) k b)
+        -> TSTypeF p k as es b
     TSGenericInterface
-        :: NP (K Text) as
+        :: NP2 (Param p) as es
         -> (a -> b -> c)            -- ^ day convolution: combine base and new
         -> (c -> (a, b))
-        -> Lift (TSAppliedF p 'IsObj as) a
-        -> (forall r. SNat_ r -> NP (TSType_ (Plus r p)) as -> TSKeyVal (Plus r p) b)
-        -> TSTypeF p 'IsObj as c
+        -> Lift (TSAppliedF p 'IsObj as es) a
+        -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSKeyVal (Plus r p) b)
+        -> TSTypeF p 'IsObj as es c
 
-data TSApplied p k a = forall as. (:$)
-    { tsaFunc :: TSNamed p k as a
-    , tsaArgs :: NP (TSType_ p) as
+data TSApplied p k a = forall as es. (:$)
+    { tsaFunc :: TSNamed p k as es a
+    , tsaArgs :: NP2 (Arg_ p) as es
     }
 
-data TSAppliedF p k as a = forall bs. (:?)
-    { tsafFunc :: TSNamed p k bs a
-    , tsafArgs :: NP (TSTypeF_ p as) bs
+data TSAppliedF p k as es a = forall bs ds. (:?)
+    { tsafFunc :: TSNamed p k bs ds a
+    , tsafArgs :: NP2 (ArgF_ p as es) bs ds
     }
 
-instance Invariant (TSTypeF p k as) where
+data ArgF p k as es a e = ArgF
+    { argfType   :: TSTypeF p k as es a
+    , argfAssign :: MP (Assign a) e
+    }
+
+data ArgF_ p as es a e = forall k. ArgF_ (ArgF p k as es a e)
+
+withArgF_
+    :: (forall k. ArgF p k as es a e -> r)
+    -> ArgF_ p as es a e
+    -> r
+withArgF_ f (ArgF_ x) = f x
+
+instance Invariant (TSTypeF p k as es) where
     invmap f g (TSGeneric xs h) =
         TSGeneric xs (\q -> invmap f g . h q)
     invmap f g (TSGenericInterface xs fe ef ext h) =
         TSGenericInterface xs (\x y -> f (fe x y)) (ef . g) ext h
 
-data TSTypeF_ p as b = forall k. TSTypeF_ { unTSTypeF_ :: TSTypeF p k as b }
+data TSTypeF_ p as es b = forall k. TSTypeF_ { unTSTypeF_ :: TSTypeF p k as es b }
 
-instance Invariant (TSTypeF_ p as) where
+instance Invariant (TSTypeF_ p as es) where
     invmap f g (TSTypeF_ x) = TSTypeF_ (invmap f g x)
 
 instance Invariant (TSType p k) where
@@ -364,20 +427,20 @@ mapTSType_
 mapTSType_ f = withTSType_ (TSType_ . f)
 
 withTSTypeF_
-    :: (forall k. TSTypeF p k as b -> r)
-    -> TSTypeF_ p as  b
+    :: (forall k. TSTypeF p k as es b -> r)
+    -> TSTypeF_ p as es b
     -> r
 withTSTypeF_ f (TSTypeF_ x) = f x
 
 mapTSTypeF_
-    :: (forall k. TSTypeF p k as b -> TSTypeF q k as' b')
-    -> TSTypeF_ p as  b
-    -> TSTypeF_ q as' b'
+    :: (forall k. TSTypeF p k as es b -> TSTypeF q k as' es' b')
+    -> TSTypeF_ p as  es b
+    -> TSTypeF_ q as' es' b'
 mapTSTypeF_ f = withTSTypeF_ (TSTypeF_ . f)
 
 withTSNamed_
-    :: (forall k. TSNamed p k as a -> r)
-    -> TSNamed_ p as a
+    :: (forall k. TSNamed p k as es a -> r)
+    -> TSNamed_ p as es a
     -> r
 withTSNamed_ f (TSNamed_ t) = f t
 
@@ -433,8 +496,8 @@ interpretObjMember f g (ObjMember k v) = case v of
     R1 y -> interpretILan (g k) y
 
 tsApply
-    :: TSTypeF p k as b      -- ^ type function
-    -> NP (TSType_ p) as     -- ^ thing to apply
+    :: TSTypeF p k as es b      -- ^ type function
+    -> NP2 (Arg_ p) as es     -- ^ thing to apply
     -> TSType p k b
 tsApply (TSGeneric _ f) t = f SZ_ t
 tsApply (TSGenericInterface _ fe ef ext f) t = case ext of
@@ -444,59 +507,76 @@ tsApply (TSGenericInterface _ fe ef ext f) t = case ext of
            <.> hmap (mapPre (snd . ef)) (unPreT $ f SZ_ t)
 
 tsApplyF
-    :: TSTypeF p k as b
-    -> NP (TSTypeF_ p bs) as
-    -> NP (TSType_ p) bs
+    :: forall p k as es bs ds b. TSTypeF p k as es b
+    -> NP2 (ArgF_ p bs ds) as es
+    -> NP2 (Arg_ p) bs ds
     -> TSType p k b
-tsApplyF tf qs rs = tf `tsApply` hmap (withTSTypeF_ (TSType_ . (`tsApply` rs))) qs
+tsApplyF tf qs rs = tf `tsApply` hmap2 (withArgF_ (Arg_ . go)) qs
+  where
+    go :: ArgF p j bs ds a c -> Arg p j a c
+    go ArgF{..} = Arg
+      { argType   = tsApply argfType rs
+      , argAssign = argfAssign
+      }
 
 tsApply1
-    :: TSTypeF p k '[a] b      -- ^ type function
-    -> TSType_ p a         -- ^ thing to apply
+    :: TSTypeF p k '[a] '[e] b      -- ^ type function
+    -> Arg_ p a e         -- ^ thing to apply
     -> TSType p k b
-tsApply1 f t = tsApply f (t :* Nil)
+tsApply1 f t = tsApply f (t :** Nil2)
 
-toParams
-    :: NP (K Text) as
-    -> (SNat_ (Length as), NP (K (Fin (Length as))) as)
-toParams = \case
-    Nil -> (SZ_, Nil)
-    K _ :* ps -> case toParams ps of
-      (n, qs) -> (SS_ n, K FZ :* hmap (K . FS . SOP.unK) qs)
+data TempArg n a b = TempArg
+    { taIx     :: Fin n
+    , taAssign :: MP (Assign a) b
+    }
+
+toVarArgs
+    :: forall p as es. ()
+    => NP2 (Param p) as es
+    -> (SNat_ (Length as), NP2 (Arg_ (Plus (Length as) p)) as es)
+toVarArgs = second (hmap2 typeUp) . go 
+  where
+    go  :: NP2 (Param p) cs ds
+        -> (SNat_ (Length cs), NP2 (TempArg (Length cs)) cs ds)
+    go = \case
+      Nil2 -> (SZ_, Nil2)
+      Param{..} :** ps -> case go ps of
+        (n, qs) ->
+          ( SS_ n
+          , TempArg FZ (hmap (const varAssign) paramExtends)
+             :** hmap2 (\case TempArg x y -> TempArg (FS x) y) qs
+          )
+    typeUp :: TempArg (Length as) a e -> Arg_ (Plus (Length as) p) a e
+    typeUp (TempArg i a) = Arg_ $ Arg (TSVar (weakenFin @_ @p i)) a
+    varAssign = Assign $ \_ -> Left "Type variables can be assigned to anything"
 
 -- shadowing?
 
 -- | Apply a TypeF with free variables
 tsApplyVar
-    :: forall p k as b. ()
-    => TSTypeF p k as b
+    :: forall p k as es b. ()
+    => TSTypeF p k as es b
     -> TSType (Plus (Length as) p) k b
-tsApplyVar (TSGeneric ps g) =
-    g n (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
-  where
-    (n, es) = toParams ps
+tsApplyVar (TSGeneric ps g) = uncurry g (toVarArgs ps)
 tsApplyVar (TSGenericInterface ps fe ef ext g) = case ext of
-    Lift.Pure x -> invmap (fe x) (snd . ef) . TSObject $
-      g n (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
+    Lift.Pure x -> invmap (fe x) (snd . ef) $ TSObject (g n es)
+      -- g n (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
     Lift.Other (TSNamed _ (TSNFunc tf) :? qs) -> TSObject . PreT $
       fe <$> hmap (mapPre (fst . ef))
                (unPreT . collapseIsObj $
                   tsApplyF
                     (shiftTypeF n tf)
-                    (hmap (mapTSTypeF_ (shiftTypeF n)) qs)
-                    (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
+                    (hmap2 (withArgF_ (ArgF_ . shiftArgF n)) qs)
+                    es
                )
-         <.> hmap (mapPre (snd . ef))
-               (unPreT . g n $
-                  hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es
-               )
+         <.> hmap (mapPre (snd . ef)) (unPreT (g n es))
   where
-    (n, es) = toParams ps
+    (n, es) = toVarArgs ps
 
-tsfParams :: TSTypeF p k as b -> Vec (Length as) Text
+tsfParams :: TSTypeF p k as es b -> Vec (Length as) Text
 tsfParams = \case
-    TSGeneric ps _ -> prodVec ps
-    TSGenericInterface ps _ _ _ _ -> prodVec ps
+    TSGeneric ps _ -> prodVec2 paramName ps
+    TSGenericInterface ps _ _ _ _ -> prodVec2 paramName ps
 
 collapseIsObj :: TSType p 'IsObj a -> TSKeyVal p a
 collapseIsObj = \case
@@ -527,31 +607,51 @@ tsShift n = go
 shiftApplied :: SNat_ r -> TSApplied p k a -> TSApplied (Plus r p) k a
 shiftApplied n (TSNamed nm nt :$ xs) =
         TSNamed nm (shiftNameable n nt)
-     :$ hmap (mapTSType_ (tsShift n)) xs
+     :$ hmap2 (withArg_ (Arg_ . shiftArg n)) xs
+     -- :$ hmap (mapTSType_ (tsShift n)) xs
 
-shiftAppliedF :: SNat_ r -> TSAppliedF p k as a -> TSAppliedF (Plus r p) k as a
+shiftAppliedF :: SNat_ r -> TSAppliedF p k as es a -> TSAppliedF (Plus r p) k as es a
 shiftAppliedF n (TSNamed nm nt :? xs) =
         TSNamed nm (shiftNameable n nt)
-     :? hmap (mapTSTypeF_ (shiftTypeF n)) xs
+     :? hmap2 (withArgF_ (ArgF_ . shiftArgF n)) xs
+     -- :? hmap2 (mapTSTypeF_ (shiftTypeF n)) xs
 
-shiftNameable :: SNat_ r -> TSNameable p k as a -> TSNameable (Plus r p) k as a
+shiftNameable :: SNat_ r -> TSNameable p k as es a -> TSNameable (Plus r p) k as es a
 shiftNameable n = \case
     TSNFunc tf     -> TSNFunc (shiftTypeF n tf)
     TSNPrimType ps -> TSNPrimType ps
 
-shiftTypeF :: forall r p k as a. SNat_ r -> TSTypeF p k as a -> TSTypeF (Plus r p) k as a
+shiftTypeF :: forall r p k as es a. SNat_ r -> TSTypeF p k as es a -> TSTypeF (Plus r p) k as es a
 shiftTypeF n = \case
-    TSGeneric ps f -> TSGeneric ps $ \q -> case assocPlus @_ @r @p q of
+    TSGeneric ps f -> TSGeneric (hmap2 (shiftParam n) ps) $ \q -> case assocPlus @_ @r @p q of
       Refl -> f (plusNat q n)
     TSGenericInterface ps fe ef ext f ->
-        let m = vecToSNat_ (prodVec ps)
-        in TSGenericInterface ps fe ef
+        let m = vecToSNat_ (prodVec2 paramName ps)
+        in TSGenericInterface (hmap2 (shiftParam n) ps) fe ef
              (case assocPlus @_ @(Length as) @p n of
                 Refl -> case commutePlus n m of
                   Refl -> case assocPlus @_ @r @p m of
                     Refl -> (hmap (shiftAppliedF n) ext)
              )
              (\q -> case assocPlus @_ @r @p q of Refl -> f (plusNat q n))
+
+shiftParam :: SNat_ r -> Param p a b -> Param (Plus r p) a b
+shiftParam n Param{..} =
+    Param { paramName
+          , paramExtends = hmap (mapTSType_ (tsShift n)) paramExtends
+          }
+
+shiftArg :: SNat_ r -> Arg p k a e -> Arg (Plus r p) k a e
+shiftArg n Arg{..} =
+    Arg { argType = tsShift n argType
+        , argAssign
+        }
+
+shiftArgF :: SNat_ r -> ArgF p k as es a e -> ArgF (Plus r p) k as es a e
+shiftArgF n ArgF{..} =
+    ArgF { argfType = shiftTypeF n argfType
+         , argfAssign
+         }
 
 tsObjType
     :: TSType p k a
@@ -599,4 +699,5 @@ unNullable :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
 unNullable (ILan f g t) = TSUnion $ PostT $
     Dec1 (maybe (Right ()) Left . g) (f . Just :<$>: TSType_ t) $
       injectPost (\_ -> f Nothing) $ TSType_ (TSPrimType (inject TSNull))
+
 

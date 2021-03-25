@@ -15,18 +15,17 @@ module Typescript.Json.Core.Parse (
 
 import           Control.Monad.Trans.State
 import           Data.Foldable
+import           Data.Functor.Apply
 import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
-import           Data.Proxy
 import           Data.Some                         (Some(..))
 import           Data.Type.Nat
 import           Typescript.Json.Core.Print
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
 import qualified Data.Aeson.BetterErrors           as ABE
-import qualified Data.Functor.Combinator.Unsafe    as FCU
 import qualified Data.Vec.Lazy                     as Vec
 import qualified Data.Vector                       as V
 
@@ -94,8 +93,7 @@ parseType = \case
             -> either (ABE.throwCustomError . PENamedPrimitive nm (Some psItem)) pure . psParser
            =<< parseNamedPrim psItem
                         -- remove this unsafeApply if ParseT ever gets an Apply instance
-    TSIntersection ts -> FCU.unsafeApply (Proxy @(ABE.ParseT ParseErr Identity)) $
-        interpret parseType ts
+    TSIntersection ts -> unwrapApplicative $ interpret (WrapApplicative . parseType) ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
   where

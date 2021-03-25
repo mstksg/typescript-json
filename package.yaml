@@ -36,6 +36,7 @@ dependencies:
 - contravariant
 - data-default-class
 - dependent-sum
+- dlist
 - fgl
 - fin
 - free

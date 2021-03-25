@@ -69,62 +69,45 @@ module Typescript.Json.Core (
   -- , eqTSPrim
   ) where
 
--- import           Control.Applicative
--- import           Control.Applicative.Free
--- import           Control.Monad
--- import           Control.Monad.Trans.State
--- import           Data.Bifunctor
--- import           Data.Fin                                  (Fin(..))
--- import           Data.Foldable
--- import           Data.Functor
--- import           Data.Functor.Apply
--- import           Data.Functor.Apply.Free
--- import           Data.Functor.Combinator hiding            (Comp(..))
--- import           Data.Functor.Compose
--- import           Data.Functor.Contravariant
--- import           Data.Functor.Contravariant.Divisible.Free (Dec1(..))
--- import           Data.Functor.Identity
--- import           Data.Functor.Invariant
--- import           Data.GADT.Show
--- import           Data.HFunctor.Route
--- import           Data.Kind
--- import           Data.Map                                  (Map)
--- import           Data.Maybe
--- import           Data.Ord
--- import           Data.Profunctor
--- import           Data.Proxy
--- import           Data.SOP                                  (NP(..), K(..))
--- import           Data.Scientific                           (Scientific, toBoundedInteger)
--- import           Data.Semigroup                            (First(..))
--- import           Data.Set                                  (Set)
--- import           Data.Some                                 (Some(..))
--- import           Data.Text                                 (Text)
--- import           Data.Type.Equality
--- import           Data.Type.Nat
--- import           Data.Vec.Lazy                             (Vec(..))
--- import           Data.Void
--- import           Typescript.Json.Core.Encode
--- import           Typescript.Json.Core.Parse
--- import           Typescript.Json.Types
--- import           Typescript.Json.Types.Combinators
--- import           Typescript.Json.Types.SNat
--- import qualified Control.Applicative.Lift                  as Lift
--- import qualified Data.Aeson                                as A
--- import qualified Data.Aeson.BetterErrors                   as ABE
--- import qualified Data.Aeson.Encoding                       as AE
--- import qualified Data.Aeson.Types                          as A
--- import qualified Data.Fin                                  as Fin
--- import qualified Data.Functor.Combinator.Unsafe            as FCU
--- import qualified Data.Graph.Inductive.Graph                as FGL
--- import qualified Data.Graph.Inductive.PatriciaTree         as FGL
--- import qualified Data.Graph.Inductive.Query.DFS            as FGL
--- import qualified Data.Map                                  as M
--- import qualified Data.SOP                                  as SOP
--- import qualified Data.Set                                  as S
--- import qualified Data.Text                                 as T
--- import qualified Data.Type.Nat                             as Nat
--- import qualified Data.Vec.Lazy                             as Vec
--- import qualified Data.Vector                               as V
--- import qualified Prettyprinter                             as PP
+import           Data.Functor.Combinator hiding    (Comp(..))
+import           Data.Kind
+import           Data.SOP                          (NP(..), K(..))
+import           Data.Type.Nat
+import           Typescript.Json.Core.Assign
+import           Typescript.Json.Types
+import           Typescript.Json.Types.Combinators
+import           Typescript.Json.Types.SNat
 
+mkArg :: Param 'Z a e -> TSType 'Z k a -> Maybe (Arg_ 'Z a e)
+mkArg Param{..} t = Arg_ . Arg t <$> htraverse (withTSType_ (reAssign t)) paramExtends
 
+mkArgs :: NP2 (Param 'Z) as es -> NP (TSType_ 'Z) as -> Maybe (NP2 (Arg_ 'Z) as es)
+mkArgs = \case
+    Nil2 -> \case
+      Nil -> Just Nil2
+    p :** ps -> \case
+      TSType_ x :* xs -> (:**) <$> mkArg p x <*> mkArgs ps xs
+
+unsafeMkArg :: Param 'Z a e -> TSType 'Z k a -> Arg_ 'Z a e
+unsafeMkArg Param{..} t = Arg_ . Arg t $ hmap (withTSType_ (unsafeReAssign t)) paramExtends
+
+unsafeMkArgs :: NP2 (Param 'Z) as es -> NP (TSType_ 'Z) as -> NP2 (Arg_ 'Z) as es
+unsafeMkArgs = \case
+    Nil2 -> \case
+      Nil -> Nil2
+    p :** ps -> \case
+      TSType_ x :* xs -> unsafeMkArg p x :** unsafeMkArgs ps xs
+
+safeMkArg :: Param 'Z a 'Nothing -> TSType 'Z k a -> Arg_ 'Z a 'Nothing
+safeMkArg Param{..} t = Arg_ $ Arg t MPNothing
+
+class SafeMkArgs (as :: [Type]) (es :: [Maybe Type]) where
+    safeMkArgs :: NP2 (Param 'Z) as es -> NP (TSType_ 'Z) as -> NP2 (Arg_ 'Z) as es
+
+instance SafeMkArgs '[] '[] where
+    safeMkArgs _ _ = Nil2
+
+instance SafeMkArgs as es => SafeMkArgs (a ': as) ('Nothing ': es) where
+    safeMkArgs = \case
+      p :** ps -> \case
+        TSType_ t :* ts -> safeMkArg p t :** safeMkArgs ps ts
