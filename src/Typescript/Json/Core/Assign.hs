@@ -15,6 +15,7 @@ module Typescript.Json.Core.Assign (
     isAssignable
   , reAssign
   , unsafeReAssign
+  , unsafeAssign
   ) where
 
 import           Control.Applicative.Free
@@ -57,7 +58,12 @@ isAssignable t u = isJust $ reAssign t u
 unsafeReAssign :: TSType 'Z k a -> TSType 'Z j b -> Assign a b
 unsafeReAssign x = fromMaybe unsafeAssign . reAssign x
   where
-    unsafeAssign = Assign $ \_ -> Left "Unsafe assignment failure"
+    unsafeAssign = Assign $ \_ -> Left "unsafeReAssign: Unsafe assignment failure"
+
+-- | Completely 100% unsafe, but at least it doesn't require having a type
+-- without any free variables
+unsafeAssign :: Assign a b
+unsafeAssign = Assign $ \_ -> Left "unsafeAssign: Unsafe meaningless assignment"
 
 -- | a can be assigned as a b.  the function will "lose" information.
 --

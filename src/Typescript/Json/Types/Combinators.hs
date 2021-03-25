@@ -110,6 +110,7 @@ instance HTraversable MP where
 data NP2 :: (k -> j -> Type) -> [k] -> [j] -> Type where
     Nil2 :: NP2 f '[] '[]
     (:**) :: f a b -> NP2 f as bs -> NP2 f (a ': as) (b ': bs)
+infixr 5 :**
 
 hmap2 :: forall f g as bs. (forall a b. f a b -> g a b) -> NP2 f as bs -> NP2 g as bs
 hmap2 f = go

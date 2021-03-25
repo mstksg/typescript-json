@@ -127,4 +127,3 @@ prodVec2 f = go
       Nil2 -> VNil
       x :** xs -> f x ::: go xs
 
-    

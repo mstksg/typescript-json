@@ -210,8 +210,6 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
 data TSNameable :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type where
     TSNFunc     :: TSTypeF p k as es a -> TSNameable p k as es a
     TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj '[] '[] a
-    -- REMOVED: use a named Any instead, and remove it from the exports
-    -- TSNExternal :: PS ((:~:) A.Value) a -> TSNameable p 'NotObj '[] a
 
 instance Invariant (TSNameable p k as es) where
     invmap f g = \case
@@ -232,6 +230,7 @@ instance Invariant (TSNamed p k as es) where
 instance Invariant (TSNamed_ p as es) where
     invmap f g (TSNamed_ x) = TSNamed_ (invmap f g x)
 
+-- okay, problem here is the instances.  maybe we should hide them
 newtype Assign a b = Assign { runAssign :: a -> Either Text b }
   deriving (Functor)
 
@@ -271,85 +270,14 @@ pattern Param' t = Param t MPNothing
 
 
 data TSTypeF :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type where
-    -- TODO: the next big thing: this must support "extends"
-    -- semantics: anything "named" (er no, only interfaces) can be extended with an interface
-    -- but also anything that is a parameter can require an interface
-    -- so extends happens in two places:
-    --
-    -- 1. when declaring something with a name, so as a field in these
-    -- constructors.  hm actaully wait it looks like for X extends Y, it
-    -- only is allowed when X is an interface.  Y only needs to be an
-    -- object. so that means it really can
-    -- go only in TSGenericInterface.  neato. And it could pretty much be like an
-    -- intersection type, it adds to the fields.
-    --
-    -- The rule is: "An interface can only extend an object type or
-    -- intersection of object types with statically known members.
-    -- "
-    --
-    -- DONE
-    --
-    -- 2. as a requirement for a paraemeter...so would have to go in NP (K
-    -- Text) as?  And then so should we make it a type error if we use it
-    -- in a case where it does not actually extend?  that means we have to
-    -- have a type specifically only for interfaces?  or should extends
-    -- always be to just a name, that is "inactive"?  yeah, actually hm.
-    -- does it ever actually matter?  could the extending thing always just
-    -- be a no-thing?  even in that case though, it chances that type to be
-    -- an Object now, if it is extended.
-    --
-    -- okay, so does extending really matter?  hm yeah, we *could* make it
-    -- matter if we do a check on the application.  like the application
-    -- might yield Nothing
-    --
-    -- actually after some testing it seems like for Thing<X extends Y>,
-    -- Y can really be anything. what does that even mean?
-    --
-    -- the error message seems to imply Y is some kind of constrataint:
-    -- "Type 'X' does not satisfy the constraint 'Y'"
-    --
-    -- ooh fancy: function getProperty<Type, Key extends keyof Type>(obj:
-    -- Type, key: Key) {
-    -- https://www.typescriptlang.org/docs/handbook/2/generics.html
-    --
-    -- hm, testing to return Bool might not work because we want to have
-    -- a "verified" version such that any TSNamedType is going to be
-    -- valid.
-    --
-    -- oh no :( i guess it has to be a "smart constructor".  maybe we
-    -- should smart-constructorize the object keys too
-    --
-    -- but this doesn't work for the generic deriving mechanisms,
-    -- then...since they return Nothing/Just "dynamically", hm.
-    --
-    -- well, i guess we can say that the generics mechanisms are "safe"
-    -- because they will never insert an extends
-    --
-    -- https://basarat.gitbook.io/typescript/type-system/type-compatibility
     TSGeneric
-        -- ok so essentially the change will be...change this from K Text
-        -- to something that includes an "extending"...and with the type
-        -- parameter...oh! maybe we could even make it require to be
-        -- extendable here by requiring the a -> Either text b?  nah hm.
-        -- maybe just simple type.
         :: NP2 (Param p) as es
-        -- oh hey! proof of assignability can go here!!
-        -- we can have it take NP (Proof (Plus r p)) as
-        -- data Proof p a = forall b. Proof
-        --    { pType   :: TSType_ p b
-        --    , pAssign :: a -> Either Text b
-        --    }
-        -- and this can only be created if it is truly extensible!
-        --
-        -- we could even do an "unsafe" version, since pAssign is
-        -- essentially ignored anyway.
-        --
         -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSType (Plus r p) k b)
         -> TSTypeF p k as es b
     TSGenericInterface
         :: NP2 (Param p) as es
-        -> (a -> b -> c)            -- ^ day convolution: combine base and new
-        -> (c -> (a, b))
+        -> (a -> b -> c)            -- ^ covariant day convolution: combine base and new
+        -> (c -> (a, b))            -- ^ contravariant day convolution: split into base and new
         -> Lift (TSAppliedF p 'IsObj as es) a
         -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSKeyVal (Plus r p) b)
         -> TSTypeF p 'IsObj as es c
