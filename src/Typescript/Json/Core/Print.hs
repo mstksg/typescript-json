@@ -107,9 +107,6 @@ ppType' = go
     go :: Vec q Text -> TSType q j b -> PP.Doc x
     go ps = \case
       TSArray t   -> getConst (interpretILan (Const . go ps) t) <> "[]"
-      -- TODO: hm, should this be not a primitive?
-      -- i guess in a sense it does matter because of optional chaining?
-      TSNullable t -> getConst (interpretILan (Const . go ps) t) PP.<+> "| null"
       TSTuple ts  -> PP.encloseSep "[ " " ]" ", " (htoList (withTSType_ (go ps)) ts)
       TSObject ts -> PP.encloseSep "{ " " }" ", " $
         htoList
@@ -262,7 +259,6 @@ flattenType_ ps = go
         -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
     go = \case
       TSArray ts   -> hfoldMap SOP.unK <$> htraverse (fmap K . go) ts
-      TSNullable t -> hfoldMap SOP.unK <$> htraverse (fmap K . go) t
       TSTuple ts   -> hfoldMap SOP.unK <$> htraverse (withTSType_ (fmap K . go)) ts
       TSObject ts  -> hfoldMap (hfoldMap SOP.unK) <$> htraverse (htraverse (withTSType_ (fmap K . go))) ts
       TSSingle t   -> go t

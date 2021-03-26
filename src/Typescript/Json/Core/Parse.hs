@@ -73,7 +73,6 @@ parseType
     -> Parse a
 parseType = \case
     TSArray ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.eachInArray . parseType) ts
-    TSNullable ts -> unwrapFunctor $ interpretILan (WrapFunctor . ABE.perhaps . parseType) ts
     TSTuple ts -> do
       (res, n) <- flip runStateT 0 $ (`interpret` ts) $ \t -> StateT $ \i ->
         (,i+1) <$> ABE.nth i (withTSType_ parseType t)

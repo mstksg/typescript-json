@@ -21,7 +21,7 @@ module Typescript.Json (
   , TSTypeF_(..)
   -- * Construction
   -- ** Lists and Nullables
-  , tsList, tsVector, tsIsList, tsNullable
+  , tsList, tsVector, tsIsList
   -- ** Object
   , ObjectProps(..)
   , keyVal, keyValMay, tsObject
@@ -31,7 +31,7 @@ module Typescript.Json (
   , stripObjectVals
   -- ** Unions
   , UnionBranches(..)
-  , unionBranch, tsUnions
+  , unionBranch, tsUnion, tsUnions
   -- *** Tagged
   , tagVal, taggedObject, taggedValue
   , TaggedBranches(..)
@@ -67,6 +67,7 @@ module Typescript.Json (
   , tsText, tsLazyText, tsString
   , tsStringLit, tsNumericLit, tsIntegerLit, tsBigIntLit
   , tsUnknown, tsAny, tsVoid, tsUndefined, tsNull, tsNever
+  , tsMaybe
   -- ** Builidng Enum
   -- *** With Vector
   , FinIso(..), tsEnumWith, tsIntEnumFrom, tsIntEnum
@@ -107,6 +108,7 @@ import           Data.Functor.Contravariant.Divisible.Free
 import           Data.Functor.Invariant
 import           Data.HFunctor.Route
 import           Data.Map                                  (Map)
+import           Data.Maybe
 import           Data.Profunctor
 import           Data.SOP                                  (NP(..), NS(..), I(..), K(..))
 import           Data.Scientific
@@ -116,6 +118,7 @@ import           Data.Type.Nat                             (Plus)
 import           Data.Vec.Lazy                             (Vec)
 import           Data.Void
 import           Typescript.Json.Core
+import           Typescript.Json.Core.Assign
 import           Typescript.Json.Core.Encode
 import           Typescript.Json.Core.Parse
 import           Typescript.Json.Core.Print
@@ -184,23 +187,26 @@ instance Profunctor (ObjectProps p) where
     dimap f g = ObjectProps . hmap (mapPre f) . fmap g . getObjectProps
 
 -- | Create a single key-value pair for an object.  If the first argument
--- is 'True', will try to turn any nullable value (a value created using
--- 'tsNullable') into an optional property if possible.  Otherwise, always
--- uses a required property.
+-- is 'True', will try to turn any nullable value into an optional property
+-- if possible.  Otherwise, always uses a required property.
 keyVal
     :: Bool             -- ^ turn nullable types into optional params if possible
     -> (a -> b)         -- ^ project this pair's value out of the aggregate type
     -> Text             -- ^ key (property name)
     -> TSType_ p b
     -> ObjectProps p a b
-keyVal True f k (TSType_ (TSNullable t)) = ObjectProps . injectPre f $ ObjMember
-    { objMemberKey = k
-    , objMemberVal = R1 (hmap TSType_ t)
-    }
 keyVal _ f k t = ObjectProps . injectPre f $ ObjMember
     { objMemberKey = k
     , objMemberVal = L1 t
     }
+        -- case isNullable t of
+        -- Just _ -> R1 $ ilan _ _ t
+    -- | isJust (isNullable t) = ObjectProps . injectPre f $ ObjMember
+    -- R1 (_ t)
+-- keyVal _ f k t = ObjectProps . injectPre f $ ObjMember
+    -- { objMemberKey = k
+    -- , objMemberVal = L1 t
+    -- }
 
 -- | Create a single optional key-value pair for an object.
 keyValMay
@@ -289,7 +295,7 @@ stripObjectVals = TupleVals
                 . hmap (hmap ((id !*! go) . objMemberVal))
                 . getObjectProps
   where
-    go (ILan f g (TSType_ x)) = TSType_ $ unNullable (ILan f g x)
+    go (ILan f g (TSType_ x)) = TSType_ . invmap f g $ toNullable x
 
 
 -- | A type aggregating branches in a union type.  Meant to
@@ -862,9 +868,6 @@ tsVector = invmap V.fromList V.toList . tsList
 tsIsList :: Exts.IsList l => TSType_ p (Exts.Item l) -> TSType p 'NotObj l
 tsIsList = invmap Exts.fromList Exts.toList . tsList
 
-tsNullable :: TSType_ p a -> TSType p 'NotObj (Maybe a)
-tsNullable = withTSType_ (TSNullable . ilan)
-
 tsBoolean :: TSType p 'NotObj Bool
 tsBoolean = TSPrimType $ inject TSBoolean
 
@@ -930,6 +933,16 @@ tsNull = TSPrimType $ inject TSNull
 
 tsNever :: TSType p 'NotObj Void
 tsNever = TSPrimType $ inject TSNever
+
+tsMaybe
+    :: Text         -- ^ the "nothing" constructor
+    -> Text         -- ^ the "just" field
+    -> TSType p k a
+    -> TSType p 'NotObj (Maybe a)
+tsMaybe n j t = tsUnion $
+    decide (maybe (Left ()) Right)
+      (unionBranch (const Nothing) (TSType_ $ tsStringLit n))
+      (unionBranch Just (TSType_ (tsObject (keyVal False id j (TSType_ t)))))
 
 encodeType :: TSType 'Nat.Z k a -> a -> BSL.ByteString
 encodeType t = AE.encodingToLazyByteString . typeToEncoding t

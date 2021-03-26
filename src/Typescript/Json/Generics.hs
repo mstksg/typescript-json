@@ -120,7 +120,7 @@ instance ToTSType a => ToTSType [a] where
     toTSType = TSType_ $ tsList toTSType
 
 instance ToTSType a => ToTSType (Maybe a) where
-    toTSType = TSType_ $ tsNullable toTSType
+    toTSType = withTSType_ (TSType_ . tsMaybe "nothing" "just") (toTSType @a)
 
 type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[] ++ bs = bs
@@ -280,7 +280,10 @@ instance GTSType (K1 i a) where
     gtoTSType _ (lt :* Nil) = invmap K1 unK1 lt
 
 instance GTSType (KM1 i a) where
-    gtoTSType _ (TSType_ lt :* Nil) = TSType_ . invmap KM1 unKM1 $ TSNullable (ilan lt)
+    -- TODO: this needs to be customizable i think because it's built-in
+    -- and can't be replaced, unlike for the TSType instance
+    gtoTSType _ (TSType_ lt :* Nil) = TSType_ . invmap KM1 unKM1 $
+        tsMaybe "nothing" "just" lt
 
 instance GTSType U1 where
     gtoTSType _ _ = TSType_ . invmap (const U1) (const ()) $ TSPrimType (inject TSVoid)

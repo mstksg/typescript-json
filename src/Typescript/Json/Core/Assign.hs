@@ -16,7 +16,7 @@ module Typescript.Json.Core.Assign (
   , reAssign
   , unsafeReAssign
   , unsafeAssign
-  , isNullable
+  -- , isNullable
   ) where
 
 import           Control.Applicative.Free
@@ -28,6 +28,7 @@ import           Data.Functor.Apply
 import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Compose
 import           Data.Functor.Contravariant
+import           Data.Functor.Invariant
 import           Data.HFunctor.Route
 import           Data.Map                          (Map)
 import           Data.Maybe
@@ -80,8 +81,8 @@ unsafeReAssign x = fromMaybe badAssign . reAssign x
 unsafeAssign :: Assign a b
 unsafeAssign = Assign $ \_ -> Left "unsafeAssign: Unsafe meaningless assignment"
 
-isNullable :: TSType 'Z k a -> Maybe (Assign () a)
-isNullable = reAssign $ TSPrimType (inject TSNull)
+-- isNullable :: TSType 'Z k a -> Maybe (Assign () a)
+-- isNullable = reAssign $ TSPrimType (inject TSNull)
 
 -- | a can be assigned as a b.  the function will "lose" information.
 --
@@ -164,8 +165,6 @@ reAssign t0 = case t0 of
       TSArray (ILan f' _ u) ->
         Assign . dimap g (fmap f' . sequence) . map . runAssign <$> reAssign t u
       _ -> Nothing
-    -- this is going to be funky
-    TSNullable t -> reAssign (unNullable t)
     TSTuple (PreT xs) -> loopReAssign t0 $ \case
       TSTuple (PreT ys) -> reAssignTuple xs ys
       _ -> Nothing
@@ -214,7 +213,6 @@ loopReAssign z f = go
   where
     go :: TSType 'Z j c -> Maybe (Assign a c)
     go = \case
-      TSNullable t -> go (unNullable t)
       TSSingle t -> go t
       TSNamedType (TSNamed _ (TSNFunc tf) :$ ps) -> go (tsApply tf ps)
       TSUnion ts -> fmap unwrapAssign . getCompose $ postAltT (Compose . fmap WrapAssign . withTSType_ go) ts
@@ -241,9 +239,6 @@ reAssignTuple = \case
 reAssignIsObj :: TSType 'Z 'IsObj a -> TSType 'Z k b -> Maybe (Assign a b)
 reAssignIsObj x = \case
     TSArray _  -> Nothing
-    -- TODO: is it okay that this flattens out nullables, so x?: int|null
-    -- is the same as x?: int?
-    TSNullable t -> reAssignIsObj x (unNullable t)
     TSTuple _ -> Nothing
     TSSingle y -> reAssignIsObj x y
     TSObject y -> assembleIsObj mp (TSObject y)
@@ -292,9 +287,11 @@ assembleKeyVal mp (PreT p) = unwrapAssign <$> go p
         Some (q :>$<: TSType_ u) <- M.lookup objMemberKey mp
         -- if the original is Non-Nullable, we can assign it to anything
         -- if the original is Nullable, we can only assign it to Nullable
+        -- TODO: this is now wrong because required assignment to nullable is
+        -- different from optional assignment
         let objVal = case objMemberVal of
               L1 t                      -> t
-              R1 (ILan g h (TSType_ t)) -> TSType_ $ TSNullable (ILan g h t)
+              R1 (ILan g h (TSType_ t)) -> TSType_ $ invmap g h $ toNullable t
         (`withTSType_` objVal) $ \t -> do
           rx  <- WrapAssign <$> reAssign u t
           rxs <- go xs

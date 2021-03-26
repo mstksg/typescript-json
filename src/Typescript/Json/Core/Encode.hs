@@ -76,8 +76,6 @@ typeToEncoding :: TSType 'Z k a -> a -> A.Encoding
 typeToEncoding = \case
     TSArray ts        -> AE.list id
                        . getOp (interpretILan (\t -> Op ( map (typeToEncoding t))) ts)
-    TSNullable ts     -> fromMaybe AE.null_
-                       . getOp (interpretILan (\t -> Op (fmap (typeToEncoding t))) ts)
     TSTuple ts        -> AE.list id
                        . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToEncoding t x]) ts)
     TSObject    ts    -> A.pairs . getOp (objTypeToEncoding (TSObject ts))
@@ -137,8 +135,6 @@ typeToValue = \case
     TSArray ts        -> A.Array
                        . V.fromList
                        . getOp (interpretILan (\t -> Op ( map (typeToValue t))) ts)
-    TSNullable ts     -> fromMaybe A.Null
-                       . getOp (interpretILan (\t -> Op (fmap (typeToValue t))) ts)
     TSTuple ts        -> A.Array
                        . V.fromList
                        . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)

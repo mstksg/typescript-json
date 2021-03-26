@@ -61,7 +61,9 @@ module Typescript.Json.Types (
   , tsObjType
   , collapseIsObj
   , splitKeyVal
-  , unNullable
+  -- , unNullable
+  , toNullable
+  , toVarArgs
   -- * Generics
   , TSTypeF(..)
   , TSTypeF_(..)
@@ -96,7 +98,8 @@ import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Apply.Free
 import           Data.Functor.Combinator hiding            (Comp(..))
-import           Data.Functor.Contravariant.Divisible.Free (Dec1(..))
+import           Data.Functor.Contravariant.Decide
+import           Data.Functor.Contravariant.Divisible.Free (Dec1(..), Dec(..))
 import           Data.Functor.Invariant
 import           Data.GADT.Show
 import           Data.HFunctor.Route
@@ -204,7 +207,6 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     -- should probably be an Option type.  that's because we should NOT
     -- rely on (Nullable x) | null being any different than x | null...way
     -- too fragile
-    TSNullable     :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
     TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
     TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
     TSSingle       :: TSType p 'IsObj a -> TSType p 'NotObj a
@@ -320,7 +322,6 @@ instance Invariant (TSTypeF_ p as es) where
 instance Invariant (TSType p k) where
     invmap f g = \case
       TSArray  t  -> TSArray (invmap f g t )
-      TSNullable t -> TSNullable (invmap f g t)
       TSTuple  ts -> TSTuple (invmap f g ts)
       TSObject ts -> TSObject (invmap f g ts)
       TSSingle ts -> TSSingle (invmap f g ts)
@@ -463,7 +464,7 @@ toVarArgs
     :: forall p as es. ()
     => NP2 (Param p) as es
     -> (SNat_ (Length as), NP2 (Arg_ (Plus (Length as) p)) as es)
-toVarArgs = second (hmap2 typeUp) . go 
+toVarArgs = second (hmap2 typeUp) . go
   where
     go  :: NP2 (Param p) cs ds
         -> (SNat_ (Length cs), NP2 (TempArg (Length cs)) cs ds)
@@ -523,7 +524,6 @@ tsShift n = go
     go :: forall q j b. TSType q j b -> TSType (Plus r q) j b
     go = \case
       TSArray ts -> TSArray (hmap go ts)
-      TSNullable ts -> TSNullable (hmap go ts)
       TSTuple ts -> TSTuple (hmap (mapTSType_ go) ts)
       TSUnion ts -> TSUnion (hmap (mapTSType_ go) ts)
       TSObject ts -> TSObject (hmap (hmap (mapTSType_ go)) ts)
@@ -587,7 +587,6 @@ tsObjType
     -> SIsObjType k
 tsObjType = \case
     TSArray  _                    -> SNotObj
-    TSNullable _                  -> SNotObj
     TSTuple  _                    -> SNotObj
     TSObject _                    -> SIsObj
     TSSingle _                    -> SNotObj
@@ -613,6 +612,8 @@ onTSType_ f g (TSType_ t) = case tsObjType t of
 decideTSType_ :: TSType_ p ~> (TSType p 'NotObj :+: TSType p 'IsObj)
 decideTSType_ = onTSType_ L1 R1
 
+
+
 splitKeyVal :: TSKeyVal p a -> Map Text (Some (Pre a (TSType_ p)))
 splitKeyVal (PreT p) = M.fromList $ splitAp p <&> \case
     Some (q :>$<: ObjMember{..}) ->
@@ -620,13 +621,96 @@ splitKeyVal (PreT p) = M.fromList $ splitAp p <&> \case
       , case objMemberVal of
           L1 z -> Some $ q :>$<: z
           R1 (ILan f g (TSType_ w)) -> Some $
-            q :>$<: TSType_ (TSNullable (ILan f g w))
+            q :>$<: TSType_ (invmap f g (toNullable w))
       )
 
--- | converts a Nullable x to x | null
-unNullable :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
-unNullable (ILan f g t) = TSUnion $ PostT $
-    Dec1 (maybe (Right ()) Left . g) (f . Just :<$>: TSType_ t) $
-      injectPost (\_ -> f Nothing) $ TSType_ (TSPrimType (inject TSNull))
+toNullable :: TSType p k a -> TSType p 'NotObj (Maybe a)
+toNullable t = TSUnion . PostT $
+    decide (maybe (Right ()) Left)
+        (injectPost Just (TSType_ t))
+        (injectPost (const Nothing) (TSType_ (TSPrimType (inject TSNull))))
+
+-- removeNull :: PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
+-- removeNull (PostT (Dec1 f0 x0 xs0)) = go f0 x0 xs0
+--   where
+--     go  :: (b -> Either c d)
+--         -> Post b (TSType_ p) c
+--         -> Dec (Post b (TSType_ p)) d
+--         -> Maybe (ILan Maybe (TSType p 'NotObj) b)
+--     go f (g :<$>: TSType_ x) = \case
+--       Lose h -> case x of
+--         TSPrimType (PS TSNull q r) -> Just $ ILan _ (const Nothing) (TSPrimType (PS TSNever absurd _))
+
+-- nullableUnion :: forall p a. PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
+-- nullableUnion (PostT (Dec1 f0 x0 xs0)) = go f0 x0 xs0
+--   where
+--     go  :: (b -> Either c d)
+--         -> Post b (TSType_ p) c
+--         -> Dec (Post b (TSType_ p)) d
+--         -> Maybe (ILan Maybe (TSType p 'NotObj) b)
+--     go f (g :<$>: TSType_ x) = \case
+
+-- nullableUnion :: forall p a. PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
+-- nullableUnion (PostT (Dec1 f0 x0 xs0)) = go f0 x0 xs0
+--   where
+--     go  :: (b -> Either c d)
+--         -> Post b (TSType_ p) c
+--         -> Dec (Post b (TSType_ p)) d
+--         -> Maybe (ILan Maybe (TSType p 'NotObj) b)
+--     go f (g :<$>: TSType_ x) = \case
+--       Lose h -> invmap g (either id (absurd . h) . f)  <$> isNullable x
+--       Choose f' (g' :<$>: x') xs -> case isNullable x of
+--       --   -- gotta look further
+--         Nothing -> case go (either _ f' . f) (g' :<$>: x') xs of
+--         -- (either _ f' . f) (g' :<$>: x') (hmap (mapPost _) $ invmap _ _ xs) of
+--         -- Just _ -> undefined
+--         -- we can stop here
+--         -- Just (ILan h i y) -> Just . invmap _ _ $
+--         --   ILan _ _ . TSUnion . PostT $
+--         --     decide _
+--         --     -- decide (either (_ . i) Right . f)
+--         --     -- decide (either (_ . i) (_ . f') . f . g)
+--         --       (injectPost _ (TSType_ (invmap _ _ y)))
+--         --       -- (injectPost (g . h . Just) (TSType_ y))
+--         --       (invmap _ _ $ hmap (mapPost f) $ Dec1 f' (g' :<$>: x') xs)
+
+    -- xs = case isNullable x of
+    --   Nothing -> undefined -- gotta look further
+    --   -- we can stop here
+    --   Just (ILan h i y)  -> case
+
+      -- Just $
+      --   ILan _ _ . TSUnion . PostT $
+      --     decide _
+      --       (injectPost _ (TSType_ y))
+      --       (_ xs)
+
+            
+
+
+-- | x | null.  note that null alone doesn't count bc of reasons :( the
+-- Either in PS.
+isNullable :: TSType p k a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
+isNullable = \case
+    TSArray _ -> Nothing
+    TSTuple _ -> Nothing
+    TSObject _ -> Nothing
+    TSSingle t -> isNullable t
+    TSUnion ts -> undefined
+    TSNamedType (TSNamed _ tsn :$ ps) -> case tsn of
+      TSNFunc tf    -> isNullable (tsApply tf ps)
+      TSNPrimType _ -> Nothing
+    TSIntersection _ -> Nothing
+    TSVar _ -> Nothing
+    TSPrimType _ -> Nothing
+    -- TSPrimType (PS p f g) -> case p of
+    --   -- oh man that Either in the PS is really hampring this huh
+    --   TSNull -> Just . invmap _ _ $ ILan _ _ (TSPrimType (PS TSNull Right id))
+
+-- -- | converts a Nullable x to x | null
+-- unNullable :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
+-- unNullable (ILan f g t) = TSUnion $ PostT $
+--     Dec1 (maybe (Right ()) Left . g) (f . Just :<$>: TSType_ t) $
+--       injectPost (\_ -> f Nothing) $ TSType_ (TSPrimType (inject TSNull))
 
 
