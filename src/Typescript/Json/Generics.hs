@@ -15,6 +15,7 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE PolyKinds              #-}
 {-# LANGUAGE QuantifiedConstraints  #-}
+{-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE RecordWildCards        #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TupleSections          #-}
@@ -52,13 +53,21 @@ module Typescript.Json.Generics (
   -- * Util
   , type (++)
   , splitNP
+  , mfrom
+  , mto
+  , MRep
+  , MRep1
+  , PullMaybe
+  , KM1(..)
   -- , Foo(..)
   , FooBar(..)
+  -- , List(..)
   -- , TestType(..)
   ) where
 
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
+import           Data.Coerce
 import           Data.Default.Class
 import           Data.Fin hiding                   (absurd)
 import           Data.Foldable
@@ -84,11 +93,12 @@ import qualified Data.Set                          as S
 import qualified Data.Text                         as T
 import qualified Data.Type.Nat                     as N
 import qualified Data.Vec.Lazy                     as Vec
+import qualified Unsafe.Coerce                     as Unsafe
 
 class ToTSType a where
     toTSType :: TSType_ p a
 
-    default toTSType :: (Generic a, GTSType (Rep a), All ToTSType (LeafTypes (Rep a))) => TSType_ p a
+    default toTSType :: (Generic a, GTSType (MRep a), All ToTSType (LeafTypes (MRep a))) => TSType_ p a
     toTSType = genericToTSType_ def
 
 instance ToTSType Int where
@@ -118,42 +128,42 @@ type family (as :: [k]) ++ (bs :: [k]) :: [k] where
 
 genericToTSType_
     :: forall a p.
-     ( Generic a, GTSType (Rep a), All ToTSType (LeafTypes (Rep a)) )
+     ( Generic a, GTSType (MRep a), All ToTSType (LeafTypes (MRep a)) )
     => TSOpts
     -> TSType_ p a
 genericToTSType_ tso = genericToTSType @a tso (SOP.hcpure (Proxy @ToTSType) toTSType)
 
 genericToTSType
-    :: forall a p. (Generic a, GTSType (Rep a))
+    :: forall a p. (Generic a, GTSType (MRep a))
     => TSOpts
-    -> NP (TSType_ p) (LeafTypes (Rep a))
+    -> NP (TSType_ p) (LeafTypes (MRep a))
     -> TSType_ p a
-genericToTSType tso = invmap to from . gtoTSType @(Rep a) tso
+genericToTSType tso = invmap mto mfrom . gtoTSType @(MRep a) tso
 
 genericToTSNamed_
-    :: forall a p. (Generic a, GTSNamed (Rep a), All ToTSType (LeafTypes (Rep a)))
+    :: forall a p. (Generic a, GTSNamed (MRep a), All ToTSType (LeafTypes (MRep a)))
     => TSOpts
     -> TSNamed_ p '[] '[] a
 genericToTSNamed_ tso = genericToTSNamed @a tso (SOP.hcpure (Proxy @ToTSType) toTSType)
 
 genericToTSNamed
-    :: forall a p. (Generic a, GTSNamed (Rep a))
+    :: forall a p. (Generic a, GTSNamed (MRep a))
     => TSOpts
-    -> NP (TSType_ p) (LeafTypes (Rep a))
+    -> NP (TSType_ p) (LeafTypes (MRep a))
     -> TSNamed_ p '[] '[] a
-genericToTSNamed tso = invmap to from . gtoTSNamed @(Rep a) tso
+genericToTSNamed tso = invmap mto mfrom . gtoTSNamed @(MRep a) tso
 
 genericToTSType1_
-    :: forall f p a. (Generic1 f, GTSNamedF (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    :: forall f p a. (Generic1 f, GTSNamedF (MRep1 f), All ToTSType (LeafTypes (MRep1 f)))
     => TSOpts
     -> TSType_ p a
     -> TSType_ p (f a)
 genericToTSType1_ tso = genericToTSType1 @f tso (SOP.hcpure (Proxy @ToTSType) toTSType)
 
 genericToTSType1
-    :: forall f p a. (Generic1 f, GTSNamedF (Rep1 f))
+    :: forall f p a. (Generic1 f, GTSNamedF (MRep1 f))
     => TSOpts
-    -> NP (TSType_ p) (LeafTypes (Rep1 f))
+    -> NP (TSType_ p) (LeafTypes (MRep1 f))
     -> TSType_ p a
     -> TSType_ p (f a)
 genericToTSType1 tso lts (TSType_ tx) =
@@ -161,34 +171,63 @@ genericToTSType1 tso lts (TSType_ tx) =
       genericToTSNamedF @f tso lts
 
 genericToTSTypeF_
-    :: forall f p a. (Generic1 f, GTSTypeF (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    :: forall f p a. (Generic1 f, GTSTypeF (MRep1 f), All ToTSType (LeafTypes (MRep1 f)))
     => TSOpts
     -> TSTypeF_ p '[a] '[ 'Nothing ] (f a)
 genericToTSTypeF_ tso = genericToTSTypeF @f tso (SOP.hcpure (Proxy @ToTSType) toTSType)
 
 genericToTSTypeF
-    :: forall f p a. (Generic1 f, GTSTypeF (Rep1 f))
+    :: forall f p a. (Generic1 f, GTSTypeF (MRep1 f))
     => TSOpts
-    -> NP (TSType_ p) (LeafTypes (Rep1 f))
+    -> NP (TSType_ p) (LeafTypes (MRep1 f))
     -> TSTypeF_ p '[a] '[ 'Nothing ] (f a)
-genericToTSTypeF tso = invmap to1 from1 . gtoTSTypeF @(Rep1 f) tso
+genericToTSTypeF tso = invmap mto1 mfrom1 . gtoTSTypeF @(MRep1 f) tso
 
 genericToTSNamedF_
-    :: forall f p a. (Generic1 f, GTSNamedF (Rep1 f), All ToTSType (LeafTypes (Rep1 f)))
+    :: forall f p a. (Generic1 f, GTSNamedF (MRep1 f), All ToTSType (LeafTypes (MRep1 f)))
     => TSOpts
     -> TSNamed_ p '[a] '[ 'Nothing ] (f a)
 genericToTSNamedF_ tso = genericToTSNamedF tso (SOP.hcpure (Proxy @ToTSType) toTSType)
 
 genericToTSNamedF
-    :: forall f p a. (Generic1 f, GTSNamedF (Rep1 f))
+    :: forall f p a. (Generic1 f, GTSNamedF (MRep1 f))
     => TSOpts
-    -> NP (TSType_ p) (LeafTypes (Rep1 f))
+    -> NP (TSType_ p) (LeafTypes (MRep1 f))
     -> TSNamed_ p '[a] '[ 'Nothing ] (f a)
-genericToTSNamedF tso = invmap to1 from1 . gtoTSNamedF @(Rep1 f) tso
+genericToTSNamedF tso = invmap mto1 mfrom1 . gtoTSNamedF @(MRep1 f) tso
 
+newtype KM1 i a x = KM1 { unKM1 :: Maybe a }
+  deriving Show
+
+type family PullMaybe (f :: Type -> Type) :: Type -> Type where
+    PullMaybe (K1 i (Maybe a)) = KM1 i a
+    PullMaybe (K1 i a)   = K1 i a
+    PullMaybe U1         = U1
+    PullMaybe V1         = V1
+    PullMaybe (M1 x y f) = M1 x y (PullMaybe f)
+    PullMaybe Par1       = Par1
+    PullMaybe (f :+: g)  = PullMaybe f :+: PullMaybe g
+    PullMaybe (f :*: g)  = PullMaybe f :*: PullMaybe g
+
+type MRep a = PullMaybe (Rep a)
+
+mfrom :: forall a x. Generic a => a -> MRep a x
+mfrom = Unsafe.unsafeCoerce . from @a @x
+
+mto :: forall a x. Generic a => MRep a x -> a
+mto = to @a @x . Unsafe.unsafeCoerce
+
+type MRep1 a = PullMaybe (Rep1 a)
+
+mfrom1 :: forall f x. Generic1 f => f x -> MRep1 f x
+mfrom1 = Unsafe.unsafeCoerce . from1 @_ @f @x
+
+mto1 :: forall f x. Generic1 f => MRep1 f x -> f x
+mto1 = to1 @_ @f @x . Unsafe.unsafeCoerce
 
 type family LeafTypes (f :: Type -> Type) :: [Type] where
     LeafTypes (K1 i a)   = '[a]
+    LeafTypes (KM1 i a)   = '[a]
     LeafTypes U1         = '[]
     LeafTypes V1         = '[]
     LeafTypes (M1 x y f) = LeafTypes f
@@ -211,6 +250,12 @@ instance Default TSOpts where
         , tsoSumOpts = def
         }
 
+-- PROBLEM: all applications of F<A> currently map to F because it uses the
+-- type name only.
+--
+-- maybe we should use typeable instead
+--
+-- also be careful, wtach for the maybe (maybe a) record field problem
 class GTSNamed (f :: Type -> Type) where
     gtoTSNamed :: TSOpts -> NP (TSType_ p) (LeafTypes f) -> TSNamed_ p '[] '[] (f x)
 
@@ -233,6 +278,9 @@ instance GTSType f => GTSType (M1 C ('MetaCons constr a b) f) where
 
 instance GTSType (K1 i a) where
     gtoTSType _ (lt :* Nil) = invmap K1 unK1 lt
+
+instance GTSType (KM1 i a) where
+    gtoTSType _ (TSType_ lt :* Nil) = TSType_ . invmap KM1 unKM1 $ TSNullable (ilan lt)
 
 instance GTSType U1 where
     gtoTSType _ _ = TSType_ . invmap (const U1) (const ()) $ TSPrimType (inject TSVoid)
@@ -312,12 +360,19 @@ instance (All Top (LeafTypes f), GTSProduct t f, GTSProduct t g) => GTSProduct t
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance (KnownSymbol k, GTSType f) => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsProduct tso@TSOpts{..} lts f = M1 <$>
+instance KnownSymbol k => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c) (K1 i r)) where
+    gtsProduct TSOpts{..} (lt :* Nil) f = M1 <$>
         keyVal tsoNullableFields
             (unM1 . f)
             (tsoFieldModifier (symbolVal (Proxy @k)))
-            (gtoTSType @f tso lts)
+            (mapTSType_ (invmap K1 unK1) lt)
+
+instance KnownSymbol k => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c) (KM1 i r)) where
+    gtsProduct TSOpts{..} (lt :* Nil) f = M1 . KM1 <$>
+        keyValMay
+            (unKM1 . unM1 . f)
+            (tsoFieldModifier (symbolVal (Proxy @k)))
+            lt
 
 instance GTSType f => GTSProduct TupleVals (M1 S ('MetaSel 'Nothing a b c) f) where
     gtsProduct tso lts f =  M1 <$> tupleVal (unM1 . f) (gtoTSType @f tso lts)
@@ -424,6 +479,7 @@ class (forall p b. Applicative (t p b)) => GTSProductF (t :: N.Nat -> Type -> Ty
               -> TSType p k a
               -> t p b (f a)
 
+
 instance (All Top (LeafTypes f), GTSProductF t f, GTSProductF t g) => GTSProductF t (f :*: g) where
     gtsProductF tso lts f t =
         (:*:) <$> gtsProductF @_ @f tso as ((\(x :*: _) -> x) . f) t
@@ -431,13 +487,16 @@ instance (All Top (LeafTypes f), GTSProductF t f, GTSProductF t g) => GTSProduct
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
-instance (KnownSymbol k, GTSTypeF f) => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) f) where
-    gtsProductF tso@TSOpts{..} lts f t =
-      withTSTypeF_
-        (\tsg -> M1 <$> keyVal tsoNullableFields (unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
-                          (TSType_ (tsApply tsg (Arg_ (Arg' t) :** Nil2)))
-        )
-        (gtoTSTypeF @f tso lts)
+instance KnownSymbol k => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) (K1 i r)) where
+    gtsProductF TSOpts{..} (lt :* Nil) f _ =
+        M1 <$> keyVal tsoNullableFields (unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
+                (invmap K1 unK1 lt)
+
+instance KnownSymbol k => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) (KM1 i r)) where
+    gtsProductF TSOpts{..} (lt :* Nil) f _ =
+        M1 . KM1
+            <$> keyValMay (unKM1 . unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
+                  lt
 
 instance GTSTypeF f => GTSProductF TupleVals (M1 S ('MetaSel 'Nothing a b c) f) where
     gtsProductF tso lts f t = withTSTypeF_
@@ -558,9 +617,15 @@ data FooBar a = FooBar Foo Bar a
 data Moobie a = Nothong | Jost a
   deriving (Generic, Generic1)
 
-instance ToTSType Foo
-instance ToTSType Bar
-instance ToTSType a => ToTSType (FooBar a) where
-    toTSType = genericToTSType1_ def toTSType
-instance ToTSType a => ToTSType (Moobie a) where
-    toTSType = genericToTSType1_ def toTSType
+-- data List a = LNil | LCons a (List a)
+--   deriving (Generic)
+
+-- instance ToTSType Foo
+-- instance ToTSType Bar
+-- -- instance ToTSType a => ToTSType (List a)
+-- instance ToTSType a => ToTSType (FooBar a) where
+--     toTSType = genericToTSType1_ def toTSType
+-- instance ToTSType a => ToTSType (Moobie a) where
+--     toTSType = genericToTSType1_ def toTSType
+-- -- instance ToTSType a => ToTSType (List a) where
+-- --     toTSType = genericToTSType1_ def toTSType

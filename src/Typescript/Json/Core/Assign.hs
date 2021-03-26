@@ -16,11 +16,13 @@ module Typescript.Json.Core.Assign (
   , reAssign
   , unsafeReAssign
   , unsafeAssign
+  , isNullable
   ) where
 
 import           Control.Applicative.Free
 import           Control.Monad
 import           Data.Bifunctor
+import           Data.Coerce
 import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Combinator hiding    (Comp(..))
@@ -49,6 +51,19 @@ import qualified Data.Map                          as M
 import qualified Data.Text                         as T
 import qualified Data.Vec.Lazy                     as Vec
 
+-- | Internal newtype wrapper with the appropriate instances, so we don't
+-- need to leak the instances
+newtype WrappedAssign a b = WrapAssign { unwrapAssign :: Assign a b }
+
+deriving via (Star (Either Text)) instance Profunctor WrappedAssign
+deriving via (Star (Either Text) a) instance Functor (WrappedAssign a)
+deriving via (Star (Either Text) a) instance Applicative (WrappedAssign a)
+deriving via (WrappedApplicative (WrappedAssign a)) instance Apply (WrappedAssign a)
+
+pureA :: a -> Assign r a
+pureA = unwrapAssign . pure
+
+
 -- | answers: is X assignable to Y?
 --
 -- https://basarat.gitbook.io/typescript/type-system/type-compatibility
@@ -56,14 +71,17 @@ isAssignable :: TSType 'Z k a -> TSType 'Z j b -> Bool
 isAssignable t u = isJust $ reAssign t u
 
 unsafeReAssign :: TSType 'Z k a -> TSType 'Z j b -> Assign a b
-unsafeReAssign x = fromMaybe unsafeAssign . reAssign x
+unsafeReAssign x = fromMaybe badAssign . reAssign x
   where
-    unsafeAssign = Assign $ \_ -> Left "unsafeReAssign: Unsafe assignment failure"
+    badAssign = Assign $ \_ -> Left "unsafeReAssign: Unsafe assignment failure"
 
 -- | Completely 100% unsafe, but at least it doesn't require having a type
 -- without any free variables
 unsafeAssign :: Assign a b
 unsafeAssign = Assign $ \_ -> Left "unsafeAssign: Unsafe meaningless assignment"
+
+isNullable :: TSType 'Z k a -> Maybe (Assign () a)
+isNullable = reAssign $ TSPrimType (inject TSNull)
 
 -- | a can be assigned as a b.  the function will "lose" information.
 --
@@ -99,14 +117,18 @@ reAssignPrim z = \case
     TSString -> \case
       TSPrimType (PS TSString f _) -> Just . Assign $ f . z
       _ -> Nothing
+    -- hey these have to be assignable to strings
     TSStringLit s -> \case
       TSPrimType (PS (TSStringLit t) f _) -> Assign (f . z) <$ guard (s == t)
+      TSPrimType (PS TSString f _) -> Just . Assign $ \_ -> f s
       _ -> Nothing
     TSNumericLit s -> \case
       TSPrimType (PS (TSNumericLit t) f _) -> Assign (f . z) <$ guard (s == t)
+      TSPrimType (PS TSNumber f _) -> Just . Assign $ \_ -> f s
       _ -> Nothing
     TSBigIntLit s -> \case
       TSPrimType (PS (TSBigIntLit t) f _) -> Assign (f . z) <$ guard (s == t)
+      TSPrimType (PS TSBigInt f _) -> Just . Assign $ \_ -> f s
       _ -> Nothing
     TSUnknown -> \case
       TSPrimType (PS TSUnknown f _) -> Just . Assign $ f . z
@@ -195,7 +217,7 @@ loopReAssign z f = go
       TSNullable t -> go (unNullable t)
       TSSingle t -> go t
       TSNamedType (TSNamed _ (TSNFunc tf) :$ ps) -> go (tsApply tf ps)
-      TSUnion ts -> getCompose $ postAltT (Compose . withTSType_ go) ts
+      TSUnion ts -> fmap unwrapAssign . getCompose $ postAltT (Compose . fmap WrapAssign . withTSType_ go) ts
       TSPrimType (PS TSAny g _) -> Just . Assign $ g . typeToValue z
       TSPrimType (PS TSUnknown g _) -> Just . Assign $ g . typeToValue z
       t -> f t
@@ -206,19 +228,21 @@ reAssignTuple
     -> Maybe (Assign a d)
 reAssignTuple = \case
     Pure _ -> \case
-      Pure y -> Just $ pure y
+      Pure y -> Just $ pureA y
       Ap _ _ -> Nothing
     Ap (f :>$<: TSType_ x) xs -> \case
       Pure _ -> Nothing
       Ap (_ :>$<: TSType_ y) ys -> do
         rxs <- reAssign x y
         rys <- reAssignTuple xs ys
-        Just $ rys <*> lmap f rxs
+        Just . unwrapAssign $ WrapAssign rys <*> lmap f (WrapAssign rxs)
 
--- can we loopReAssign everything?
+-- TODO: can we loopReAssign everything?
 reAssignIsObj :: TSType 'Z 'IsObj a -> TSType 'Z k b -> Maybe (Assign a b)
 reAssignIsObj x = \case
     TSArray _  -> Nothing
+    -- TODO: is it okay that this flattens out nullables, so x?: int|null
+    -- is the same as x?: int?
     TSNullable t -> reAssignIsObj x (unNullable t)
     TSTuple _ -> Nothing
     TSSingle y -> reAssignIsObj x y
@@ -240,7 +264,8 @@ isObjKeyVals = \case
     TSIntersection (PreT ts) -> hfoldMap
       (\(f :>$<: t) -> isObjKeyVals t <&> \case Some p -> Some (mapPre f p))
       ts
-    TSNamedType _ -> undefined  -- TODO: what
+    TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
+      TSNFunc tf -> isObjKeyVals (tsApply tf ps)
 
 assembleIsObj
     :: forall a b. ()
@@ -249,17 +274,18 @@ assembleIsObj
     -> Maybe (Assign a b)
 assembleIsObj mp = \case
     TSObject ts -> assembleKeyVal mp ts
-    TSIntersection ts -> getCompose $ interpret (Compose . assembleIsObj mp) ts
-    TSNamedType _ -> undefined -- TODO: what
+    TSIntersection ts -> fmap unwrapAssign . getCompose $ interpret (Compose . fmap WrapAssign . assembleIsObj mp) ts
+    TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
+      TSNFunc tf -> assembleIsObj mp (tsApply tf ps)
 
 assembleKeyVal
     :: forall a b. ()
     => Map Text (Some (Pre a (TSType_ 'Z)))
     -> TSKeyVal 'Z b
     -> Maybe (Assign a b)
-assembleKeyVal mp (PreT p) = go p
+assembleKeyVal mp (PreT p) = unwrapAssign <$> go p
   where
-    go :: Ap (Pre d (ObjMember (TSType_ 'Z))) c -> Maybe (Assign a c)
+    go :: Ap (Pre d (ObjMember (TSType_ 'Z))) c -> Maybe (WrappedAssign a c)
     go = \case
       Pure x -> Just $ pure x
       Ap (_ :>$<: ObjMember{..}) xs -> do
@@ -270,7 +296,7 @@ assembleKeyVal mp (PreT p) = go p
               L1 t                      -> t
               R1 (ILan g h (TSType_ t)) -> TSType_ $ TSNullable (ILan g h t)
         (`withTSType_` objVal) $ \t -> do
-          rx  <- reAssign u t
+          rx  <- WrapAssign <$> reAssign u t
           rxs <- go xs
           pure $ rxs <*> lmap q rx
 

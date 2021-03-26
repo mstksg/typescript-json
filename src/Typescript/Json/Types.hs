@@ -197,6 +197,13 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     -- OKAY so, there is a good evidence that this behaves like 'IsObj,
     -- because it needs to be comparable across different fields in an
     -- object (nullable vs non-nullable same version)
+    --
+    -- TODO: so i think maybe this is a bad idea in general, and we should
+    -- just have an "is nullable" check to squish records.  but now in this
+    -- case that means that we can't use | null for the Maybe instance, it
+    -- should probably be an Option type.  that's because we should NOT
+    -- rely on (Nullable x) | null being any different than x | null...way
+    -- too fragile
     TSNullable     :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
     TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
     TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
@@ -230,13 +237,7 @@ instance Invariant (TSNamed p k as es) where
 instance Invariant (TSNamed_ p as es) where
     invmap f g (TSNamed_ x) = TSNamed_ (invmap f g x)
 
--- okay, problem here is the instances.  maybe we should hide them
 newtype Assign a b = Assign { runAssign :: a -> Either Text b }
-  deriving (Functor)
-
-deriving via (Star (Either Text)) instance Profunctor Assign
-deriving via (Star (Either Text) a) instance Applicative (Assign a)
-deriving via (WrappedApplicative (Assign a)) instance Apply (Assign a)
 
 data Param p a b = Param
     { paramName    :: Text
