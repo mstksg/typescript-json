@@ -19,6 +19,7 @@ import           Data.Functor.Apply
 import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
+import           Data.Functor.Invariant.DecAlt
 import           Data.HFunctor.Route
 import           Data.Some                         (Some(..))
 import           Data.Type.Nat
@@ -87,9 +88,9 @@ parseType = \case
     TSObject ts -> parseKeyVal ts
     TSSingle ts -> parseType ts
     TSUnion ts ->
-      let us = icollect (withTSType_ ppType) ts
-      in  foldr @[] (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
-            icollect (interpretPost (withTSType_ parseType)) (unPostT ts)
+      let us = icollect1 (withTSType_ ppType) $ decAltNonEmptyF_ ts
+      in  foldr (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
+            runNonEmptyF . decAltNonEmptyF $ hmap (withTSType_ parseType) ts
     TSNamedType (TSNamed nm nt :$ xs) -> case nt of
       TSNFunc t -> parseType (tsApply t xs)
       TSNPrimType PS{..}

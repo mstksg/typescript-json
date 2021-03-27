@@ -16,9 +16,10 @@ module Typescript.Json.Core.Encode (
 
 import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Contravariant
-import           Data.Type.Nat
+import           Data.Functor.Invariant.DecAlt
 import           Data.HFunctor.Route
 import           Data.Maybe
+import           Data.Type.Nat
 import           Data.Void
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
@@ -83,7 +84,7 @@ typeToEncoding = \case
                        . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToEncoding t x]) ts)
     TSObject    ts    -> A.pairs . getOp (objTypeToEncoding (TSObject ts))
     TSSingle ts       -> typeToEncoding ts
-    TSUnion ts        -> iapply (withTSType_ typeToEncoding) ts
+    TSUnion ts        -> getOp $ runContraDecAlt1 (Op . withTSType_ typeToEncoding) ts
     TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> typeToEncoding (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToEncoding psItem . psSerializer
@@ -147,7 +148,7 @@ typeToValue = \case
                        . getOp (preDivisibleT (\t -> Op $ \x -> [withTSType_ typeToValue t x]) ts)
     TSObject    ts    -> A.object . getOp (objTypeToValue (TSObject ts))
     TSSingle ts       -> typeToValue ts
-    TSUnion ts        -> iapply (withTSType_ typeToValue) ts
+    TSUnion ts        ->  getOp $ runContraDecAlt1 (Op . withTSType_ typeToValue) ts
     TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> typeToValue (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToValue psItem . psSerializer

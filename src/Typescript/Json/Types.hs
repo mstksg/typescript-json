@@ -62,7 +62,7 @@ module Typescript.Json.Types (
   , collapseIsObj
   , splitKeyVal
   -- , unNullable
-  , toNullable
+  , mkNullable
   , toVarArgs
   -- * Generics
   , TSTypeF(..)
@@ -97,6 +97,7 @@ import           Data.Fin                                  (Fin(..))
 import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Apply.Free
+import           Data.Bitraversable
 import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Contravariant.Divisible.Free (Dec1(..), Dec(..))
@@ -106,6 +107,7 @@ import           Data.Functor.Invariant.DivAp
 import           Data.GADT.Show
 import           Data.HFunctor.Route
 import           Data.Kind
+import           Data.List.NonEmpty                        (NonEmpty)
 import           Data.Map                                  (Map)
 import           Data.Profunctor
 import           Data.SOP                                  (NP(..), K(..))
@@ -196,26 +198,10 @@ type TSKeyVal p = PreT Ap (ObjMember (TSType_ p))
 
 data TSType :: Nat -> IsObjType -> Type -> Type where
     TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
-    -- this doesn't really make sense nakedly, but it's used internally
-    -- a lot.  It's a bit like TSSingle, maybe.  but also maybe i wonder if
-    -- tssingle, tsnullabe, and tsnfunc should all be commutative.
-    -- also because it doesn't make sense nakedly, is its k param returned
-    -- meaningful?
-    --
-    -- OKAY so, there is a good evidence that this behaves like 'IsObj,
-    -- because it needs to be comparable across different fields in an
-    -- object (nullable vs non-nullable same version)
-    --
-    -- TODO: so i think maybe this is a bad idea in general, and we should
-    -- just have an "is nullable" check to squish records.  but now in this
-    -- case that means that we can't use | null for the Maybe instance, it
-    -- should probably be an Option type.  that's because we should NOT
-    -- rely on (Nullable x) | null being any different than x | null...way
-    -- too fragile
     TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
     TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
     TSSingle       :: TSType p 'IsObj a -> TSType p 'NotObj a
-    TSUnion        :: PostT Dec1 (TSType_ p) a -> TSType p 'NotObj a
+    TSUnion        :: DecAlt1 (TSType_ p) a -> TSType p 'NotObj a
     TSNamedType    :: TSApplied p k a -> TSType p k a
     TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
     TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
@@ -347,7 +333,7 @@ data ParseErr = PEInvalidEnum    [(Text, EnumLit)]
               | PEPrimitive      (Some TSPrim) Text
               | PENamedPrimitive Text (Some TSNamedPrim) Text
               | PEExtraTuple     Int        Int
-              | PENotInUnion     [PP.Doc ()]
+              | PENotInUnion     (NonEmpty (PP.Doc ()))
               | PENever
   deriving (Show)
 
@@ -588,227 +574,24 @@ splitKeyVal (PreT p) = M.fromList $ splitAp p <&> \case
       , case objMemberVal of
           L1 z -> Some $ q :>$<: z
           R1 (ILan f g (TSType_ w)) -> Some $
-            q :>$<: TSType_ (invmap f g (toNullable w))
+            q :>$<: TSType_ (invmap f g (mkNullable w))
       )
 
-toNullable :: TSType p k a -> TSType p 'NotObj (Maybe a)
-toNullable t = TSUnion . PostT $
-    decide (maybe (Right ()) Left)
-        (injectPost Just (TSType_ t))
-        (injectPost (const Nothing) (TSType_ (TSBaseType (inject TSNull))))
+mkNullable :: TSType p k a -> TSType p 'NotObj (Maybe a)
+mkNullable t = TSUnion $
+     swerve1 (maybe (Right ()) Left) Just (const Nothing)
+        (inject (TSType_ t))
+        (inject (TSType_ (TSBaseType (inject TSNull))))
 
-
-data SuspendedDivAp f b a = SDA
-    { sdProj  :: (a -> b) -> DivAp f b
-    }
-
-sus :: (b -> a) -> DivAp f a -> SuspendedDivAp f b a
-sus f x = SDA $ \g -> invmap g f x
-
-instance Functor (SuspendedDivAp f b) where
-    fmap f (SDA g) = SDA $ \h -> g (h . f)
-
-instance Applicative (SuspendedDivAp f b) where
-    pure x = SDA $ \h -> invmap h (const x) (Knot x)    -- hmm...
-    SDA f <*> SDA g = SDA $ \h ->
-        _ (f (\q -> _)) (g _)
-
--- Foo Int Bool String
--- Foo <$> mkInt
---     :: f (Bool -> String -> Foo)
-
--- but can we go from (Bool -> String -> Foo) back to Int?
--- i guess we really cannot? but then how does the other hting work?
---
--- Foo <$> (injectPre fInt mkInt :: f Foo Int)
---      :: f Foo (Bool -> String -> Foo)
---
---      we have no way of getting from (Bool -> String -> Foo) back to Int
---      but it works still because we never directly need it
---      the only way would be to never get to B->S->F as a type parameter,
---      which is what the invariant method uses
---
--- ok, so how important is this?
--- well, we need to use the full invariant mode to implement the "nullable
--- union" thing, to actually manipulate the Dec.  we could, say, remove
--- a type from a union.
---
--- but also i wonder if we could just do something like the listy method?
--- maybe like how we did for splitAp?  hm... yeah that's probably why
--- i couldn't write splitAp directly!  I had to resort to using a list and
--- re-collect instead.  maybe we can do the same thing here.
---
-
--- apToDivAp :: Ap (Pre a (DivAp f)) a -> DivAp f a
--- apToDivAp = \case
---     Pure r -> Knot r
---     Ap (f :>$<: x) xs -> gather _ _ x (apToDivAp (_ <$> xs))
---     -- Pure r -> Knot r
---     -- Ap x xs -> gather _ (flip ($)) x (apToDivAp xs)
-
-
-decAltPost :: DecAlt f a -> PostT Dec f a
-decAltPost = \case
-    Reject h -> PostT $ Lose h
-    Swerve f g h x xs -> PostT $
-        decide f
-          (injectPost g x)
-          (hmap (mapPost h) . unPostT $ decAltPost xs)
-
-bypassDecPost :: Dec (Post b f) a -> a -> b
-bypassDecPost = \case
-    Lose h -> absurd . h
-    Choose f (g :<$>: _) xs -> \y -> case f y of
-      Left  q -> g q
-      Right r -> bypassDecPost xs r
-
--- ah ok i see now the issue. to fully convert, you have to be able to
--- "piecise-deconstruct" the post-mapping function from stage to stage.
--- but in the PostT Dec version, you only have the full post-mapping, you
--- lose the intermediate stages
--- decNight :: PostT Dec1 f a -> I.Night f (PostT Dec f) a
--- decNight xs0@(PostT (Dec1 f (g :<$>: x) xs)) =
---    Night x (PostT (hmap (mapPost _) xs)) f g (bypassDecPost xs)
--- bypassDecPost' :: Dec (Post b f) a -> b -> a
--- bypassDecPost' = \case
---     Lose h -> _
---     -- Choose f (g :<$>: x) xs -> \y -> case f y of
---     --   Left  q -> g q
---     --   Right r -> bypassDecPost xs r
-
-
--- -- so this is the main probleM: Post Dec and Dec Alt are not the same :O
--- -- Post Dec is bigger than DecAlt!
--- postDecAlt :: (b -> a) -> Dec (Post b f) a -> DecAlt f a
--- postDecAlt q = \case
---     Lose h -> Reject h
---     Choose f (g :<$>: x) xs -> Swerve
---       f
---       (q . g)
---       (q . bypassDecPost xs)
---       x
---       (postDecAlt (_ . q) xs)
-
--- -- so this is the main probleM: Post Dec and Dec Alt are not the same :O
--- -- Post Dec is bigger than DecAlt!
--- postDecAlt :: Dec (Post b f) a -> DecAlt f a
--- postDecAlt xs0 = case xs0 of
---     Lose h -> Reject h
---     Choose f (g :<$>: x) xs -> Swerve
---       (fmap (bypassDecPost xs) . f)
---       _
---       _
---       -- (q . g)
---       -- q
---       x
---       (postDecAlt xs)
---   where
---     q = bypassDecPost xs0
---       -- (postDecAlt (PostT (hmap _ xs)))
-
--- removeNull :: forall p a. DecAlt1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
--- removeNull (DecAlt1 f0 g0 h0 x0 xs0) = go f0 g0 h0 x0 xs0
---   where
---     go  :: (r -> Either b c)
---         -> (b -> r)
---         -> (c -> r)
---         -> TSType_ p b
---         -> DecAlt (TSType_ p) c
---         -> Maybe (ILan Maybe (TSType p 'NotObj) r)
---     go f g h (TSType_ x) xs = case x of
---       TSBaseType (ICoyoneda r s TSNull) -> Just
---         . ILan (maybe (g (s ())) h) (either (const Nothing) Just . f)
---         $ case xs of
---             Reject q -> TSBaseType (ICoyoneda q absurd TSNever)
---             Swerve f' g' h' (TSType_ x') xs' -> TSUnion $ PostT $
---               Dec1 f' (g' :<$>: TSType_ x') (hmap (mapPost h') (unPostT (decAltPost xs')))
---       _ -> case xs of
---         Reject _ -> Nothing
---         Swerve f' g' h' (TSType_ x') xs' ->
---           (go f' g' h' (TSType_ x') xs') <&> \(ILan q r t) ->
---             ILan _ _ _
---           -- Nothing -> Nothing
---           -- Just (ILan q r t) -> _
-
-          -- ILan (maybe (g (s ())) absurd) (either (const Nothing) (Just . q) . f) (TSBaseType (inject TSNever))
-        -- Swerve f' g' h' (TSType_ xs)
-          -- ILan (maybe (g (s ())) absurd) (const Nothing) (TSBaseType (inject TSNever))
-      -- Swerve f' g' h' (TSType_ x') xs ->
-      --   case x of
-      --     TSBaseType (ICoyoneda r s TSNull) -> Just $
-      --       ILan (maybe (g (s ())) absurd) (const Nothing) (TSBaseType (inject TSNever))
-      -- case go f' g' h' (TSType_ x') xs of
-         
--- removeNull :: PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
--- removeNull (PostT (Dec1 f0 x0 xs0)) = go f0 id x0 xs0
---   where
---     go  :: (b -> Either c d)
---         -> (e -> b)
---         -> Post b (TSType_ p) c
---         -> Dec (Post e (TSType_ p)) d
---         -> Maybe (ILan Maybe (TSType p 'NotObj) b)
---     go f qb (g :<$>: TSType_ x) = \case
---       Lose h -> case x of
---         TSBaseType (ICoyoneda _ r TSNull) -> Just $ ILan (maybe (g (r ())) absurd) (const Nothing) (TSBaseType (inject TSNever))
---         _ -> Nothing
---       Choose f' (g' :<$>: TSType_ x') xs ->
---         case go (_ . f . qb) _ (g' :<$>: TSType_ x') (hmap (mapPost qb) xs) of
-
--- nullableUnion :: forall p a. PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
--- nullableUnion (PostT (Dec1 f0 x0 xs0)) = go f0 x0 xs0
---   where
---     go  :: (b -> Either c d)
---         -> Post b (TSType_ p) c
---         -> Dec (Post b (TSType_ p)) d
---         -> Maybe (ILan Maybe (TSType p 'NotObj) b)
---     go f (g :<$>: TSType_ x) = \case
-
--- nullableUnion :: forall p a. PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
--- nullableUnion (PostT (Dec1 f0 x0 xs0)) = go f0 x0 xs0
---   where
---     go  :: (b -> Either c d)
---         -> Post b (TSType_ p) c
---         -> Dec (Post b (TSType_ p)) d
---         -> Maybe (ILan Maybe (TSType p 'NotObj) b)
---     go f (g :<$>: TSType_ x) = \case
---       Lose h -> invmap g (either id (absurd . h) . f)  <$> isNullable x
---       Choose f' (g' :<$>: x') xs -> case isNullable x of
---       --   -- gotta look further
---         Nothing -> case go (either _ f' . f) (g' :<$>: x') xs of
---         -- (either _ f' . f) (g' :<$>: x') (hmap (mapPost _) $ invmap _ _ xs) of
---         -- Just _ -> undefined
---         -- we can stop here
---         -- Just (ILan h i y) -> Just . invmap _ _ $
---         --   ILan _ _ . TSUnion . PostT $
---         --     decide _
---         --     -- decide (either (_ . i) Right . f)
---         --     -- decide (either (_ . i) (_ . f') . f . g)
---         --       (injectPost _ (TSType_ (invmap _ _ y)))
---         --       -- (injectPost (g . h . Just) (TSType_ y))
---         --       (invmap _ _ $ hmap (mapPost f) $ Dec1 f' (g' :<$>: x') xs)
-
-    -- xs = case isNullable x of
-    --   Nothing -> undefined -- gotta look further
-    --   -- we can stop here
-    --   Just (ILan h i y)  -> case
-
-      -- Just $
-      --   ILan _ _ . TSUnion . PostT $
-      --     decide _
-      --       (injectPost _ (TSType_ y))
-      --       (_ xs)
-
-
-
-
--- | x | null.
+-- | Pulls out the (x | y | z) from (x | y | z) | null.  The result is an
+-- 'ILan' where the item inside is non-nullable.
 isNullable :: TSType p k a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
 isNullable = \case
     TSArray _ -> Nothing
     TSTuple _ -> Nothing
     TSObject _ -> Nothing
     TSSingle t -> isNullable t
-    TSUnion ts -> undefined
+    TSUnion ts -> nullableUnion ts
     TSNamedType (TSNamed _ tsn :$ ps) -> case tsn of
       TSNFunc tf    -> isNullable (tsApply tf ps)
       TSNPrimType _ -> Nothing
@@ -816,16 +599,50 @@ isNullable = \case
     TSVar _ -> Nothing
     TSPrimType _ -> Nothing
     TSBaseType (ICoyoneda _ g p) -> case p of
-      TSNull -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
+      TSNull      -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
+      TSUndefined -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
       _      -> Nothing
-    -- TSPrimType (PS p f g) -> case p of
-    --   -- oh man that Either in the PS is really hampring this huh
-    --   TSNull -> Just . invmap _ _ $ ILan _ _ (TSPrimType (PS TSNull Right id))
 
--- -- | converts a Nullable x to x | null
--- unNullable :: ILan Maybe (TSType p k) a -> TSType p 'NotObj a
--- unNullable (ILan f g t) = TSUnion $ PostT $
---     Dec1 (maybe (Right ()) Left . g) (f . Just :<$>: TSType_ t) $
---       injectPost (\_ -> f Nothing) $ TSType_ (TSPrimType (inject TSNull))
+-- | Remove all nullable types from a union.  Used in 'isNullable'.
+nullableUnion :: forall p a. DecAlt1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
+nullableUnion (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
+  where
+    go  :: (r -> Either b c)
+        -> (b -> r)
+        -> (c -> r)
+        -> TSType_ p b
+        -> DecAlt (TSType_ p) c
+        -> Maybe (ILan Maybe (TSType p 'NotObj) r)
+    go f ga gb (TSType_ x) xs = case isNullable x of
+      -- not here
+      Nothing -> case xs of
+        -- ... not nowhere
+        Reject _ -> Nothing
+        -- ... but there
+        Swerve f' ga' gb' x' xs' ->
+          -- in: f, r
+          -- out: ga, gb, q
+          go f' ga' gb' x' xs' <&> \(ILan q r ys) ->
+            ILan (either ga (gb . q) . sequence) (traverse r . f) $ TSUnion $
+              swerved1
+                (inject (TSType_ x))
+                (inject (TSType_ ys))
+      -- it's here! might as well remove all the rest as well
+      Just (ILan q r y) -> Just $ case xs of
+        -- remove all others
+        Reject h -> ILan (ga . q) (either r (absurd . h) . f) y
+        Swerve f' ga' gb' x' xs' -> case go f' ga' gb' x' xs' of
+          -- the rest were solid
+          Nothing ->
+            ILan (maybe (ga (q Nothing)) (either (ga . q . Just) gb)) (bitraverse r pure . f) $ TSUnion $
+              DecAlt1 id Left Right (TSType_ y) xs
+          -- the rest had nullable stuff too
+          Just (ILan q' r' ys) ->
+            -- we have an option  of using 'q Nothing' of 'q1 Nothing'
+            ILan (maybe (ga (q Nothing)) (either (ga . q . Just) (gb . q' . Just)))
+                ((bitraverse r pure =<<)  . traverse r' . f) $ TSUnion $
+              swerved1
+                (inject (TSType_ y))
+                (inject (TSType_ ys))
 
 

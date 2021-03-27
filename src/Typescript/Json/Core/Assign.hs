@@ -29,6 +29,7 @@ import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Compose
 import           Data.Functor.Contravariant
 import           Data.Functor.Invariant
+import           Data.Functor.Invariant.DecAlt
 import           Data.HFunctor.Route
 import           Data.Map                          (Map)
 import           Data.Maybe
@@ -173,8 +174,8 @@ reAssign t0 = case t0 of
       _ -> Nothing
     TSObject xs -> reAssignIsObj (TSObject xs)
     TSSingle x -> loopReAssign t0 (reAssign x)
-    TSUnion (PostT xs) -> \y -> fmap (Assign . getOp) . getCompose $
-      interpret (withTSType_ (Compose . fmap (Op . runAssign) . (`reAssign` y)) . getPost) xs
+    TSUnion xs -> \y -> fmap (Assign . getOp) . getCompose $
+      runContraDecAlt1 (withTSType_ (Compose . fmap (Op . runAssign) . (`reAssign` y))) xs
     TSIntersection xs -> reAssignIsObj (TSIntersection xs)
     TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
       TSNFunc tf -> reAssign (tsApply tf ps)
@@ -219,7 +220,8 @@ loopReAssign z f = go
     go = \case
       TSSingle t -> go t
       TSNamedType (TSNamed _ (TSNFunc tf) :$ ps) -> go (tsApply tf ps)
-      TSUnion ts -> fmap unwrapAssign . getCompose $ postAltT (Compose . fmap WrapAssign . withTSType_ go) ts
+      TSUnion ts -> fmap unwrapAssign . getCompose $
+        runCoDecAlt1 (Compose . fmap WrapAssign . withTSType_ go) ts
       TSPrimType (PS TSAny g _) -> Just . Assign $ g . typeToValue z
       TSPrimType (PS TSUnknown g _) -> Just . Assign $ g . typeToValue z
       t -> f t
@@ -296,7 +298,7 @@ assembleKeyVal mp (PreT p) = unwrapAssign <$> go p
         -- different from optional assignment
         let objVal = case objMemberVal of
               L1 t                      -> t
-              R1 (ILan g h (TSType_ t)) -> TSType_ $ invmap g h $ toNullable t
+              R1 (ILan g h (TSType_ t)) -> TSType_ $ invmap g h $ mkNullable t
         (`withTSType_` objVal) $ \t -> do
           rx  <- WrapAssign <$> reAssign u t
           rxs <- go xs
