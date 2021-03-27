@@ -22,7 +22,6 @@ module Typescript.Json.Core.Assign (
 import           Control.Applicative.Free
 import           Control.Monad
 import           Data.Bifunctor
-import           Data.Coerce
 import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Combinator hiding    (Comp(..))

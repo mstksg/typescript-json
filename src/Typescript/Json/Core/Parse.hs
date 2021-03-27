@@ -20,7 +20,6 @@ import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Identity
 import           Data.Functor.Invariant
 import           Data.Functor.Invariant.DecAlt
-import           Data.HFunctor.Route
 import           Data.Some                         (Some(..))
 import           Data.Type.Nat
 import           Typescript.Json.Core.Print

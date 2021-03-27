@@ -18,7 +18,6 @@ import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Contravariant
 import           Data.Functor.Invariant.DecAlt
 import           Data.HFunctor.Route
-import           Data.Maybe
 import           Data.Type.Nat
 import           Data.Void
 import           Typescript.Json.Types

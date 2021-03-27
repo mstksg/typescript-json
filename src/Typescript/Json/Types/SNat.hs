@@ -28,7 +28,7 @@ module Typescript.Json.Types.SNat (
 
 import           Data.Fin           (Fin(..))
 import           Data.Kind
-import           Data.SOP           (NP(..), K(..))
+import           Data.SOP           (NP(..))
 import           Data.Type.Equality
 import           Typescript.Json.Types.Combinators
 import           Data.Type.Nat

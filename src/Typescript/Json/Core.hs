@@ -67,16 +67,18 @@ module Typescript.Json.Core (
   -- , reAssign
   -- , isAssignable
   -- , eqTSPrim
+    mkArg, mkArgs
+  , unsafeMkArg, unsafeMkArgs
   ) where
 
 import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Kind
-import           Data.SOP                          (NP(..), K(..))
+import           Data.SOP                          (NP(..))
 import           Data.Type.Nat
 import           Typescript.Json.Core.Assign
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
-import           Typescript.Json.Types.SNat
+-- import           Typescript.Json.Types.SNat
 
 mkArg :: Param 'Z a e -> TSType 'Z k a -> Maybe (Arg_ 'Z a e)
 mkArg Param{..} t = Arg_ . Arg t <$> htraverse (withTSType_ (reAssign t)) paramExtends

@@ -30,15 +30,14 @@ module Typescript.Json (
   , tupleVal, tsTuple
   , stripObjectVals
   -- ** Unions
-  , UnionBranches(..)
-  , unionBranch, tsUnion, tsUnions
+  , tsUnion, tsUnions
   -- *** Tagged
   , tagVal, taggedObject, taggedValue
   , TaggedBranches(..)
-  , fmapTaggedBranches
   , Branch(..)
   , TaggedValueOpts(..)
   , taggedBranch
+  , mergeTB
   , emptyTaggedBranch
   , tsTaggedUnion
   , tsTaggedUnions
@@ -98,46 +97,42 @@ import           Control.Applicative.Free
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Default.Class
-import           Data.Fin hiding                           (absurd)
+import           Data.Fin hiding                              (absurd)
 import           Data.Foldable
 import           Data.Functor.Apply
 import           Data.Functor.Combinator
 import           Data.Functor.Contravariant
-import           Data.Functor.Contravariant.Decide
-import           Data.Functor.Contravariant.Divisible.Free
 import           Data.Functor.Invariant
+import           Data.Functor.Invariant.DecAlt
 import           Data.HFunctor.Route
-import           Data.Map                                  (Map)
-import           Data.Maybe
+import           Data.Map                                     (Map)
 import           Data.Profunctor
-import           Data.SOP                                  (NP(..), NS(..), I(..), K(..))
+import           Data.SOP                                     (NP(..), NS(..), I(..))
 import           Data.Scientific
-import           Data.Text                                 (Text)
+import           Data.Text                                    (Text)
 import           Data.Traversable
-import           Data.Type.Nat                             (Plus)
-import           Data.Vec.Lazy                             (Vec)
+import           Data.Type.Nat                                (Plus)
+import           Data.Vec.Lazy                                (Vec)
 import           Data.Void
-import           Typescript.Json.Core
-import           Typescript.Json.Core.Assign
 import           Typescript.Json.Core.Encode
 import           Typescript.Json.Core.Parse
 import           Typescript.Json.Core.Print
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
-import qualified Control.Applicative.Lift                  as Lift
-import qualified Data.Aeson                                as A
-import qualified Data.Aeson.BetterErrors                   as ABE
-import qualified Data.Aeson.Encoding                       as AE
-import qualified Data.ByteString                           as BS
-import qualified Data.ByteString.Lazy                      as BSL
-import qualified Data.Fin.Enum                             as FE
-import qualified Data.Map                                  as M
-import qualified Data.Text                                 as T
-import qualified Data.Text.Lazy                            as TL
-import qualified Data.Type.Nat                             as Nat
-import qualified Data.Vec.Lazy                             as Vec
-import qualified Data.Vector.Generic                       as V
-import qualified GHC.Exts                                  as Exts
+import qualified Control.Applicative.Lift                     as Lift
+import qualified Data.Aeson                                   as A
+import qualified Data.Aeson.BetterErrors                      as ABE
+import qualified Data.Aeson.Encoding                          as AE
+import qualified Data.ByteString                              as BS
+import qualified Data.ByteString.Lazy                         as BSL
+import qualified Data.Fin.Enum                                as FE
+import qualified Data.Map                                     as M
+import qualified Data.Text                                    as T
+import qualified Data.Text.Lazy                               as TL
+import qualified Data.Type.Nat                                as Nat
+import qualified Data.Vec.Lazy                                as Vec
+import qualified Data.Vector.Generic                          as V
+import qualified GHC.Exts                                     as Exts
 
 -- | A type aggregating key-value pairs for an object.  Meant to
 -- be assembled using 'keyVal' (for required properties) and 'keyValMay'
@@ -188,25 +183,24 @@ instance Profunctor (ObjectProps p) where
 
 -- | Create a single key-value pair for an object.  If the first argument
 -- is 'True', will try to turn any nullable value into an optional property
--- if possible.  Otherwise, always uses a required property.
+-- with non-nullable type if possible.  Otherwise, always uses a required
+-- property.
 keyVal
     :: Bool             -- ^ turn nullable types into optional params if possible
     -> (a -> b)         -- ^ project this pair's value out of the aggregate type
     -> Text             -- ^ key (property name)
     -> TSType_ p b
     -> ObjectProps p a b
-keyVal _ f k t = ObjectProps . injectPre f $ ObjMember
+keyVal True f k (TSType_ t) = ObjectProps . injectPre f $ ObjMember
+    { objMemberKey = k
+    , objMemberVal = case isNullable t of
+        Nothing -> L1 $ TSType_ t
+        Just u  -> R1 $ hmap TSType_ u
+    }
+keyVal False f k t = ObjectProps . injectPre f $ ObjMember
     { objMemberKey = k
     , objMemberVal = L1 t
     }
-        -- case isNullable t of
-        -- Just _ -> R1 $ ilan _ _ t
-    -- | isJust (isNullable t) = ObjectProps . injectPre f $ ObjMember
-    -- R1 (_ t)
--- keyVal _ f k t = ObjectProps . injectPre f $ ObjMember
-    -- { objMemberKey = k
-    -- , objMemberVal = L1 t
-    -- }
 
 -- | Create a single optional key-value pair for an object.
 keyValMay
@@ -295,7 +289,7 @@ stripObjectVals = TupleVals
                 . hmap (hmap ((id !*! go) . objMemberVal))
                 . getObjectProps
   where
-    go (ILan f g (TSType_ x)) = TSType_ . invmap f g $ toNullable x
+    go (ILan f g (TSType_ x)) = TSType_ . invmap f g $ mkNullable x
 
 
 -- | A type aggregating branches in a union type.  Meant to
@@ -335,26 +329,12 @@ stripObjectVals = TupleVals
 -- a large number of branches.  'tsUnions' is an alternative to decide
 -- combinators that uses heterogeneous lists, which can potentially make
 -- things cleaner.
-newtype UnionBranches p a b = UnionBranches
-    { getUnionBranches :: Dec1 (Post a (TSType_ p)) b }
-  deriving newtype (Contravariant, Decide, Invariant)
 
--- | Create a singleton 'UnionBranches', to be combined with 'Decide'
--- combinators with others.  Can also be used with 'tsUnions' if you want
--- to combine a large number.
-unionBranch
-    :: (b -> a)                     -- ^ Embed the value into the main type
-    -> TSType_ p b
-    -> UnionBranches p a b
-unionBranch f = UnionBranches . injectPost f
-
--- | Build up a union type from a collection of 'unionBranch's.  See
--- documentation for 'UnionBranches' for more information on how to use
--- this.
+-- | Build up a union type from a 'unionBranch'.
 tsUnion
-    :: UnionBranches p a a
+    :: TSUnionBranches p a
     -> TSType p 'NotObj a
-tsUnion = TSUnion . PostT . getUnionBranches
+tsUnion = TSUnion
 
 -- | A convenient way to combine multiple unions using 'NP' and 'NS'.
 -- Takes a function to "break" the final type into each branch ('NS') and a tuple
@@ -382,11 +362,31 @@ tsUnion = TSUnion . PostT . getUnionBranches
 --
 -- This is essentially a wrapper over repeated 'decide's and 'tsUnion', but
 -- can be cleaner than peeling of 'Either's.
+tsBranchUnions
+    :: (a -> NS I (b ': bs))
+    -> NP (Op a) (b ': bs)
+    -> NP (TSUnionBranches p) (b ': bs)
+    -> TSType p 'NotObj a
+tsBranchUnions f g = tsUnion
+                   . invmap (unHandlers g) f
+                   . concatDecAlt1
+
 tsUnions
     :: (a -> NS I (b ': bs))
-    -> NP (UnionBranches p a) (b ': bs)
+    -> NP (Op a) (b ': bs)
+    -> NP (TSType_ p) (b ': bs)
     -> TSType p 'NotObj a
-tsUnions f = tsUnion . contramap f . decideN
+tsUnions f g = tsUnion
+             . invmap (unHandlers g) f
+             . concatDecAlt1
+             . hmap inject
+
+unHandlers :: NP (Op a) as -> NS I as -> a
+unHandlers = \case
+    Nil -> \case {}
+    Op f :* xs -> \case
+      Z (I x) -> f x
+      S hs -> unHandlers xs hs
 
 data Branch p a = Branch
     { branchTag   :: Text
@@ -404,49 +404,54 @@ instance Invariant (Branch p) where
 --
 -- Meant to be constructed using 'taggedBranch' and other 'Decide'
 -- combinators.
-newtype TaggedBranches p a b = TaggedBranches
-    { getTaggedBranches :: Dec1 (Post a (Branch p)) b }
-  deriving newtype (Contravariant, Decide, Invariant)
+newtype TaggedBranches p a = TaggedBranches
+    { getTaggedBranches :: DecAlt1 (Branch p) a }
+  deriving newtype (Invariant)
 
-fmapTaggedBranches :: (a -> c) -> TaggedBranches p a b -> TaggedBranches p c b
-fmapTaggedBranches f = TaggedBranches . hmap (mapPost f) . getTaggedBranches
+mergeTB
+    :: (a -> Either b c)
+    -> (b -> a)
+    -> (c -> a)
+    -> TaggedBranches p b
+    -> TaggedBranches p c
+    -> TaggedBranches p a
+mergeTB f ga gb (TaggedBranches x) (TaggedBranches y) = TaggedBranches $
+    swerve1 f ga gb x y
 
 -- | Create a singleton 'TaggedBranches', to be combined with 'Decide'
 -- combinators with others.  Can also be used with 'tsUnions' if you want
 -- to combine a large number.
 taggedBranch
-    :: (b -> a)         -- ^ Embed the value into the main type
-    -> Text             -- ^ Tag value
-    -> TSType_ p b
-    -> TaggedBranches p a b
-taggedBranch f v = TaggedBranches . injectPost f . Branch v . Lift.Other
+    :: Text             -- ^ Tag value
+    -> TSType_ p a
+    -> TaggedBranches p a
+taggedBranch v = TaggedBranches . inject . Branch v . Lift.Other
 
 emptyTaggedBranch
-    :: a                -- ^ the value of the main type that this branch represents
+    :: a                -- ^ Pure "singleton"/literal rep value (ignored, just use ())
     -> Text             -- ^ Tag value
-    -> TaggedBranches p a ()
-emptyTaggedBranch x v = TaggedBranches . injectPost (const x) $ Branch v (Lift.Pure ())
+    -> TaggedBranches p a
+emptyTaggedBranch x v = TaggedBranches . inject $ Branch v (Lift.Pure x)
 
 tsTaggedUnion
     :: TaggedValueOpts
-    -> TaggedBranches p a a
+    -> TaggedBranches p a
     -> TSType p 'NotObj a
 tsTaggedUnion tvo = tsUnion . runTaggedBranches tvo
 
 tsTaggedUnions
     :: TaggedValueOpts
     -> (a -> NS I (b ': bs))
-    -> NP (TaggedBranches p a) (b ': bs)
+    -> NP (Op a) (b ': bs)
+    -> NP (TaggedBranches p) (b ': bs)
     -> TSType p 'NotObj a
-tsTaggedUnions tvo f = tsUnions f . hmap (runTaggedBranches tvo)
+tsTaggedUnions tvo f g = tsBranchUnions f g . hmap (runTaggedBranches tvo)
 
 runTaggedBranches
     :: TaggedValueOpts
-    -> TaggedBranches p a b
-    -> UnionBranches p a b
-runTaggedBranches tvo = UnionBranches
-                      . hmap (hmap (runBranch tvo))
-                      . getTaggedBranches
+    -> TaggedBranches p a
+    -> TSUnionBranches p a
+runTaggedBranches tvo = hmap (runBranch tvo) . getTaggedBranches
 
 runBranch
     :: TaggedValueOpts
@@ -457,7 +462,7 @@ runBranch tvo Branch{..} = TSType_ $
     Lift.Pure  x -> invmap (const x) (const ()) . tsObject $ tagVal (tvoTagKey tvo) branchTag
     Lift.Other t -> taggedValue tvo branchTag t
 
-
+-- TODO: allow just using the constructor as the key/literal
 data TaggedValueOpts = TaggedValueOpts
     { tvoMergeTagValue :: Bool
     , tvoMergeNullable :: Bool
@@ -936,15 +941,16 @@ tsNull = TSBaseType $ inject TSNull
 tsNever :: TSType p 'NotObj Void
 tsNever = TSBaseType $ inject TSNever
 
+-- todo: implement in terms of new tagged branch options
 tsMaybe
     :: Text         -- ^ the "nothing" constructor
     -> Text         -- ^ the "just" field
     -> TSType p k a
     -> TSType p 'NotObj (Maybe a)
 tsMaybe n j t = tsUnion $
-    decide (maybe (Left ()) Right)
-      (unionBranch (const Nothing) (TSType_ $ tsStringLit n))
-      (unionBranch Just (TSType_ (tsObject (keyVal False id j (TSType_ t)))))
+    swerve1 (maybe (Left ()) Right) (const Nothing) Just
+        (inject . TSType_ $ tsStringLit n)
+        (inject . TSType_ $ tsObject (keyVal False id j (TSType_ t)))
 
 encodeType :: TSType 'Nat.Z k a -> a -> BSL.ByteString
 encodeType t = AE.encodingToLazyByteString . typeToEncoding t

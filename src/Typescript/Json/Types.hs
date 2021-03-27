@@ -50,6 +50,7 @@ module Typescript.Json.Types (
   , withArg_
   , ObjMember(..)
   , TSKeyVal
+  , TSUnionBranches
   , mapTSType_
   , withTSType_
   , onTSType_
@@ -88,10 +89,11 @@ module Typescript.Json.Types (
   , shiftAppliedF
   , shiftNameable
   , shiftTypeF
+  , isNullable
   ) where
 
 import           Control.Applicative.Free
-import           Control.Monad
+-- import           Control.Monad
 import           Data.Bifunctor
 import           Data.Fin                                  (Fin(..))
 import           Data.Functor
@@ -99,18 +101,18 @@ import           Data.Functor.Apply
 import           Data.Functor.Apply.Free
 import           Data.Bitraversable
 import           Data.Functor.Combinator hiding            (Comp(..))
-import           Data.Functor.Contravariant.Decide
-import           Data.Functor.Contravariant.Divisible.Free (Dec1(..), Dec(..))
+-- import           Data.Functor.Contravariant.Decide
+-- import           Data.Functor.Contravariant.Divisible.Free (Dec1(..), Dec(..))
 import           Data.Functor.Invariant
 import           Data.Functor.Invariant.DecAlt
-import           Data.Functor.Invariant.DivAp
+-- import           Data.Functor.Invariant.DivAp
 import           Data.GADT.Show
 import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.List.NonEmpty                        (NonEmpty)
 import           Data.Map                                  (Map)
-import           Data.Profunctor
-import           Data.SOP                                  (NP(..), K(..))
+-- import           Data.Profunctor
+-- import           Data.SOP                                  (NP(..), K(..))
 import           Data.Scientific                           (Scientific)
 import           Data.Some                                 (Some(..))
 import           Data.Text                                 (Text)
@@ -122,9 +124,9 @@ import           Typescript.Json.Types.Combinators
 import           Typescript.Json.Types.SNat
 import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.Aeson                                as A
-import qualified Data.Functor.Invariant.Night              as I
+-- import qualified Data.Functor.Invariant.Night              as I
 import qualified Data.Map                                  as M
-import qualified Data.SOP                                  as SOP
+-- import qualified Data.SOP                                  as SOP
 import qualified Prettyprinter                             as PP
 
 data EnumLit = ELString Text | ELNumber Scientific
@@ -195,13 +197,14 @@ data SIsObjType :: IsObjType -> Type where
     SIsObj  :: SIsObjType 'IsObj
 
 type TSKeyVal p = PreT Ap (ObjMember (TSType_ p))
+type TSUnionBranches p = DecAlt1 (TSType_ p)
 
 data TSType :: Nat -> IsObjType -> Type -> Type where
     TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
     TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
     TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
     TSSingle       :: TSType p 'IsObj a -> TSType p 'NotObj a
-    TSUnion        :: DecAlt1 (TSType_ p) a -> TSType p 'NotObj a
+    TSUnion        :: TSUnionBranches p a -> TSType p 'NotObj a
     TSNamedType    :: TSApplied p k a -> TSType p k a
     TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
     TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
@@ -238,9 +241,6 @@ data Param p a b = Param
     , paramExtends :: MP (TSType_ p) b
     }
 
-paramSimple :: Text -> Param p a 'Nothing
-paramSimple t = Param t MPNothing
-
 data Arg p k a b = Arg
     { argType   :: TSType p k a
     , argAssign :: MP (Assign a) b
@@ -253,9 +253,6 @@ withArg_
     -> Arg_ p a e
     -> r
 withArg_ f (Arg_ x) = f x
-
-argSimple :: TSType p k a -> Arg_ p a 'Nothing
-argSimple t = Arg_ $ Arg t MPNothing
 
 pattern Arg' :: TSType p k a -> Arg p k a 'Nothing
 pattern Arg' t = Arg t MPNothing
@@ -406,10 +403,7 @@ tsApply1
     -> TSType p k b
 tsApply1 f t = tsApply f (t :** Nil2)
 
-data TempArg n a b = TempArg
-    { taIx     :: Fin n
-    , taAssign :: MP (Assign a) b
-    }
+data TempArg n a b = TempArg (Fin n) (MP (Assign a) b)
 
 toVarArgs
     :: forall p as es. ()

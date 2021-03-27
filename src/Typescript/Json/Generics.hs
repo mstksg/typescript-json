@@ -67,18 +67,14 @@ module Typescript.Json.Generics (
 
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
-import           Data.Coerce
 import           Data.Default.Class
 import           Data.Fin hiding                   (absurd)
 import           Data.Foldable
 import           Data.Functor.Combinator
-import           Data.Functor.Contravariant
-import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Invariant
 import           Data.Kind
-import           Data.Maybe
 import           Data.Proxy
-import           Data.SOP                          (NP(..), K(..), hpure, All, Top)
+import           Data.SOP                          (NP(..), hpure, All, Top)
 import           Data.Text                         (Text)
 import           Data.Vec.Lazy                     (Vec(..))
 import           Data.Void
@@ -245,7 +241,7 @@ data TSOpts = TSOpts
 instance Default TSOpts where
     def = TSOpts
         { tsoFieldModifier = T.pack . A.camelTo2 '_'
-        , tsoNullableFields = True
+        , tsoNullableFields = False
         , tsoConstructorModifier = T.pack
         , tsoSumOpts = def
         }
@@ -302,9 +298,9 @@ splitNP = \case
 
 instance (All Top (LeafTypes f), GTSSum f, GTSSum g) => GTSType (f :+: g) where
     gtoTSType tso@TSOpts{..} lts = TSType_ . tsTaggedUnion tsoSumOpts $
-        decide (\case L1 x -> Left x; R1 y -> Right y)
-          (gtsSum @f tso as L1)
-          (gtsSum @g tso bs R1)
+        mergeTB (\case L1 x -> Left x; R1 y -> Right y) L1 R1
+          (gtsSum @f tso as)
+          (gtsSum @g tso bs)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
@@ -320,27 +316,26 @@ class GTSSum (f :: Type -> Type) where
     gtsSum
         :: TSOpts
         -> NP (TSType_ p) (LeafTypes f)
-        -> (f x -> a)
-        -> TaggedBranches p a (f x)
+        -> TaggedBranches p (f x)
 
 instance (All Top (LeafTypes f), GTSSum f, GTSSum g) => GTSSum (f :+: g) where
-    gtsSum so lts f =
-        decide (\case L1 x -> Left x; R1 y -> Right y)
-          (gtsSum @f so as (f . L1))
-          (gtsSum @g so bs (f . R1))
+    gtsSum so lts =
+        mergeTB (\case L1 x -> Left x; R1 y -> Right y) L1 R1
+          (gtsSum @f so as)
+          (gtsSum @g so bs)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance {-# OVERLAPS #-} KnownSymbol constr
       => GTSSum (M1 C ('MetaCons constr a b) U1) where
-    gtsSum TSOpts{..} _ f = () >$ emptyTaggedBranch (f (M1 U1))
+    gtsSum TSOpts{..} _ = emptyTaggedBranch (M1 U1)
                 (tsoConstructorModifier (symbolVal (Proxy @constr)))
 
 instance (KnownSymbol constr, GTSType f)
       => GTSSum (M1 C ('MetaCons constr a b) f) where
-    gtsSum tso@TSOpts{..} lts f
-                    = contramap unM1
-                    . taggedBranch (f . M1) (tsoConstructorModifier (symbolVal (Proxy @constr)))
+    gtsSum tso@TSOpts{..} lts
+                    = invmap M1 unM1
+                    . taggedBranch (tsoConstructorModifier (symbolVal (Proxy @constr)))
                     $ gtoTSType @f tso lts
 
 class WrapProduct k t | t -> k where
@@ -398,9 +393,9 @@ class GTSTypeF (f :: Type -> Type) where
 instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSTypeF (f :+: g) where
     gtoTSTypeF tso@TSOpts{..} lts = TSTypeF_ $
         TSGeneric (Param' "T" :** Nil2) $ \rs (Arg_ (Arg' t) :** Nil2) ->
-          tsTaggedUnion tsoSumOpts $ decide (\case L1 x -> Left x; R1 y -> Right y)
-            (gtsSumF @f tso (hmap (mapTSType_ (tsShift rs)) as) L1 t)
-            (gtsSumF @g tso (hmap (mapTSType_ (tsShift rs)) bs) R1 t)
+          tsTaggedUnion tsoSumOpts $ mergeTB (\case L1 x -> Left x; R1 y -> Right y) L1 R1
+            (gtsSumF @f tso (hmap (mapTSType_ (tsShift rs)) as) t)
+            (gtsSumF @g tso (hmap (mapTSType_ (tsShift rs)) bs) t)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
@@ -449,26 +444,26 @@ class GTSSumF (f :: Type -> Type) where
     gtsSumF
         :: TSOpts
         -> NP (TSType_ p) (LeafTypes f)
-        -> (f a -> b)
         -> TSType p k a
-        -> TaggedBranches p b (f a)
+        -> TaggedBranches p (f a)
 
 instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSSumF (f :+: g) where
-    gtsSumF tso lts f t = decide (\case L1 x -> Left x; R1 y -> Right y)
-        (gtsSumF @f tso as (f . L1) t)
-        (gtsSumF @g tso bs (f . R1) t)
+    gtsSumF tso lts t =
+        mergeTB (\case L1 x -> Left x; R1 y -> Right y) L1 R1
+          (gtsSumF @f tso as t)
+          (gtsSumF @g tso bs t)
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
 instance {-# OVERLAPS #-} KnownSymbol constr
       => GTSSumF (M1 C ('MetaCons constr a b) U1) where
-    gtsSumF TSOpts{..} _ f _ = () >$ emptyTaggedBranch (f (M1 U1)) (tsoConstructorModifier (symbolVal (Proxy @constr)))
+    gtsSumF TSOpts{..} _ _ = emptyTaggedBranch (M1 U1) (tsoConstructorModifier (symbolVal (Proxy @constr)))
 
 instance (KnownSymbol constr, GTSTypeF f)
       => GTSSumF (M1 C ('MetaCons constr a b) f) where
-    gtsSumF tso@TSOpts{..} lts f t = withTSTypeF_
-      (\tsg -> contramap unM1
-             . taggedBranch (f . M1) (tsoConstructorModifier (symbolVal (Proxy  @constr)))
+    gtsSumF tso@TSOpts{..} lts t = withTSTypeF_
+      (\tsg -> invmap M1 unM1
+             . taggedBranch (tsoConstructorModifier (symbolVal (Proxy  @constr)))
              . TSType_
              $ tsApply tsg (Arg_ (Arg' t) :** Nil2)
       )
