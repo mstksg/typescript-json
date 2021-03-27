@@ -135,23 +135,26 @@ reAssignPrim z = \case
       TSPrimType (PS TSUnknown f _) -> Just . Assign $ f . z
       _ -> Nothing
     TSAny -> \case
-      TSPrimType (PS TSNever _ _) -> Nothing
+      TSBaseType (ICoyoneda _ _ TSNever) -> Nothing
       t -> Just . Assign $ first (T.unlines . ABE.displayError (T.pack . showParseErr)) . ABE.parseValue (parseType t) . z
+
+reAssignBase :: (r -> a) -> TSBase a -> TSType 'Z k b -> Maybe (Assign r b)
+reAssignBase z = \case
     TSVoid -> \case
       TSPrimType (PS TSAny f _) -> Just . Assign $ \_ -> f A.Null
       TSPrimType (PS TSUnknown f _) -> Just . Assign $ \_ -> f A.Null
-      TSPrimType (PS TSVoid f _) -> Just . Assign $ f . z
+      TSBaseType (ICoyoneda _ f TSVoid) -> Just . Assign $ Right . f . z
       _ -> Nothing
     TSUndefined -> \case
       TSPrimType (PS TSAny f _) -> Just . Assign $ \_ -> f A.Null
       TSPrimType (PS TSUnknown f _) -> Just . Assign $ \_ -> f A.Null
-      TSPrimType (PS TSVoid f _) -> Just . Assign $ f . z
-      TSPrimType (PS TSUndefined f _) -> Just . Assign $ f . z
+      TSBaseType (ICoyoneda _ f TSVoid) -> Just . Assign $ Right . f . z
+      TSBaseType (ICoyoneda _ f TSUndefined) -> Just . Assign $ Right . f . z
       _ -> Nothing
     TSNull -> \case
       TSPrimType (PS TSAny f _) -> Just . Assign $ \_ -> f A.Null
       TSPrimType (PS TSUnknown f _) -> Just . Assign $ \_ -> f A.Null
-      TSPrimType (PS TSNull f _) -> Just . Assign $ f . z
+      TSBaseType (ICoyoneda _ f TSNull) -> Just . Assign $ Right . f . z
       _ -> Nothing
     -- never can be anything
     TSNever -> \_ -> Just . Assign $ Right . absurd . z
@@ -200,6 +203,7 @@ reAssign t0 = case t0 of
             TSNFunc _ -> Nothing
           _ -> Nothing
     TSPrimType (PS xi _ xs) -> loopReAssign t0 $ reAssignPrim xs xi
+    TSBaseType (ICoyoneda xs _ xi) -> loopReAssign t0 $ reAssignBase xs xi
 
 -- | Loops on being TSNullable or TSSingle or TSNamedType TSNFunc.  Also
 -- cuts things off for 'Any'/'Unknown'
@@ -248,6 +252,7 @@ reAssignIsObj x = \case
       TSNPrimType _ -> Nothing
     TSIntersection y -> assembleIsObj mp (TSIntersection y)
     TSPrimType _ -> Nothing
+    TSBaseType _ -> Nothing
   where
     mp = isObjKeyVals x
 

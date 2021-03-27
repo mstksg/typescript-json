@@ -48,6 +48,9 @@ primToEncoding = \case
     TSBigIntLit n -> \_ -> AE.integer n
     TSUnknown -> AE.value
     TSAny -> AE.value
+
+baseToEncoding :: TSBase a -> a -> A.Encoding
+baseToEncoding = \case
     -- hm...
     TSVoid -> \_ -> AE.null_
     TSUndefined -> \_ -> AE.null_
@@ -86,6 +89,7 @@ typeToEncoding = \case
       TSNPrimType PS{..} -> namedPrimToEncoding psItem . psSerializer
     TSIntersection ts -> A.pairs . getOp (objTypeToEncoding (TSIntersection ts))
     TSPrimType PS{..} -> primToEncoding psItem . psSerializer
+    TSBaseType (ICoyoneda f _ x) -> baseToEncoding x . f
 
 enumLitToValue :: EnumLit -> A.Value
 enumLitToValue = \case
@@ -105,6 +109,9 @@ primToValue = \case
     TSBigIntLit n -> \_ -> A.Number (fromIntegral n)
     TSUnknown -> id
     TSAny -> id
+
+baseToValue :: TSBase a -> a -> A.Value
+baseToValue = \case
     -- hm...
     TSVoid -> \_ -> A.Null
     TSUndefined -> \_ -> A.Null
@@ -146,4 +153,5 @@ typeToValue = \case
       TSNPrimType PS{..} -> namedPrimToValue psItem . psSerializer
     TSIntersection ts -> A.object . getOp (objTypeToValue (TSIntersection ts))
     TSPrimType PS{..} -> primToValue psItem . psSerializer
+    TSBaseType (ICoyoneda f _ x) -> baseToValue x . f
 

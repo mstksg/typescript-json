@@ -35,6 +35,7 @@
 module Typescript.Json.Types (
     TSPrim(..)
   , TSNamedPrim(..)
+  , TSBase(..)
   , EnumLit(..)
   , TSType(..)
   , TSType_(..)
@@ -56,7 +57,6 @@ module Typescript.Json.Types (
   , IsObjType(..)
   , SIsObjType(..)
   , SNat_(..)
-  , eqTSPrim
   , interpretObjMember
   , tsObjType
   , collapseIsObj
@@ -101,6 +101,8 @@ import           Data.Functor.Combinator hiding            (Comp(..))
 import           Data.Functor.Contravariant.Decide
 import           Data.Functor.Contravariant.Divisible.Free (Dec1(..), Dec(..))
 import           Data.Functor.Invariant
+import           Data.Functor.Invariant.DecAlt
+import           Data.Functor.Invariant.DivAp
 import           Data.GADT.Show
 import           Data.HFunctor.Route
 import           Data.Kind
@@ -118,6 +120,7 @@ import           Typescript.Json.Types.Combinators
 import           Typescript.Json.Types.SNat
 import qualified Control.Applicative.Lift                  as Lift
 import qualified Data.Aeson                                as A
+import qualified Data.Functor.Invariant.Night              as I
 import qualified Data.Map                                  as M
 import qualified Data.SOP                                  as SOP
 import qualified Prettyprinter                             as PP
@@ -135,10 +138,12 @@ data TSPrim :: Type -> Type where
     TSBigIntLit  :: Integer    -> TSPrim ()
     TSUnknown    :: TSPrim A.Value
     TSAny        :: TSPrim A.Value
-    TSVoid       :: TSPrim ()
-    TSUndefined  :: TSPrim ()
-    TSNull       :: TSPrim ()
-    TSNever      :: TSPrim Void
+
+data TSBase :: Type -> Type where
+    TSVoid       :: TSBase ()
+    TSUndefined  :: TSBase ()
+    TSNull       :: TSBase ()
+    TSNever      :: TSBase Void
 
 deriving instance Show (TSPrim a)
 deriving instance Eq (TSPrim a)
@@ -215,6 +220,7 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
     TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
     TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
+    TSBaseType     :: ICoyoneda TSBase a -> TSType p 'NotObj a
 
 data TSNameable :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type where
     TSNFunc     :: TSTypeF p k as es a -> TSNameable p k as es a
@@ -332,6 +338,7 @@ instance Invariant (TSType p k) where
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
       TSPrimType p -> TSPrimType (invmap f g p)
+      TSBaseType p -> TSBaseType (invmap f g p)
 
 data ParseErr = PEInvalidEnum    [(Text, EnumLit)]
               | PEInvalidString  Text       Text
@@ -373,48 +380,6 @@ withTSNamed_
     -> TSNamed_ p as es a
     -> r
 withTSNamed_ f (TSNamed_ t) = f t
-
-eqTSPrim :: TSPrim a -> TSPrim b -> Maybe (a :~: b)
-eqTSPrim = \case
-    TSBoolean -> \case
-      TSBoolean -> Just Refl
-      _ -> Nothing
-    TSNumber -> \case
-      TSNumber -> Just Refl
-      _ -> Nothing
-    TSBigInt -> \case
-      TSBigInt -> Just Refl
-      _ -> Nothing
-    TSString -> \case
-      TSString -> Just Refl
-      _ -> Nothing
-    TSStringLit x -> \case
-      TSStringLit y -> Refl <$ guard (x == y)
-      _ -> Nothing
-    TSNumericLit x -> \case
-      TSNumericLit y -> Refl <$ guard (x == y)
-      _ -> Nothing
-    TSBigIntLit x -> \case
-      TSBigIntLit y -> Refl <$ guard (x == y)
-      _ -> Nothing
-    TSUnknown -> \case
-      TSUnknown -> Just Refl
-      _ -> Nothing
-    TSAny -> \case
-      TSAny -> Just Refl
-      _ -> Nothing
-    TSVoid -> \case
-      TSVoid -> Just Refl
-      _ -> Nothing
-    TSUndefined -> \case
-      TSUndefined -> Just Refl
-      _ -> Nothing
-    TSNull -> \case
-      TSNull -> Just Refl
-      _ -> Nothing
-    TSNever -> \case
-      TSNever -> Just Refl
-      _ -> Nothing
 
 interpretObjMember
     :: Invariant g
@@ -532,6 +497,7 @@ tsShift n = go
       TSIntersection t -> TSIntersection (hmap go t)
       TSVar i    -> TSVar (shiftFin n i)
       TSPrimType t -> TSPrimType t
+      TSBaseType t -> TSBaseType t
 
 shiftApplied :: SNat_ r -> TSApplied p k a -> TSApplied (Plus r p) k a
 shiftApplied n (TSNamed nm nt :$ xs) =
@@ -598,6 +564,7 @@ tsObjType = \case
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
     TSPrimType _                  -> SNotObj
+    TSBaseType _                  -> SNotObj
 
 
 onTSType_
@@ -628,18 +595,164 @@ toNullable :: TSType p k a -> TSType p 'NotObj (Maybe a)
 toNullable t = TSUnion . PostT $
     decide (maybe (Right ()) Left)
         (injectPost Just (TSType_ t))
-        (injectPost (const Nothing) (TSType_ (TSPrimType (inject TSNull))))
+        (injectPost (const Nothing) (TSType_ (TSBaseType (inject TSNull))))
 
+
+data SuspendedDivAp f b a = SDA
+    { sdProj  :: (a -> b) -> DivAp f b
+    }
+
+sus :: (b -> a) -> DivAp f a -> SuspendedDivAp f b a
+sus f x = SDA $ \g -> invmap g f x
+
+instance Functor (SuspendedDivAp f b) where
+    fmap f (SDA g) = SDA $ \h -> g (h . f)
+
+instance Applicative (SuspendedDivAp f b) where
+    pure x = SDA $ \h -> invmap h (const x) (Knot x)    -- hmm...
+    SDA f <*> SDA g = SDA $ \h ->
+        _ (f (\q -> _)) (g _)
+
+-- Foo Int Bool String
+-- Foo <$> mkInt
+--     :: f (Bool -> String -> Foo)
+
+-- but can we go from (Bool -> String -> Foo) back to Int?
+-- i guess we really cannot? but then how does the other hting work?
+--
+-- Foo <$> (injectPre fInt mkInt :: f Foo Int)
+--      :: f Foo (Bool -> String -> Foo)
+--
+--      we have no way of getting from (Bool -> String -> Foo) back to Int
+--      but it works still because we never directly need it
+--      the only way would be to never get to B->S->F as a type parameter,
+--      which is what the invariant method uses
+--
+-- ok, so how important is this?
+-- well, we need to use the full invariant mode to implement the "nullable
+-- union" thing, to actually manipulate the Dec.  we could, say, remove
+-- a type from a union.
+--
+-- but also i wonder if we could just do something like the listy method?
+-- maybe like how we did for splitAp?  hm... yeah that's probably why
+-- i couldn't write splitAp directly!  I had to resort to using a list and
+-- re-collect instead.  maybe we can do the same thing here.
+--
+
+-- apToDivAp :: Ap (Pre a (DivAp f)) a -> DivAp f a
+-- apToDivAp = \case
+--     Pure r -> Knot r
+--     Ap (f :>$<: x) xs -> gather _ _ x (apToDivAp (_ <$> xs))
+--     -- Pure r -> Knot r
+--     -- Ap x xs -> gather _ (flip ($)) x (apToDivAp xs)
+
+
+decAltPost :: DecAlt f a -> PostT Dec f a
+decAltPost = \case
+    Reject h -> PostT $ Lose h
+    Swerve f g h x xs -> PostT $
+        decide f
+          (injectPost g x)
+          (hmap (mapPost h) . unPostT $ decAltPost xs)
+
+bypassDecPost :: Dec (Post b f) a -> a -> b
+bypassDecPost = \case
+    Lose h -> absurd . h
+    Choose f (g :<$>: _) xs -> \y -> case f y of
+      Left  q -> g q
+      Right r -> bypassDecPost xs r
+
+-- ah ok i see now the issue. to fully convert, you have to be able to
+-- "piecise-deconstruct" the post-mapping function from stage to stage.
+-- but in the PostT Dec version, you only have the full post-mapping, you
+-- lose the intermediate stages
+-- decNight :: PostT Dec1 f a -> I.Night f (PostT Dec f) a
+-- decNight xs0@(PostT (Dec1 f (g :<$>: x) xs)) =
+--    Night x (PostT (hmap (mapPost _) xs)) f g (bypassDecPost xs)
+-- bypassDecPost' :: Dec (Post b f) a -> b -> a
+-- bypassDecPost' = \case
+--     Lose h -> _
+--     -- Choose f (g :<$>: x) xs -> \y -> case f y of
+--     --   Left  q -> g q
+--     --   Right r -> bypassDecPost xs r
+
+
+-- -- so this is the main probleM: Post Dec and Dec Alt are not the same :O
+-- -- Post Dec is bigger than DecAlt!
+-- postDecAlt :: (b -> a) -> Dec (Post b f) a -> DecAlt f a
+-- postDecAlt q = \case
+--     Lose h -> Reject h
+--     Choose f (g :<$>: x) xs -> Swerve
+--       f
+--       (q . g)
+--       (q . bypassDecPost xs)
+--       x
+--       (postDecAlt (_ . q) xs)
+
+-- -- so this is the main probleM: Post Dec and Dec Alt are not the same :O
+-- -- Post Dec is bigger than DecAlt!
+-- postDecAlt :: Dec (Post b f) a -> DecAlt f a
+-- postDecAlt xs0 = case xs0 of
+--     Lose h -> Reject h
+--     Choose f (g :<$>: x) xs -> Swerve
+--       (fmap (bypassDecPost xs) . f)
+--       _
+--       _
+--       -- (q . g)
+--       -- q
+--       x
+--       (postDecAlt xs)
+--   where
+--     q = bypassDecPost xs0
+--       -- (postDecAlt (PostT (hmap _ xs)))
+
+-- removeNull :: forall p a. DecAlt1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
+-- removeNull (DecAlt1 f0 g0 h0 x0 xs0) = go f0 g0 h0 x0 xs0
+--   where
+--     go  :: (r -> Either b c)
+--         -> (b -> r)
+--         -> (c -> r)
+--         -> TSType_ p b
+--         -> DecAlt (TSType_ p) c
+--         -> Maybe (ILan Maybe (TSType p 'NotObj) r)
+--     go f g h (TSType_ x) xs = case x of
+--       TSBaseType (ICoyoneda r s TSNull) -> Just
+--         . ILan (maybe (g (s ())) h) (either (const Nothing) Just . f)
+--         $ case xs of
+--             Reject q -> TSBaseType (ICoyoneda q absurd TSNever)
+--             Swerve f' g' h' (TSType_ x') xs' -> TSUnion $ PostT $
+--               Dec1 f' (g' :<$>: TSType_ x') (hmap (mapPost h') (unPostT (decAltPost xs')))
+--       _ -> case xs of
+--         Reject _ -> Nothing
+--         Swerve f' g' h' (TSType_ x') xs' ->
+--           (go f' g' h' (TSType_ x') xs') <&> \(ILan q r t) ->
+--             ILan _ _ _
+--           -- Nothing -> Nothing
+--           -- Just (ILan q r t) -> _
+
+          -- ILan (maybe (g (s ())) absurd) (either (const Nothing) (Just . q) . f) (TSBaseType (inject TSNever))
+        -- Swerve f' g' h' (TSType_ xs)
+          -- ILan (maybe (g (s ())) absurd) (const Nothing) (TSBaseType (inject TSNever))
+      -- Swerve f' g' h' (TSType_ x') xs ->
+      --   case x of
+      --     TSBaseType (ICoyoneda r s TSNull) -> Just $
+      --       ILan (maybe (g (s ())) absurd) (const Nothing) (TSBaseType (inject TSNever))
+      -- case go f' g' h' (TSType_ x') xs of
+         
 -- removeNull :: PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
--- removeNull (PostT (Dec1 f0 x0 xs0)) = go f0 x0 xs0
+-- removeNull (PostT (Dec1 f0 x0 xs0)) = go f0 id x0 xs0
 --   where
 --     go  :: (b -> Either c d)
+--         -> (e -> b)
 --         -> Post b (TSType_ p) c
---         -> Dec (Post b (TSType_ p)) d
+--         -> Dec (Post e (TSType_ p)) d
 --         -> Maybe (ILan Maybe (TSType p 'NotObj) b)
---     go f (g :<$>: TSType_ x) = \case
+--     go f qb (g :<$>: TSType_ x) = \case
 --       Lose h -> case x of
---         TSPrimType (PS TSNull q r) -> Just $ ILan _ (const Nothing) (TSPrimType (PS TSNever absurd _))
+--         TSBaseType (ICoyoneda _ r TSNull) -> Just $ ILan (maybe (g (r ())) absurd) (const Nothing) (TSBaseType (inject TSNever))
+--         _ -> Nothing
+--       Choose f' (g' :<$>: TSType_ x') xs ->
+--         case go (_ . f . qb) _ (g' :<$>: TSType_ x') (hmap (mapPost qb) xs) of
 
 -- nullableUnion :: forall p a. PostT Dec1 (TSType_ p) a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
 -- nullableUnion (PostT (Dec1 f0 x0 xs0)) = go f0 x0 xs0
@@ -685,11 +798,10 @@ toNullable t = TSUnion . PostT $
       --       (injectPost _ (TSType_ y))
       --       (_ xs)
 
-            
 
 
--- | x | null.  note that null alone doesn't count bc of reasons :( the
--- Either in PS.
+
+-- | x | null.
 isNullable :: TSType p k a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
 isNullable = \case
     TSArray _ -> Nothing
@@ -703,6 +815,9 @@ isNullable = \case
     TSIntersection _ -> Nothing
     TSVar _ -> Nothing
     TSPrimType _ -> Nothing
+    TSBaseType (ICoyoneda _ g p) -> case p of
+      TSNull -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
+      _      -> Nothing
     -- TSPrimType (PS p f g) -> case p of
     --   -- oh man that Either in the PS is really hampring this huh
     --   TSNull -> Just . invmap _ _ $ ILan _ _ (TSPrimType (PS TSNull Right id))

@@ -53,10 +53,14 @@ parsePrim = \case
     TSBigIntLit t -> ABE.withIntegral $ eqOrFail (PEInvalidBigInt t) t
     TSUnknown -> ABE.asValue
     TSAny -> ABE.asValue
+
+parseBase :: TSBase a -> ABE.Parse ParseErr a
+parseBase = \case
     TSVoid -> ABE.asNull
     TSUndefined -> ABE.asNull
     TSNull -> ABE.asNull
     TSNever -> ABE.throwCustomError PENever
+
 
 parseNamedPrim :: TSNamedPrim a -> ABE.Parse ParseErr a
 parseNamedPrim = \case
@@ -95,6 +99,7 @@ parseType = \case
     TSIntersection ts -> unwrapApplicative $ interpret (WrapApplicative . parseType) ts
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
+    TSBaseType (ICoyoneda _ g x) -> g <$> parseBase x
   where
     parseKeyVal :: TSKeyVal 'Z ~> Parse
     parseKeyVal = interpret

@@ -76,10 +76,14 @@ ppPrim = \case
     TSBigIntLit n  -> PP.pretty n
     TSUnknown      -> "unknown"
     TSAny          -> "any"
+
+ppBase :: TSBase a -> PP.Doc x
+ppBase = \case
     TSVoid         -> "void"
     TSUndefined    -> "undefined"
     TSNull         -> "null"
     TSNever        -> "never"
+
 
 ppNamedPrim :: Text -> TSNamedPrim a -> PP.Doc x
 ppNamedPrim n = \case
@@ -127,6 +131,7 @@ ppType' = go
       TSVar i -> PP.pretty (ps Vec.! i)
       TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
       TSPrimType PS{..} -> ppPrim psItem
+      TSBaseType (ICoyoneda _ _ x) -> ppBase x
 
 ppNamed
     :: TSNamed 'Z k as es a
@@ -270,4 +275,5 @@ flattenType_ ps = go
       TSVar _      -> pure S.empty
       TSIntersection ts -> hfoldMap SOP.unK <$> htraverse (fmap K . go) ts
       TSPrimType _ -> pure S.empty
+      TSBaseType _ -> pure S.empty
 

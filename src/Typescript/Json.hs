@@ -922,17 +922,19 @@ tsUnknown = TSPrimType $ inject TSUnknown
 tsAny :: TSType p 'NotObj A.Value
 tsAny = TSPrimType $ inject TSAny
 
+-- TODO: to/from aeson parser
+
 tsVoid :: TSType p 'NotObj ()
-tsVoid = TSPrimType $ inject TSVoid
+tsVoid = TSBaseType $ inject TSVoid
 
 tsUndefined :: TSType p 'NotObj ()
-tsUndefined = TSPrimType $ inject TSUndefined
+tsUndefined = TSBaseType $ inject TSUndefined
 
 tsNull :: TSType p 'NotObj ()
-tsNull = TSPrimType $ inject TSNull
+tsNull = TSBaseType $ inject TSNull
 
 tsNever :: TSType p 'NotObj Void
-tsNever = TSPrimType $ inject TSNever
+tsNever = TSBaseType $ inject TSNever
 
 tsMaybe
     :: Text         -- ^ the "nothing" constructor

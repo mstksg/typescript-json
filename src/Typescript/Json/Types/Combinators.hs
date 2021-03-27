@@ -14,6 +14,7 @@ module Typescript.Json.Types.Combinators (
   , interpretILan
   , interpretCoILan
   , interpretContraILan
+  , ICoyoneda(..)
   , MP(..)
   , NP2(..)
   , hmap2
@@ -84,6 +85,18 @@ interpretContraILan
     -> ILan g h a
     -> f a
 interpretContraILan f = unwrapContravariant . interpretILan (WrapContravariant . f)
+
+data ICoyoneda f a = forall r. ICoyoneda (a -> r) (r -> a) (f r)
+
+instance Invariant (ICoyoneda f) where
+    invmap f g (ICoyoneda h k x) = ICoyoneda (h . g) (f . k) x
+
+instance HFunctor ICoyoneda where
+    hmap f (ICoyoneda h k x) = ICoyoneda h k (f x)
+
+instance Inject ICoyoneda where
+    inject x = ICoyoneda id id x
+
 
 splitAp :: forall f b. Ap f b -> [Some f]
 splitAp = go

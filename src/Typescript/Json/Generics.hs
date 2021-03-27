@@ -286,10 +286,10 @@ instance GTSType (KM1 i a) where
         tsMaybe "nothing" "just" lt
 
 instance GTSType U1 where
-    gtoTSType _ _ = TSType_ . invmap (const U1) (const ()) $ TSPrimType (inject TSVoid)
+    gtoTSType _ _ = TSType_ . invmap (const U1) (const ()) $ TSBaseType (inject TSVoid)
 
 instance GTSType V1 where
-    gtoTSType _ _ = TSType_ . invmap absurd (\case {}) $ TSPrimType (inject TSNever)
+    gtoTSType _ _ = TSType_ . invmap absurd (\case {}) $ TSBaseType (inject TSNever)
 
 splitNP
     :: NP p as
@@ -437,12 +437,12 @@ instance GTSTypeF (K1 i x) where
 instance GTSTypeF U1 where
     gtoTSTypeF _ _ = TSTypeF_ $
       TSGeneric (Param' "T" :** Nil2) $ \_ _ ->
-        invmap (const U1) (const ()) $ TSPrimType (inject TSVoid)
+        invmap (const U1) (const ()) $ TSBaseType (inject TSVoid)
 
 instance GTSTypeF V1 where
     gtoTSTypeF _ _ = TSTypeF_ $
       TSGeneric (Param' "T" :** Nil2) $ \_ _ ->
-        invmap absurd (\case {}) $ TSPrimType (inject TSNever)
+        invmap absurd (\case {}) $ TSBaseType (inject TSNever)
 
 
 class GTSSumF (f :: Type -> Type) where
