@@ -429,10 +429,10 @@ taggedBranch
 taggedBranch v = TaggedBranches . inject . Branch v . Lift.Other
 
 emptyTaggedBranch
-    :: a                -- ^ Pure "singleton"/literal rep value (ignored, just use ())
-    -> Text             -- ^ Tag value
+    :: Text             -- ^ Tag value
+    -> a                -- ^ Pure "singleton"/literal rep value (ignored, just use ())
     -> TaggedBranches p a
-emptyTaggedBranch x v = TaggedBranches . inject $ Branch v (Lift.Pure x)
+emptyTaggedBranch v = TaggedBranches . inject . Branch v . Lift.Pure
 
 tsTaggedUnion
     :: TaggedValueOpts
@@ -475,7 +475,7 @@ data TagAndContents = TagAndContents
   deriving (Show, Eq, Ord)
 
 data TagIsKey = TagIsKey
-    { tisNullaryIsString :: Bool  -- ^ nullary constructors are just string literals. if False, they are { tag: null }.
+    { tikNullaryIsString :: Bool  -- ^ nullary constructors are just string literals. if False, they are { tag: null }.
     }
   deriving (Show, Eq, Ord)
 
@@ -487,7 +487,7 @@ instance Default TagAndContents where
         }
 
 instance Default TagIsKey where
-    def = TagIsKey { tisNullaryIsString = True }
+    def = TagIsKey { tikNullaryIsString = True }
 
 instance Default TaggedValueOpts where
     def = TVOTagAndContents def
@@ -596,8 +596,7 @@ taggedValue tvo tagValue t = case tvo of
       | otherwise -> tsObject $
              tagVal tacTagKey tagValue
           *> keyVal False id tacContentsKey t
-    TVOTagIsKey TagIsKey{..} -> tsObject $
-            keyVal False id tagValue t
+    TVOTagIsKey TagIsKey{..} -> tsObject $ keyVal False id tagValue t
 
 taggedNullary
     :: TaggedValueOpts
@@ -607,8 +606,9 @@ taggedNullary
 taggedNullary tvo tagValue x = invmap (const x) (const ()) $ case tvo of
     TVOTagAndContents TagAndContents{..} ->
         TSType_ $ tsObject (tagVal tacTagKey tagValue)
-    TVOTagIsKey TagIsKey{..} ->
-        TSType_ $ tsStringLit tagValue
+    TVOTagIsKey TagIsKey{..}
+      | tikNullaryIsString -> TSType_ $ tsStringLit tagValue
+      | otherwise          -> TSType_ $ tsObject (keyVal False id tagValue (TSType_ tsNull))
 
 -- | A type aggregating the parts of an intersection.  Meant to be
 -- assembled using 'intersectVal' and combined using its 'Applicative'
@@ -972,16 +972,30 @@ tsNull = TSBaseType $ inject TSNull
 tsNever :: TSType p 'NotObj Void
 tsNever = TSBaseType $ inject TSNever
 
--- todo: implement in terms of new tagged branch options
 tsMaybe
     :: Text         -- ^ the "nothing" constructor
     -> Text         -- ^ the "just" field
-    -> TSType p k a
+    -> TSType_ p a
     -> TSType p 'NotObj (Maybe a)
-tsMaybe n j t = tsUnion $
-    swerve1 (maybe (Left ()) Right) (const Nothing) Just
-        (inject . TSType_ $ tsStringLit n)
-        (inject . TSType_ $ tsObject (keyVal False id j (TSType_ t)))
+tsMaybe n j t = tsTaggedUnions
+    (TVOTagIsKey def)
+    (\case Nothing -> Z (I ()); Just x -> S (Z (I x)))
+    (Op (const Nothing) :* Op Just :* Nil)
+    (  emptyTaggedBranch "nothing" ()
+    :* taggedBranch "just" t
+    :* Nil
+    )
+
+-- tsTaggedUnions
+--     :: TaggedValueOpts
+--     -> (a -> NS I (b ': bs))
+--     -> NP (Op a) (b ': bs)
+--     -> NP (TaggedBranches p) (b ': bs)
+--     -> TSType p 'NotObj a
+--         -- tsUnion $
+--     -- swerve1 (maybe (Left ()) Right) (const Nothing) Just
+--         -- (inject . TSType_ $ tsStringLit n)
+--         -- (inject . TSType_ $ tsObject (keyVal False id j (TSType_ t)))
 
 encodeType :: TSType 'Nat.Z k a -> a -> BSL.ByteString
 encodeType t = AE.encodingToLazyByteString . typeToEncoding t

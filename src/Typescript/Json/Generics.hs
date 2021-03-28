@@ -116,7 +116,7 @@ instance ToTSType a => ToTSType [a] where
     toTSType = TSType_ $ tsList toTSType
 
 instance ToTSType a => ToTSType (Maybe a) where
-    toTSType = withTSType_ (TSType_ . tsMaybe "nothing" "just") (toTSType @a)
+    toTSType = TSType_ $ tsMaybe "nothing" "just" (toTSType @a)
 
 type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[] ++ bs = bs
@@ -279,7 +279,7 @@ instance GTSType (KM1 i a) where
     -- TODO: this needs to be customizable i think because it's built-in
     -- and can't be replaced, unlike for the TSType instance
     gtoTSType _ (TSType_ lt :* Nil) = TSType_ . invmap KM1 unKM1 $
-        tsMaybe "nothing" "just" lt
+        tsMaybe "nothing" "just" (TSType_ lt)
 
 instance GTSType U1 where
     gtoTSType _ _ = TSType_ . invmap (const U1) (const ()) $ TSBaseType (inject TSVoid)
@@ -328,8 +328,9 @@ instance (All Top (LeafTypes f), GTSSum f, GTSSum g) => GTSSum (f :+: g) where
 
 instance {-# OVERLAPS #-} KnownSymbol constr
       => GTSSum (M1 C ('MetaCons constr a b) U1) where
-    gtsSum TSOpts{..} _ = emptyTaggedBranch (M1 U1)
+    gtsSum TSOpts{..} _ = emptyTaggedBranch
                 (tsoConstructorModifier (symbolVal (Proxy @constr)))
+                (M1 U1)
 
 instance (KnownSymbol constr, GTSType f)
       => GTSSum (M1 C ('MetaCons constr a b) f) where
@@ -457,7 +458,7 @@ instance (All Top (LeafTypes f), GTSSumF f, GTSSumF g) => GTSSumF (f :+: g) wher
 
 instance {-# OVERLAPS #-} KnownSymbol constr
       => GTSSumF (M1 C ('MetaCons constr a b) U1) where
-    gtsSumF TSOpts{..} _ _ = emptyTaggedBranch (M1 U1) (tsoConstructorModifier (symbolVal (Proxy @constr)))
+    gtsSumF TSOpts{..} _ _ = emptyTaggedBranch (tsoConstructorModifier (symbolVal (Proxy @constr))) (M1 U1)
 
 instance (KnownSymbol constr, GTSTypeF f)
       => GTSSumF (M1 C ('MetaCons constr a b) f) where
