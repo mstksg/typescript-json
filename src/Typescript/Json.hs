@@ -32,7 +32,7 @@ module Typescript.Json (
   -- ** Unions
   , tsUnion, tsUnions
   -- *** Tagged
-  , tagVal, taggedObject, taggedValue
+  , tagVal, taggedObject, taggedValue, taggedNullary
   , TaggedBranches(..)
   , Branch(..)
   , TaggedValueOpts(..)
@@ -97,7 +97,7 @@ import           Control.Applicative.Free
 import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Default.Class
-import           Data.Fin hiding                              (absurd)
+import           Data.Fin hiding                   (absurd)
 import           Data.Foldable
 import           Data.Functor.Apply
 import           Data.Functor.Combinator
@@ -105,34 +105,35 @@ import           Data.Functor.Contravariant
 import           Data.Functor.Invariant
 import           Data.Functor.Invariant.DecAlt
 import           Data.HFunctor.Route
-import           Data.Map                                     (Map)
+import           Data.Map                          (Map)
 import           Data.Profunctor
-import           Data.SOP                                     (NP(..), NS(..), I(..))
+import           Data.SOP                          (NP(..), NS(..), I(..))
 import           Data.Scientific
-import           Data.Text                                    (Text)
+import           Data.Text                         (Text)
 import           Data.Traversable
-import           Data.Type.Nat                                (Plus)
-import           Data.Vec.Lazy                                (Vec)
+import           Data.Type.Nat                     (Plus)
+import           Data.Vec.Lazy                     (Vec)
 import           Data.Void
 import           Typescript.Json.Core.Encode
 import           Typescript.Json.Core.Parse
 import           Typescript.Json.Core.Print
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
-import qualified Control.Applicative.Lift                     as Lift
-import qualified Data.Aeson                                   as A
-import qualified Data.Aeson.BetterErrors                      as ABE
-import qualified Data.Aeson.Encoding                          as AE
-import qualified Data.ByteString                              as BS
-import qualified Data.ByteString.Lazy                         as BSL
-import qualified Data.Fin.Enum                                as FE
-import qualified Data.Map                                     as M
-import qualified Data.Text                                    as T
-import qualified Data.Text.Lazy                               as TL
-import qualified Data.Type.Nat                                as Nat
-import qualified Data.Vec.Lazy                                as Vec
-import qualified Data.Vector.Generic                          as V
-import qualified GHC.Exts                                     as Exts
+import qualified Control.Applicative.Lift          as Lift
+import qualified Data.Aeson                        as A
+import qualified Data.Aeson.BetterErrors           as ABE
+import qualified Data.Aeson.Encoding               as AE
+import qualified Data.ByteString                   as BS
+import qualified Data.ByteString.Lazy              as BSL
+import qualified Data.Fin.Enum                     as FE
+import qualified Data.Map                          as M
+import qualified Data.Set                          as S
+import qualified Data.Text                         as T
+import qualified Data.Text.Lazy                    as TL
+import qualified Data.Type.Nat                     as Nat
+import qualified Data.Vec.Lazy                     as Vec
+import qualified Data.Vector.Generic               as V
+import qualified GHC.Exts                          as Exts
 
 -- | A type aggregating key-value pairs for an object.  Meant to
 -- be assembled using 'keyVal' (for required properties) and 'keyValMay'
@@ -457,27 +458,39 @@ runBranch
     :: TaggedValueOpts
     -> Branch p a
     -> TSType_ p a
-runBranch tvo Branch{..} = TSType_ $
-  case branchType of
-    Lift.Pure  x -> invmap (const x) (const ()) . tsObject $ tagVal (tvoTagKey tvo) branchTag
-    Lift.Other t -> taggedValue tvo branchTag t
+runBranch tvo Branch{..} = case branchType of
+    Lift.Pure  x -> taggedNullary tvo branchTag x
+    Lift.Other t -> TSType_ $ taggedValue tvo branchTag t
 
--- TODO: allow just using the constructor as the key/literal
-data TaggedValueOpts = TaggedValueOpts
-    { tvoMergeTagValue :: Bool
-    , tvoMergeNullable :: Bool
-    , tvoTagKey        :: Text
-    , tvoContentsKey   :: Text
+data TaggedValueOpts =
+    TVOTagAndContents TagAndContents
+  | TVOTagIsKey TagIsKey
+  deriving (Show, Eq, Ord)
+
+data TagAndContents = TagAndContents
+    { tacMergeTagValue :: Bool  -- ^ if possible, flatten the object under contents
+    , tacTagKey        :: Text
+    , tacContentsKey   :: Text
     }
   deriving (Show, Eq, Ord)
 
-instance Default TaggedValueOpts where
-    def = TaggedValueOpts
-        { tvoMergeTagValue = False
-        , tvoMergeNullable = True
-        , tvoTagKey = "tag"
-        , tvoContentsKey = "contents"
+data TagIsKey = TagIsKey
+    { tisNullaryIsString :: Bool  -- ^ nullary constructors are just string literals. if False, they are { tag: null }.
+    }
+  deriving (Show, Eq, Ord)
+
+instance Default TagAndContents where
+    def = TagAndContents
+        { tacMergeTagValue = False
+        , tacTagKey = "tag"
+        , tacContentsKey = "contents"
         }
+
+instance Default TagIsKey where
+    def = TagIsKey { tisNullaryIsString = True }
+
+instance Default TaggedValueOpts where
+    def = TVOTagAndContents def
 
 -- | A utility for a simple situation of a "tag" key-value pair, where the
 -- property value is just a string literal singleton.  Often used to
@@ -567,17 +580,35 @@ taggedObject tag val obj = tsIntersection $
 taggedValue
     :: TaggedValueOpts
     -> Text            -- ^ tag value
-    -> TSType_ p a   -- ^ contents type
+    -> TSType_ p a     -- ^ contents type
     -> TSType p 'IsObj a
-taggedValue TaggedValueOpts{..} tagValue t
-  | tvoMergeTagValue = case decideTSType_ t of
-      L1 x -> tsObject $
-           tagVal tvoTagKey tagValue
-        *> keyVal tvoMergeNullable id tvoContentsKey (TSType_ x)
-      R1 y -> taggedObject tvoTagKey tagValue y
-  | otherwise        = tsObject $
-         tagVal tvoTagKey tagValue
-      *> keyVal tvoMergeNullable id tvoContentsKey t
+taggedValue tvo tagValue t = case tvo of
+    TVOTagAndContents TagAndContents{..}
+      | tacMergeTagValue -> case decideTSType_ t of
+          L1 x -> tsObject $ tagVal tacTagKey tagValue
+                          *> keyVal False id tacContentsKey (TSType_ x)
+          R1 y
+            -- TODO: if the tag key is a key in the obj, then dont do it
+            | tacTagKey `S.member` isObjKeys y
+                -> tsObject $ tagVal tacTagKey tagValue
+                           *> keyVal False id tacContentsKey t
+            | otherwise -> taggedObject tacTagKey tagValue y
+      | otherwise -> tsObject $
+             tagVal tacTagKey tagValue
+          *> keyVal False id tacContentsKey t
+    TVOTagIsKey TagIsKey{..} -> tsObject $
+            keyVal False id tagValue t
+
+taggedNullary
+    :: TaggedValueOpts
+    -> Text
+    -> a
+    -> TSType_ p a
+taggedNullary tvo tagValue x = invmap (const x) (const ()) $ case tvo of
+    TVOTagAndContents TagAndContents{..} ->
+        TSType_ $ tsObject (tagVal tacTagKey tagValue)
+    TVOTagIsKey TagIsKey{..} ->
+        TSType_ $ tsStringLit tagValue
 
 -- | A type aggregating the parts of an intersection.  Meant to be
 -- assembled using 'intersectVal' and combined using its 'Applicative'

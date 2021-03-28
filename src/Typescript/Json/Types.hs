@@ -62,7 +62,7 @@ module Typescript.Json.Types (
   , tsObjType
   , collapseIsObj
   , splitKeyVal
-  -- , unNullable
+  , isObjKeys
   , mkNullable
   , toVarArgs
   -- * Generics
@@ -93,41 +93,34 @@ module Typescript.Json.Types (
   ) where
 
 import           Control.Applicative.Free
--- import           Control.Monad
 import           Data.Bifunctor
-import           Data.Fin                                  (Fin(..))
+import           Data.Bitraversable
+import           Data.Fin                          (Fin(..))
 import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Apply.Free
-import           Data.Bitraversable
-import           Data.Functor.Combinator hiding            (Comp(..))
--- import           Data.Functor.Contravariant.Decide
--- import           Data.Functor.Contravariant.Divisible.Free (Dec1(..), Dec(..))
+import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Invariant
 import           Data.Functor.Invariant.DecAlt
--- import           Data.Functor.Invariant.DivAp
 import           Data.GADT.Show
 import           Data.HFunctor.Route
 import           Data.Kind
-import           Data.List.NonEmpty                        (NonEmpty)
-import           Data.Map                                  (Map)
--- import           Data.Profunctor
--- import           Data.SOP                                  (NP(..), K(..))
-import           Data.Scientific                           (Scientific)
-import           Data.Some                                 (Some(..))
-import           Data.Text                                 (Text)
+import           Data.List.NonEmpty                (NonEmpty)
+import           Data.Map                          (Map)
+import           Data.Scientific                   (Scientific)
+import           Data.Set                          (Set)
+import           Data.Some                         (Some(..))
+import           Data.Text                         (Text)
 import           Data.Type.Equality
 import           Data.Type.Nat
-import           Data.Vec.Lazy                             (Vec(..))
+import           Data.Vec.Lazy                     (Vec(..))
 import           Data.Void
 import           Typescript.Json.Types.Combinators
 import           Typescript.Json.Types.SNat
-import qualified Control.Applicative.Lift                  as Lift
-import qualified Data.Aeson                                as A
--- import qualified Data.Functor.Invariant.Night              as I
-import qualified Data.Map                                  as M
--- import qualified Data.SOP                                  as SOP
-import qualified Prettyprinter                             as PP
+import qualified Control.Applicative.Lift          as Lift
+import qualified Data.Aeson                        as A
+import qualified Data.Map                          as M
+import qualified Prettyprinter                     as PP
 
 data EnumLit = ELString Text | ELNumber Scientific
   deriving (Show, Eq, Ord)
@@ -435,7 +428,6 @@ tsApplyVar
 tsApplyVar (TSGeneric ps g) = uncurry g (toVarArgs ps)
 tsApplyVar (TSGenericInterface ps fe ef ext g) = case ext of
     Lift.Pure x -> invmap (fe x) (snd . ef) $ TSObject (g n es)
-      -- g n (hmap (TSType_ . TSVar . weakenFin @_ @p . SOP.unK) es)
     Lift.Other (TSNamed _ (TSNFunc tf) :? qs) -> TSObject . PreT $
       fe <$> hmap (mapPre (fst . ef))
                (unPreT . collapseIsObj $
@@ -560,7 +552,6 @@ decideTSType_ :: TSType_ p ~> (TSType p 'NotObj :+: TSType p 'IsObj)
 decideTSType_ = onTSType_ L1 R1
 
 
-
 splitKeyVal :: TSKeyVal p a -> Map Text (Some (Pre a (TSType_ p)))
 splitKeyVal (PreT p) = M.fromList $ splitAp p <&> \case
     Some (q :>$<: ObjMember{..}) ->
@@ -571,6 +562,9 @@ splitKeyVal (PreT p) = M.fromList $ splitAp p <&> \case
             q :>$<: TSType_ (invmap f g (mkNullable w))
       )
 
+isObjKeys :: TSType p 'IsObj a -> Set Text
+isObjKeys = M.keysSet . splitKeyVal . collapseIsObj
+
 mkNullable :: TSType p k a -> TSType p 'NotObj (Maybe a)
 mkNullable t = TSUnion $
      swerve1 (maybe (Right ()) Left) Just (const Nothing)
@@ -579,6 +573,11 @@ mkNullable t = TSUnion $
 
 -- | Pulls out the (x | y | z) from (x | y | z) | null.  The result is an
 -- 'ILan' where the item inside is non-nullable.
+--
+-- This removes ALL nulls and undefineds.
+--
+-- Note that, if the result is Just (it is nullable), this inlines all
+-- named times because it changes the structure of the type itself.
 isNullable :: TSType p k a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
 isNullable = \case
     TSArray _ -> Nothing
@@ -626,17 +625,31 @@ nullableUnion (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
         -- remove all others
         Reject h -> ILan (ga . q) (either r (absurd . h) . f) y
         Swerve f' ga' gb' x' xs' -> case go f' ga' gb' x' xs' of
-          -- the rest were solid
+          -- the rest were not nullable
           Nothing ->
-            ILan (maybe (ga (q Nothing)) (either (ga . q . Just) gb)) (bitraverse r pure . f) $ TSUnion $
-              DecAlt1 id Left Right (TSType_ y) xs
+            case y of
+              -- if y is never then we can just delete it from the union
+              TSBaseType (ICoyoneda s _ TSNever) ->
+                -- in: f, r, s
+                -- out: ga, gb, q, t
+                ILan (maybe (ga (q Nothing)) gb)
+                     (fmap (either absurd id) . bitraverse (fmap s . r) pure . f) $
+                    TSUnion $ DecAlt1 f' ga' gb' x' xs'
+              _ -> ILan (maybe (ga (q Nothing)) (either (ga . q . Just) gb)) (bitraverse r pure . f) $ TSUnion $
+                DecAlt1 id Left Right (TSType_ y) xs
           -- the rest had nullable stuff too
           Just (ILan q' r' ys) ->
-            -- we have an option  of using 'q Nothing' of 'q1 Nothing'
-            ILan (maybe (ga (q Nothing)) (either (ga . q . Just) (gb . q' . Just)))
-                ((bitraverse r pure =<<)  . traverse r' . f) $ TSUnion $
-              swerved1
-                (inject (TSType_ y))
-                (inject (TSType_ ys))
-
-
+            case y of
+              -- if y is never then we can just delete it from the union
+              TSBaseType (ICoyoneda s _ TSNever) ->
+                ILan (gb . q')
+                     (fmap (either (absurd . s) id) . bitraverse r r' . f)
+                     ys
+              _ ->
+                -- we have an option of using 'q Nothing' of 'q1 Nothing',
+                -- because there are multiple nulls removed
+                ILan (maybe (ga (q Nothing)) (either (ga . q . Just) (gb . q' . Just)))
+                    ((bitraverse r pure =<<)  . traverse r' . f) $ TSUnion $
+                  swerved1
+                    (inject (TSType_ y))
+                    (inject (TSType_ ys))
