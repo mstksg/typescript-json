@@ -37,6 +37,8 @@ module Typescript.Json.Generics (
   , GTSProductF(..)
   , GTSEnum(..)
   , EnumOpts(..)
+  , MakeMaybe(..)
+  , simpleMakeMaybe
   -- * Default instances
   , ToTSType(..)
   , genericToTSType
@@ -116,7 +118,7 @@ instance ToTSType a => ToTSType [a] where
     toTSType = TSType_ $ tsList toTSType
 
 instance ToTSType a => ToTSType (Maybe a) where
-    toTSType = TSType_ $ tsMaybe "nothing" "just" (toTSType @a)
+    toTSType = TSType_ $ tsMaybe "none" "some" (toTSType @a)
 
 type family (as :: [k]) ++ (bs :: [k]) :: [k] where
     '[] ++ bs = bs
@@ -223,7 +225,7 @@ mto1 = to1 @_ @f @x . Unsafe.unsafeCoerce
 
 type family LeafTypes (f :: Type -> Type) :: [Type] where
     LeafTypes (K1 i a)   = '[a]
-    LeafTypes (KM1 i a)   = '[a]
+    LeafTypes (KM1 i a)  = '[a]
     LeafTypes U1         = '[]
     LeafTypes V1         = '[]
     LeafTypes (M1 x y f) = LeafTypes f
@@ -231,9 +233,29 @@ type family LeafTypes (f :: Type -> Type) :: [Type] where
     LeafTypes (f :+: g)  = LeafTypes f ++ LeafTypes g
     LeafTypes (f :*: g)  = LeafTypes f ++ LeafTypes g
 
+newtype MakeMaybe = MakeMaybe { runMakeMaybe :: forall p a. TSType_ p a -> TSType_ p (Maybe a) }
+
+-- | "none" | { "some": x }
+simpleMakeMaybe
+    :: T.Text           -- ^ "none" key
+    -> T.Text           -- ^ "some" key
+    -> MakeMaybe
+simpleMakeMaybe n j = MakeMaybe $ TSType_ . tsMaybe n j
+
 data TSOpts = TSOpts
     { tsoFieldModifier :: String -> T.Text
-    , tsoNullableFields :: Bool
+      -- | If 'False', turns all immediate Maybe fields into optional
+      -- fields.  If 'True', keeps the field required.
+    , tsoPreserveMaybe :: Bool
+      -- | Turn a @a@ into a @Maybe a@, used to fill in top-level Maybe
+      -- fields or if 'tsoPreserveMaybe' is 'True'.
+    , tsoMakeMaybe :: MakeMaybe
+      -- | When assigning fields, if a type is nullable (null is
+      -- assignable to it, or it's a union where null or undefined is
+      -- a member) then turn it into an optional field and strips the type
+      -- of nulls.  Note that this will inline any named definitions if the
+      -- type is nullable.
+    , tsoCollapseNullable :: Bool
     , tsoConstructorModifier :: String -> T.Text
     , tsoSumOpts :: TaggedValueOpts
     }
@@ -241,7 +263,9 @@ data TSOpts = TSOpts
 instance Default TSOpts where
     def = TSOpts
         { tsoFieldModifier = T.pack . A.camelTo2 '_'
-        , tsoNullableFields = False
+        , tsoPreserveMaybe = False
+        , tsoMakeMaybe = simpleMakeMaybe "none" "some"
+        , tsoCollapseNullable = False
         , tsoConstructorModifier = T.pack
         , tsoSumOpts = def
         }
@@ -276,10 +300,8 @@ instance GTSType (K1 i a) where
     gtoTSType _ (lt :* Nil) = invmap K1 unK1 lt
 
 instance GTSType (KM1 i a) where
-    -- TODO: this needs to be customizable i think because it's built-in
-    -- and can't be replaced, unlike for the TSType instance
-    gtoTSType _ (TSType_ lt :* Nil) = TSType_ . invmap KM1 unKM1 $
-        tsMaybe "nothing" "just" (TSType_ lt)
+    gtoTSType TSOpts{..} (TSType_ lt :* Nil) = invmap KM1 unKM1 $
+        runMakeMaybe tsoMakeMaybe (TSType_ lt)
 
 instance GTSType U1 where
     gtoTSType _ _ = TSType_ . invmap (const U1) (const ()) $ TSBaseType (inject TSVoid)
@@ -361,17 +383,23 @@ instance (All Top (LeafTypes f), GTSProduct t f, GTSProduct t g) => GTSProduct t
 
 instance KnownSymbol k => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c) (K1 i r)) where
     gtsProduct TSOpts{..} (lt :* Nil) f = M1 <$>
-        keyVal tsoNullableFields
+        keyVal tsoCollapseNullable
             (unM1 . f)
             (tsoFieldModifier (symbolVal (Proxy @k)))
             (mapTSType_ (invmap K1 unK1) lt)
 
 instance KnownSymbol k => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c) (KM1 i r)) where
-    gtsProduct TSOpts{..} (lt :* Nil) f = M1 . KM1 <$>
-        keyValMay
-            (unKM1 . unM1 . f)
-            (tsoFieldModifier (symbolVal (Proxy @k)))
-            lt
+    gtsProduct TSOpts{..} (lt :* Nil) f
+      | tsoPreserveMaybe = M1 . KM1 <$>
+            keyVal tsoCollapseNullable
+                (unKM1 . unM1 . f)
+                (tsoFieldModifier (symbolVal (Proxy @k)))
+                (runMakeMaybe tsoMakeMaybe lt)
+      | otherwise        = M1 . KM1 <$>
+            keyValMay
+                (unKM1 . unM1 . f)
+                (tsoFieldModifier (symbolVal (Proxy @k)))
+                lt
 
 instance GTSType f => GTSProduct TupleVals (M1 S ('MetaSel 'Nothing a b c) f) where
     gtsProduct tso lts f =  M1 <$> tupleVal (unM1 . f) (gtoTSType @f tso lts)
@@ -429,6 +457,17 @@ instance GTSTypeF (K1 i x) where
     gtoTSTypeF _ (TSType_ t :* Nil) = TSTypeF_ $
         TSGeneric (Param' "T" :** Nil2) $ \rs _ ->
           tsShift @_ @p rs $ invmap K1 unK1 t
+
+instance GTSTypeF (KM1 i x) where
+    gtoTSTypeF :: forall p a. ()
+        => TSOpts
+        -> NP (TSType_ p) '[x]
+        -> TSTypeF_ p '[a] '[ 'Nothing ] (KM1 i x a)
+    gtoTSTypeF TSOpts{..} (lt :* Nil) = TSTypeF_ $
+        TSGeneric (Param' "T" :** Nil2) $ \rs _ ->
+          case runMakeMaybe tsoMakeMaybe lt of
+            TSType_ t -> onTSType_ id TSSingle $
+              invmap KM1 unKM1 . TSType_ $ tsShift @_ @p rs t
 
 instance GTSTypeF U1 where
     gtoTSTypeF _ _ = TSTypeF_ $
@@ -488,14 +527,22 @@ instance (All Top (LeafTypes f), GTSProductF t f, GTSProductF t g) => GTSProduct
 
 instance KnownSymbol k => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) (K1 i r)) where
     gtsProductF TSOpts{..} (lt :* Nil) f _ =
-        M1 <$> keyVal tsoNullableFields (unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
+        M1 <$> keyVal tsoCollapseNullable (unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
                 (invmap K1 unK1 lt)
 
 instance KnownSymbol k => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) (KM1 i r)) where
-    gtsProductF TSOpts{..} (lt :* Nil) f _ =
-        M1 . KM1
-            <$> keyValMay (unKM1 . unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
-                  lt
+    gtsProductF TSOpts{..} (lt :* Nil) f _
+      | tsoPreserveMaybe = M1 . KM1 <$>
+            keyVal tsoCollapseNullable
+              (unKM1 . unM1 . f)
+              (tsoFieldModifier (symbolVal (Proxy @k)))
+              (runMakeMaybe tsoMakeMaybe lt)
+      | otherwise        = M1 . KM1 <$>
+            keyValMay
+                (unKM1 . unM1 . f)
+                (tsoFieldModifier (symbolVal (Proxy @k)))
+                lt
+
 
 instance GTSTypeF f => GTSProductF TupleVals (M1 S ('MetaSel 'Nothing a b c) f) where
     gtsProductF tso lts f t = withTSTypeF_
