@@ -49,6 +49,7 @@ module Typescript.Json.Types (
   , Arg_(..)
   , withArg_
   , ObjMember(..)
+  , Mutability(..)
   , TSTransform(..)
   , TSStringManip(..)
   , ExtendsString(..)
@@ -123,6 +124,7 @@ import           Data.Type.Equality
 import           Data.Type.Nat
 import           Data.Vec.Lazy                     (Vec(..))
 import           Data.Void
+import           GHC.Generics                      (Generic)
 import           Typescript.Json.Types.Combinators
 import           Typescript.Json.Types.SNat
 import qualified Control.Applicative.Lift          as Lift
@@ -174,23 +176,26 @@ data TSType_ p a = forall k. TSType_ { unTSType_ :: TSType p k a }
 instance Invariant (TSType_ p) where
     invmap f g = mapTSType_ (invmap f g)
 
--- TODO: technically the key can be an Int? { [n : number]: unknown }
+data Mutability = Mutable | ReadOnly
+  deriving (Show, Eq, Ord, Generic, Enum, Bounded)
+
 data ObjMember f a = ObjMember
-    { objMemberKey :: Text
+    { objMemberReadOnly :: Mutability
+    , objMemberKey :: Text
     , objMemberVal :: (f :+: ILan Maybe f) a
     }
 
 instance HFunctor ObjMember where
-    hmap f (ObjMember k v) = ObjMember k (hbimap f (hmap f) v)
+    hmap f (ObjMember ro k v) = ObjMember ro k (hbimap f (hmap f) v)
 
 instance HTraversable ObjMember where
-    htraverse f (ObjMember k v) = ObjMember k <$>
+    htraverse f (ObjMember ro k v) = ObjMember ro k <$>
       case v of
         L1 x -> L1 <$> f x
         R1 y -> R1 <$> htraverse f y
 
 instance Invariant f => Invariant (ObjMember f) where
-    invmap f g (ObjMember x y) = ObjMember x (invmap f g y)
+    invmap f g (ObjMember ro x y) = ObjMember ro x (invmap f g y)
 
 data IsObjType = NotObj | IsObj
 
@@ -218,6 +223,9 @@ data TSTransform :: Nat -> IsObjType -> Type -> Type where
     TSPartial
         :: TSType p 'IsObj a
         -> TSTransform p 'IsObj (Maybe a)
+    TSReadOnly
+        :: TSType p 'IsObj a
+        -> TSTransform p 'IsObj a
     TSStringManipType
         :: TSStringManip
         -> TSType p 'NotObj a
@@ -393,12 +401,12 @@ withTSNamed_ f (TSNamed_ t) = f t
 
 interpretObjMember
     :: Invariant g
-    => (Text -> f ~> g)
-    -> (forall x. Text -> f x -> g (Maybe x))
+    => (Mutability -> Text -> f ~> g)
+    -> (forall x. Mutability -> Text -> f x -> g (Maybe x))
     -> ObjMember f ~> g
-interpretObjMember f g (ObjMember k v) = case v of
-    L1 x -> f k x
-    R1 y -> interpretILan (g k) y
+interpretObjMember f g (ObjMember ro k v) = case v of
+    L1 x -> f ro k x
+    R1 y -> interpretILan (g ro k) y
 
 tsApply
     :: TSTypeF p k as es b      -- ^ type function
@@ -558,6 +566,7 @@ shiftArgF n ArgF{..} =
 shiftTransform :: SNat_ r -> TSTransform p k a -> TSTransform (Plus r p) k a
 shiftTransform n = \case
     TSPartial t -> TSPartial (tsShift n t)
+    TSReadOnly t -> TSReadOnly (tsShift n t)
     TSStringManipType sm t a -> TSStringManipType sm (tsShift n t) a
 
 tsObjType
@@ -575,8 +584,9 @@ tsObjType = \case
       TSNPrimType _                  -> SNotObj
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
-    TSTransformType (ICoyoneda _ _ bi) -> case bi of
+    TSTransformType (ICoyoneda _ _ tf) -> case tf of
       TSPartial _ -> SIsObj
+      TSReadOnly _ -> SIsObj
       TSStringManipType _ _ _ -> SNotObj
     TSPrimType _                  -> SNotObj
     TSBaseType _                  -> SNotObj
@@ -619,6 +629,7 @@ mkNullable t = TSUnion $
 applyTransform :: TSTransform p k a -> TSType p k a
 applyTransform = \case
     TSPartial x -> TSObject . PreT . objectPartial . unPreT $ collapseIsObj x
+    TSReadOnly x -> TSObject . hmap (\o -> o { objMemberReadOnly = ReadOnly }) $ collapseIsObj x
     TSStringManipType mf t _ -> mapStringLit (stringManipFunc mf) t
 
 stringManipFunc :: TSStringManip -> Text -> Text

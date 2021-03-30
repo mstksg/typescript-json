@@ -262,6 +262,7 @@ data TSOpts = TSOpts
     , tsoCollapseNullable :: Bool
     , tsoConstructorModifier :: String -> T.Text
     , tsoSumOpts :: TaggedValueOpts
+    , tsoReadOnlyFields :: Mutability
     , tsoTypeNameModifier :: SomeTypeRep -> T.Text
     }
 
@@ -273,6 +274,7 @@ instance Default TSOpts where
         , tsoCollapseNullable = False
         , tsoConstructorModifier = T.pack
         , tsoSumOpts = def
+        , tsoReadOnlyFields = Mutable
         , tsoTypeNameModifier = T.pack . filter (not . isSpace) . show
         }
 
@@ -378,6 +380,7 @@ instance KnownSymbol k => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c
     gtsProduct TSOpts{..} (lt :* Nil) f = M1 <$>
         keyVal tsoCollapseNullable
             (unM1 . f)
+            tsoReadOnlyFields
             (tsoFieldModifier (symbolVal (Proxy @k)))
             (mapTSType_ (invmap K1 unK1) lt)
 
@@ -386,11 +389,13 @@ instance KnownSymbol k => GTSProduct ObjectProps (M1 S ('MetaSel ('Just k) a b c
       | tsoPreserveMaybe = M1 . KM1 <$>
             keyVal tsoCollapseNullable
                 (unKM1 . unM1 . f)
+                tsoReadOnlyFields
                 (tsoFieldModifier (symbolVal (Proxy @k)))
                 (runMakeMaybe tsoMakeMaybe lt)
       | otherwise        = M1 . KM1 <$>
             keyValMay
                 (unKM1 . unM1 . f)
+                tsoReadOnlyFields
                 (tsoFieldModifier (symbolVal (Proxy @k)))
                 lt
 
@@ -515,7 +520,7 @@ instance (All Top (LeafTypes f), GTSProductF t f, GTSProductF t g) => GTSProduct
 
 instance KnownSymbol k => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) (K1 i r)) where
     gtsProductF TSOpts{..} (lt :* Nil) f _ =
-        M1 <$> keyVal tsoCollapseNullable (unM1 . f) (tsoFieldModifier (symbolVal (Proxy @k)))
+        M1 <$> keyVal tsoCollapseNullable (unM1 . f) tsoReadOnlyFields (tsoFieldModifier (symbolVal (Proxy @k)))
                 (invmap K1 unK1 lt)
 
 instance KnownSymbol k => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b c) (KM1 i r)) where
@@ -523,11 +528,13 @@ instance KnownSymbol k => GTSProductF ObjectProps (M1 S ('MetaSel ('Just k) a b 
       | tsoPreserveMaybe = M1 . KM1 <$>
             keyVal tsoCollapseNullable
               (unKM1 . unM1 . f)
+              tsoReadOnlyFields
               (tsoFieldModifier (symbolVal (Proxy @k)))
               (runMakeMaybe tsoMakeMaybe lt)
       | otherwise        = M1 . KM1 <$>
             keyValMay
                 (unKM1 . unM1 . f)
+                tsoReadOnlyFields
                 (tsoFieldModifier (symbolVal (Proxy @k)))
                 lt
 

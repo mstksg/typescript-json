@@ -73,8 +73,8 @@ objTypeToEncoding = \case
     keyValToValue :: TSKeyVal 'Z ~> Op A.Series
     keyValToValue = preDivisibleT
         ( interpretObjMember
-            (\k t -> Op           $ \x -> k A..= withTSType_ typeToValue t x)
-            (\k t -> Op . foldMap $ \x -> k A..= withTSType_ typeToValue t x)
+            (\_ k t -> Op           $ \x -> k A..= withTSType_ typeToValue t x)
+            (\_ k t -> Op . foldMap $ \x -> k A..= withTSType_ typeToValue t x)
         )
 
 typeToEncoding :: TSType 'Z k a -> a -> A.Encoding
@@ -136,8 +136,8 @@ objTypeToValue = \case
     keyValToValue :: TSKeyVal 'Z ~> Op [A.Pair]
     keyValToValue = preDivisibleT
         ( interpretObjMember
-            (\k t -> Op           $ \x -> [k A..= withTSType_ typeToValue t x])
-            (\k t -> Op . foldMap $ \x -> [k A..= withTSType_ typeToValue t x])
+            (\_ k t -> Op           $ \x -> [k A..= withTSType_ typeToValue t x])
+            (\_ k t -> Op . foldMap $ \x -> [k A..= withTSType_ typeToValue t x])
         )
 
 typeToValue

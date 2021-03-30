@@ -104,7 +104,7 @@ parseType = \case
     parseKeyVal :: TSKeyVal 'Z ~> Parse
     parseKeyVal = interpret
         ( unwrapFunctor . interpretObjMember
-            (\k -> WrapFunctor . ABE.key    k . withTSType_ parseType)
-            (\k -> WrapFunctor . ABE.keyMay k . withTSType_ parseType)
+            (\_ k -> WrapFunctor . ABE.key    k . withTSType_ parseType)
+            (\_ k -> WrapFunctor . ABE.keyMay k . withTSType_ parseType)
         )
 

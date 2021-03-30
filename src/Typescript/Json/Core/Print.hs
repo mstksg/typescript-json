@@ -116,8 +116,8 @@ ppType' = go
       TSObject ts -> PP.encloseSep "{ " " }" ", " $
         htoList
           ( getConst . interpretObjMember
-              (\k x -> Const (PP.pretty k <> ":"  PP.<+> withTSType_ (go ps) x ))
-              (\k x -> Const (PP.pretty k <> "?:" PP.<+> withTSType_ (go ps) x))
+              (\ro k x -> Const . roText ro $ PP.pretty k <> ":"  PP.<+> withTSType_ (go ps) x)
+              (\ro k x -> Const . roText ro $ PP.pretty k <> "?:" PP.<+> withTSType_ (go ps) x)
           )
           ts
       TSSingle ts -> go ps ts
@@ -133,10 +133,14 @@ ppType' = go
       TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
       TSTransformType tf -> getConst $ (`interpret` tf) $ \case
         TSPartial t -> Const $ "Partial<" <> go ps t <> ">"
+        TSReadOnly t -> Const $ "ReadOnly<" <> go ps t <> ">"
         TSStringManipType sm t _ -> Const $ ppStringManip sm
                                         <> "<" <> go ps t <> ">"
       TSPrimType PS{..} -> ppPrim psItem
       TSBaseType (ICoyoneda _ _ x) -> ppBase x
+    roText = \case
+      Mutable  -> id
+      ReadOnly -> ("readonly" PP.<+>)
 
 ppStringManip :: TSStringManip -> PP.Doc x
 ppStringManip = \case
@@ -294,6 +298,7 @@ flattenType_ ps seen = go
       TSIntersection ts -> hfoldMap SOP.unK <$> htraverse (fmap K . go) ts
       TSTransformType tf -> fmap (hfoldMap SOP.unK) $ (`htraverse` tf) $ \case
         TSPartial t -> K <$> go t
+        TSReadOnly t -> K <$> go t
         TSStringManipType _ t _ -> K <$> go t
       TSPrimType _ -> pure S.empty
       TSBaseType _ -> pure S.empty

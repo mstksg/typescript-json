@@ -189,28 +189,33 @@ instance Profunctor (ObjectProps p) where
 keyVal
     :: Bool             -- ^ turn nullable types into optional params if possible
     -> (a -> b)         -- ^ project this pair's value out of the aggregate type
+    -> Mutability
     -> Text             -- ^ key (property name)
     -> TSType_ p b
     -> ObjectProps p a b
-keyVal True f k (TSType_ t) = ObjectProps . injectPre f $ ObjMember
-    { objMemberKey = k
+keyVal True f ro k (TSType_ t) = ObjectProps . injectPre f $ ObjMember
+    { objMemberReadOnly = ro
+    , objMemberKey = k
     , objMemberVal = case isNullable t of
         Nothing -> L1 $ TSType_ t
         Just u  -> R1 $ hmap TSType_ u
     }
-keyVal False f k t = ObjectProps . injectPre f $ ObjMember
-    { objMemberKey = k
+keyVal False f ro k t = ObjectProps . injectPre f $ ObjMember
+    { objMemberReadOnly = ro
+    , objMemberKey = k
     , objMemberVal = L1 t
     }
 
 -- | Create a single optional key-value pair for an object.
 keyValMay
     :: (a -> Maybe b)   -- ^ project this pair's value out of the aggregate type, potentially revealing it is not present.
+    -> Mutability
     -> Text             -- ^ key (property name)
     -> TSType_ p b
     -> ObjectProps p a (Maybe b)
-keyValMay f k t = ObjectProps . injectPre f $ ObjMember
-    { objMemberKey = k
+keyValMay f ro k t = ObjectProps . injectPre f $ ObjMember
+    { objMemberReadOnly = ro
+    , objMemberKey = k
     , objMemberVal = R1 (ilan t)
     }
 
@@ -471,11 +476,14 @@ data TagAndContents = TagAndContents
     { tacMergeTagValue :: Bool  -- ^ if possible, flatten the object under contents
     , tacTagKey        :: Text
     , tacContentsKey   :: Text
+    , tacTagReadOnly   :: Mutability
+    , tacContentsReadOnly :: Mutability
     }
   deriving (Show, Eq, Ord)
 
 data TagIsKey = TagIsKey
     { tikNullaryIsString :: Bool  -- ^ nullary constructors are just string literals. if False, they are { tag: null }.
+    , tikReadOnly        :: Mutability
     }
   deriving (Show, Eq, Ord)
 
@@ -484,10 +492,15 @@ instance Default TagAndContents where
         { tacMergeTagValue = False
         , tacTagKey = "tag"
         , tacContentsKey = "contents"
+        , tacTagReadOnly = ReadOnly
+        , tacContentsReadOnly = Mutable
         }
 
 instance Default TagIsKey where
-    def = TagIsKey { tikNullaryIsString = True }
+    def = TagIsKey
+        { tikNullaryIsString = True
+        , tikReadOnly = ReadOnly
+        }
 
 instance Default TaggedValueOpts where
     def = TVOTagAndContents def
@@ -514,10 +527,11 @@ instance Default TaggedValueOpts where
 -- See also 'taggedObject', which uses an intersection instead of joining
 -- the keys directly.
 tagVal
-    :: Text         -- ^ tag key
+    :: Mutability   -- ^ readonly
+    -> Text         -- ^ tag key
     -> Text         -- ^ tag value
     -> ObjectProps p a ()
-tagVal tag val = keyVal False (const ()) tag $ TSType_ (tsStringLit val)
+tagVal ro tag val = keyVal False (const ()) ro tag $ TSType_ (tsStringLit val)
 
 -- | A utility for a simple situation of a "tag" key-value pair intersected
 -- with an object type.  Often used to simulate discriminated unions in
@@ -535,12 +549,13 @@ tagVal tag val = keyVal False (const ()) tag $ TSType_ (tsStringLit val)
 -- See also 'taggedObject', which uses an intersection instead of joining
 -- the keys directly.
 taggedObject
-    :: Text                   -- ^ tag key
-    -> Text                   -- ^ tag value
+    :: Mutability           -- ^ readonly
+    -> Text                 -- ^ tag key
+    -> Text                 -- ^ tag value
     -> TSType p 'IsObj a    -- ^ contents (object)
     -> TSType p 'IsObj a
-taggedObject tag val obj = tsIntersection $
-       intersectVal (const ()) (tsObject (tagVal tag val))
+taggedObject ro tag val obj = tsIntersection $
+       intersectVal (const ()) (tsObject (tagVal ro tag val))
     .> intersectVal id         obj
 
 -- | High-level utility to wrap a 'TSType_' with a "tag".
@@ -585,18 +600,18 @@ taggedValue
 taggedValue tvo tagValue t = case tvo of
     TVOTagAndContents TagAndContents{..}
       | tacMergeTagValue -> case decideTSType_ t of
-          L1 x -> tsObject $ tagVal tacTagKey tagValue
-                          *> keyVal False id tacContentsKey (TSType_ x)
+          L1 x -> tsObject $ tagVal tacTagReadOnly tacTagKey tagValue
+                          *> keyVal False id tacContentsReadOnly tacContentsKey (TSType_ x)
           R1 y
             -- TODO: if the tag key is a key in the obj, then dont do it
             | tacTagKey `S.member` isObjKeys y
-                -> tsObject $ tagVal tacTagKey tagValue
-                           *> keyVal False id tacContentsKey t
-            | otherwise -> taggedObject tacTagKey tagValue y
+                -> tsObject $ tagVal tacTagReadOnly tacTagKey tagValue
+                           *> keyVal False id tacContentsReadOnly tacContentsKey t
+            | otherwise -> taggedObject tacTagReadOnly tacTagKey tagValue y
       | otherwise -> tsObject $
-             tagVal tacTagKey tagValue
-          *> keyVal False id tacContentsKey t
-    TVOTagIsKey TagIsKey{..} -> tsObject $ keyVal False id tagValue t
+             tagVal tacTagReadOnly tacTagKey tagValue
+          *> keyVal False id tacContentsReadOnly tacContentsKey t
+    TVOTagIsKey TagIsKey{..} -> tsObject $ keyVal False id tikReadOnly tagValue t
 
 taggedNullary
     :: TaggedValueOpts
@@ -605,10 +620,10 @@ taggedNullary
     -> TSType_ p a
 taggedNullary tvo tagValue x = invmap (const x) (const ()) $ case tvo of
     TVOTagAndContents TagAndContents{..} ->
-        TSType_ $ tsObject (tagVal tacTagKey tagValue)
+        TSType_ $ tsObject (tagVal tacTagReadOnly tacTagKey tagValue)
     TVOTagIsKey TagIsKey{..}
       | tikNullaryIsString -> TSType_ $ tsStringLit tagValue
-      | otherwise          -> TSType_ $ tsObject (keyVal False id tagValue (TSType_ tsNull))
+      | otherwise          -> TSType_ $ tsObject (keyVal False id tikReadOnly tagValue (TSType_ tsNull))
 
 -- | A type aggregating the parts of an intersection.  Meant to be
 -- assembled using 'intersectVal' and combined using its 'Applicative'
