@@ -39,6 +39,7 @@ module Typescript.Json.Types (
   , EnumLit(..)
   , TSType(..)
   , TSType_(..)
+  , TSBuiltIn(..)
   , TSNamed(..)
   , TSNamed_(..)
   , withTSNamed_
@@ -92,6 +93,7 @@ module Typescript.Json.Types (
   , isNullable
   ) where
 
+import           Control.Applicative
 import           Control.Applicative.Free
 import           Data.Bifunctor
 import           Data.Bitraversable
@@ -102,11 +104,13 @@ import           Data.Functor.Apply.Free
 import           Data.Functor.Combinator hiding    (Comp(..))
 import           Data.Functor.Invariant
 import           Data.Functor.Invariant.DecAlt
+import           Data.Functor.Invariant.DivAp
 import           Data.GADT.Show
 import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.List.NonEmpty                (NonEmpty)
 import           Data.Map                          (Map)
+import           Data.Profunctor
 import           Data.Scientific                   (Scientific)
 import           Data.Set                          (Set)
 import           Data.Some                         (Some(..))
@@ -192,6 +196,42 @@ data SIsObjType :: IsObjType -> Type where
 type TSKeyVal p = PreT Ap (ObjMember (TSType_ p))
 type TSUnionBranches p = DecAlt1 (TSType_ p)
 
+data TSStringManip = TSUppercase
+                   | TSLowercase
+                   | TSCapitalize
+                   | TSUncapitalize
+
+data TSBuiltIn :: Nat -> IsObjType -> Type -> Type where
+    TSPartial :: TSType p 'IsObj a -> TSBuiltIn p 'IsObj (Maybe a)
+    -- this is not possible because a required field also *expects* Just,
+    -- but the "splitting" functions can only split into Maybe's.  this
+    -- could be possible if we pass a map of a default item for each field
+    -- but that's kinda partial.
+    -- yeah, essentially the problem is writing 'encode', since a type
+    -- might origianlly be made with an encode to an optional type, but now
+    -- with require we expect the result to be non-optional and that cannot
+    -- be guaranteed with the same 'a' type.
+    -- TSRequired :: TSType p 'IsObj a -> TSBuiltIn p 'IsObj a
+
+    -- -- -- must be asisgnable to symbol?
+    -- -- TSRecord :: TSType_ p 'NotObj k -> TSType_ p 'NotObj v -> TSType p 'Obj (Map k v)
+    -- -- TSPick seems impossible unless we can also specify something for
+    -- -- every item not picked, but then might as well just use omit
+    -- TSOmit    :: Map Text (Some (TSType_ p)) -> TSType p 'IsObj a -> TSBuiltIn p 'IsObj a
+
+    -- TSExclude :: ILan Maybe (TSType p 'NotObj) a -> [Some (TSType_ p)] -> TSBuiltIn p 'NotObj a
+    -- TSExtract :: ILan Maybe (TSType p 'NotObj) a -> [Some (TSType_ p)] -> TSBuiltIn p 'NotObj a
+    -- hm, this seems like it has the same issues as for TSRequired.
+    -- The json becomes non-nullable, but the underlying type 'a' is still
+    -- nullable.  Maybe if it was (Maybe a) -> a, we can de-nullify the
+    -- a too, hm... ah yeah this doesn't quite work because we can't assume
+    -- that the Nothing originally went to the Null, it could have been
+    -- that the Null was encoding the Just for some reason, or it was mixed
+    -- together. rip
+    -- TSNonNullable :: ILan Maybe (TSType_ p) a -> TSBuiltIn p 'IsObj a
+    -- -- extends symbol
+    TSStringManipType :: TSStringManip -> TSType p 'NotObj a -> TSBuiltIn p 'NotObj a
+
 data TSType :: Nat -> IsObjType -> Type -> Type where
     TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
     TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
@@ -201,6 +241,7 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     TSNamedType    :: TSApplied p k a -> TSType p k a
     TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
     TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
+    TSBuiltInType  :: ICoyoneda (TSBuiltIn p k) a -> TSType p k a
     TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
     TSBaseType     :: ICoyoneda TSBase a -> TSType p 'NotObj a
 
@@ -313,6 +354,7 @@ instance Invariant (TSType p k) where
         TSNPrimType ps -> TSNamedType $ TSNamed nm (TSNPrimType (invmap f g ps)) :$ xs
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
+      TSBuiltInType _ -> undefined
       TSPrimType p -> TSPrimType (invmap f g p)
       TSBaseType p -> TSBaseType (invmap f g p)
 
@@ -450,6 +492,7 @@ collapseIsObj = \case
     TSObject kv -> kv
     TSNamedType (TSNamed _ (TSNFunc tf) :$ xs) -> collapseIsObj $ tsApply tf xs
     TSIntersection (PreT xs) -> PreT $ interpret (\(f :>$<: x) -> hmap (mapPre f) . unPreT $ collapseIsObj x) xs
+    TSBuiltInType _ -> undefined
 
 tsShift
     :: forall r p k a. ()
@@ -468,6 +511,14 @@ tsShift n = go
       TSNamedType a -> TSNamedType (shiftApplied n a)
       TSIntersection t -> TSIntersection (hmap go t)
       TSVar i    -> TSVar (shiftFin n i)
+      TSBuiltInType bi -> undefined
+        -- TSPartial _ -> SIsObj
+        -- TSRequired _ -> SIsObj
+        -- TSOmit _ _ -> SIsObj
+        -- TSExclude _ _ -> SNotObj
+        -- TSExtract _ _ -> SNotObj
+        -- TSNonNullable _ -> SIsObj
+        -- TSStringManipType _ _ -> SNotObj
       TSPrimType t -> TSPrimType t
       TSBaseType t -> TSBaseType t
 
@@ -535,6 +586,14 @@ tsObjType = \case
       TSNPrimType _                  -> SNotObj
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
+    TSBuiltInType (ICoyoneda _ _ bi) -> case bi of
+      TSPartial _ -> SIsObj
+      -- TSRequired _ -> SIsObj
+      -- TSOmit _ _ -> SIsObj
+      -- TSExclude _ _ -> SNotObj
+      -- TSExtract _ _ -> SNotObj
+      -- TSNonNullable _ -> SIsObj
+      -- TSStringManipType _ _ -> SNotObj
     TSPrimType _                  -> SNotObj
     TSBaseType _                  -> SNotObj
 
@@ -571,6 +630,12 @@ mkNullable t = TSUnion $
         (inject (TSType_ t))
         (inject (TSType_ (TSBaseType (inject TSNull))))
 
+-- | BuiltIns are just deferred evaluations of functions.  here they are
+-- actually applied
+applyBuiltIn :: TSBuiltIn p k a -> TSType p k a
+applyBuiltIn = \case
+    TSPartial x -> TSObject . PreT . objectPartial . unPreT $ collapseIsObj x
+
 -- | Pulls out the (x | y | z) from (x | y | z) | null.  The result is an
 -- 'ILan' where the item inside is non-nullable.
 --
@@ -590,6 +655,14 @@ isNullable = \case
       TSNPrimType _ -> Nothing
     TSIntersection _ -> Nothing
     TSVar _ -> Nothing
+    TSBuiltInType (ICoyoneda f g bi) -> case bi of
+      TSPartial _ -> Nothing
+      -- TSRequired _ -> Nothing
+      -- TSOmit _ _ -> undefined
+      -- TSExclude _ _ -> undefined
+      -- TSExtract _ _ -> undefined
+      -- TSNonNullable _ -> Nothing
+      -- TSStringManipType _ _ -> Nothing
     TSPrimType _ -> Nothing
     TSBaseType (ICoyoneda _ g p) -> case p of
       TSNull      -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
@@ -653,3 +726,71 @@ nullableUnion (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
                   swerved1
                     (inject (TSType_ y))
                     (inject (TSType_ ys))
+
+-- nonNullable :: TSType p k (Maybe a) -> TSType p 'NotObj a
+-- nonNullable t = case isNullable t of
+--     Nothing -> undefined
+--     Just (ILan f g x) -> invmap _ _ x
+
+-- -- | maybe have to pass in an @a@
+-- unionNonNullable :: forall p a. DecAlt1 (TSType_ p) (Maybe a) -> Maybe (DecAlt1 (TSType_ p) a)
+-- unionNonNullable (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
+--   where
+--     go  :: (Maybe r -> Either b c)
+--         -> (b -> Maybe r)
+--         -> (c -> Maybe r)
+--         -> TSType_ p b
+--         -> DecAlt (TSType_ p) c
+--         -> Maybe (DecAlt1 (TSType_ p) r)
+--     go f ga gb (TSType_ x) xs = case x of
+--       TSBaseType (ICoyoneda q r TSNull) -> Just $ case xs of
+--         Swerve f' ga' gb' x' xs' ->
+--           DecAlt1 (either _ f' . f . Just) _ _ x' xs'
+--         -- Reject h ->
+--         --   DecAlt1 (either (Right . q) (Left . h) . f . Just) absurd _ (TSType_ (TSBaseType (inject TSNever))) (Reject _)
+--         -- TSNull      -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
+--         -- TSUndefined -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
+--         -- _      -> Nothing
+    
+    
+-- isNullable :: TSType p k a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
+
+objectPartial
+    :: Ap (Pre b (ObjMember (TSType_ p))) a
+    -> Ap (Pre (Maybe b) (ObjMember (TSType_ p))) (Maybe a)
+objectPartial = \case
+    Pure x -> Pure (Just x)
+    Ap (f :>$<: o@ObjMember{..}) xs ->
+      Ap (fmap f :>$<: (
+            o { objMemberVal = R1 $ case objMemberVal of
+                  L1 x -> ilan x
+                  R1 (ILan q r y) -> ILan (Just . q) (r =<<) y
+              }
+           )
+         )
+         ((=<<) . sequenceA <$> objectPartial xs)
+
+-- -- yup, this is not possible.
+-- objectRequired
+--     :: Ap (Pre b (ObjMember (TSType_ p))) a
+--     -> Ap (Pre b (ObjMember (TSType_ p))) a
+-- objectRequired = \case
+--     Pure x -> Pure x
+--     Ap (f :>$<: o@ObjMember{..}) xs -> case objMemberVal of
+--       R1 (ILan q r y) ->
+--         Ap ((_ . f) :>$<: o
+--              { objMemberVal = L1 $ y
+--                 -- y
+--              }
+--            )
+--         (_ $ objectRequired xs)
+-- --       Ap (Just :>$<: (
+-- --             o { objMemberVal = L1 $ case objMemberVal of
+-- --                   -- L1 x -> invmap _ _ x
+-- --                   R1 (ILan q r y) -> y
+-- --                   -- R1 x -> _
+-- --                   -- (ILan q r y) -> ILan (Just . q) (r =<<) y
+-- --               }
+-- --            )
+-- --          )
+-- --          (_ <$> objectRequired xs)

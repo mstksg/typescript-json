@@ -227,23 +227,24 @@ flattenNamedType
     :: Vec p Text
     -> TSNamed p k as es a
     -> Map Text (Set Text, PP.Doc x)
-flattenNamedType ps t = execState (flattenNamedType_ ps t) M.empty
+flattenNamedType ps t = execState (flattenNamedType_ ps S.empty t) M.empty
 
 -- | Ignores the top level type, so why even bother?
 flattenType
     :: Vec p Text
     -> TSType p k a
     -> Map Text (Set Text, PP.Doc x)
-flattenType ps t = execState (flattenType_ ps t) M.empty
+flattenType ps t = execState (flattenType_ ps S.empty t) M.empty
 
 flattenNamedType_
     :: forall p k a as es x. ()
     => Vec p Text
+    -> Set Text                 -- ^ types it is currently named under
     -> TSNamed p k as es a
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
-flattenNamedType_ ps tsn@TSNamed{..} = case tsnType of
+flattenNamedType_ ps seen tsn@TSNamed{..} = case tsnType of
     TSNFunc tsf -> do
-      deps <- flattenType_ (tsfParams tsf Vec.++ ps) (tsApplyVar tsf)
+      deps <- flattenType_ (tsfParams tsf Vec.++ ps) (S.insert tsnName seen) (tsApplyVar tsf)
       modify $ M.insert tsnName (deps, pp)
       pure deps
     TSNPrimType PS{..} -> do
@@ -252,12 +253,14 @@ flattenNamedType_ ps tsn@TSNamed{..} = case tsnType of
   where
     pp = ppNamed' ps tsn
 
+-- | TODO: stop if it is a recursive reference
 flattenType_
     :: forall p k a x. ()
     => Vec p Text
+    -> Set Text                 -- ^ types it is currently named under
     -> TSType p k a
     -> State (Map Text (Set Text, PP.Doc x)) (Set Text)
-flattenType_ ps = go
+flattenType_ ps seen = go
   where
     go  :: forall j b. ()
         => TSType p j b
@@ -268,9 +271,12 @@ flattenType_ ps = go
       TSObject ts  -> hfoldMap (hfoldMap SOP.unK) <$> htraverse (htraverse (withTSType_ (fmap K . go))) ts
       TSSingle t   -> go t
       TSUnion ts   -> hfoldMap SOP.unK <$> htraverse (withTSType_ (fmap K . go)) ts
-      TSNamedType (tsn :$ args) -> do
+      TSNamedType (tsn@(TSNamed nm _) :$ args) -> do
+        -- should we guard this too?
         deps1 <- hfoldMap2 getConstF <$> htraverse2 (\(Arg_ Arg{..}) -> ConstF <$> go argType) args
-        deps2 <- flattenNamedType_ ps tsn
+        deps2 <- if nm `S.member` seen
+          then pure S.empty
+          else flattenNamedType_ ps seen tsn
         pure $ deps1 <> deps2
       TSVar _      -> pure S.empty
       TSIntersection ts -> hfoldMap SOP.unK <$> htraverse (fmap K . go) ts

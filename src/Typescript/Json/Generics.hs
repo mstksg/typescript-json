@@ -61,7 +61,7 @@ module Typescript.Json.Generics (
   , KM1(..)
   -- , Foo(..)
   , FooBar(..)
-  -- , List(..)
+  , List(..)
   -- , TestType(..)
   ) where
 
@@ -422,6 +422,9 @@ instance (All Top (LeafTypes f), GTSProductF t f, GTSProductF t g, WrapProduct k
       where
         (as, bs) = splitNP (hpure Proxy) lts
 
+instance GTSTypeF f => GTSTypeF (M1 D e f) where
+    gtoTSTypeF tso lts = mapTSTypeF_ (invmap M1 unM1) (gtoTSTypeF @f tso lts)
+
 instance GTSTypeF f => GTSTypeF (M1 S ('MetaSel s a b c) f) where
     gtoTSTypeF tso lts = mapTSTypeF_ (invmap M1 unM1) (gtoTSTypeF @f tso lts)
 
@@ -648,15 +651,24 @@ data FooBar a = FooBar Foo Bar a
 data Moobie a = Nothong | Jost a
   deriving (Generic, Generic1)
 
--- data List a = LNil | LCons a (List a)
---   deriving (Generic)
+data List a = LNil | LCons a (List a)
+  deriving (Generic, Generic1)
 
--- instance ToTSType Foo
--- instance ToTSType Bar
--- -- instance ToTSType a => ToTSType (List a)
+data Natt = ZZ | SS Natt
+  deriving Generic
+
+instance ToTSType Foo
+instance ToTSType Bar
+-- TODO: hey this MRep method is kinda funky because of lal these extra
+-- constraints. but maybe that snot too bad bc only for parameterized
+-- types, and in that case you should use Rep1 anyway.
+-- instance (ToTSType a, GTSType (PullMaybe (K1 R a)), All Top (LeafTypes (PullMaybe (K1 R a))), All ToTSType (LeafTypes (PullMaybe (K1 R a)) ++ '[List a])) => ToTSType (List a)
 -- instance ToTSType a => ToTSType (FooBar a) where
 --     toTSType = genericToTSType1_ def toTSType
 -- instance ToTSType a => ToTSType (Moobie a) where
 --     toTSType = genericToTSType1_ def toTSType
--- -- instance ToTSType a => ToTSType (List a) where
--- --     toTSType = genericToTSType1_ def toTSType
+-- TODO: make this work?
+-- instance ToTSType a => ToTSType (List a) where
+--     toTSType = genericToTSType1_ def toTSType
+
+

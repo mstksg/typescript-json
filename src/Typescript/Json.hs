@@ -981,21 +981,10 @@ tsMaybe n j t = tsTaggedUnions
     (TVOTagIsKey def)
     (\case Nothing -> Z (I ()); Just x -> S (Z (I x)))
     (Op (const Nothing) :* Op Just :* Nil)
-    (  emptyTaggedBranch "nothing" ()
-    :* taggedBranch "just" t
+    (  emptyTaggedBranch n ()
+    :* taggedBranch j t
     :* Nil
     )
-
--- tsTaggedUnions
---     :: TaggedValueOpts
---     -> (a -> NS I (b ': bs))
---     -> NP (Op a) (b ': bs)
---     -> NP (TaggedBranches p) (b ': bs)
---     -> TSType p 'NotObj a
---         -- tsUnion $
---     -- swerve1 (maybe (Left ()) Right) (const Nothing) Just
---         -- (inject . TSType_ $ tsStringLit n)
---         -- (inject . TSType_ $ tsObject (keyVal False id j (TSType_ t)))
 
 encodeType :: TSType 'Nat.Z k a -> a -> BSL.ByteString
 encodeType t = AE.encodingToLazyByteString . typeToEncoding t
