@@ -106,10 +106,13 @@ import           Data.Functor.Invariant
 import           Data.Functor.Invariant.DecAlt
 import           Data.Functor.Invariant.DivAp
 import           Data.GADT.Show
+import           Data.HBifunctor.Associative
+import           Data.HFunctor.Chain
 import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.List.NonEmpty                (NonEmpty)
 import           Data.Map                          (Map)
+import           Data.Maybe
 import           Data.Profunctor
 import           Data.Scientific                   (Scientific)
 import           Data.Set                          (Set)
@@ -124,6 +127,7 @@ import           Typescript.Json.Types.SNat
 import qualified Control.Applicative.Lift          as Lift
 import qualified Data.Aeson                        as A
 import qualified Data.Map                          as M
+import qualified Data.Text                         as T
 import qualified Prettyprinter                     as PP
 
 data EnumLit = ELString Text | ELNumber Scientific
@@ -230,7 +234,11 @@ data TSBuiltIn :: Nat -> IsObjType -> Type -> Type where
     -- together. rip
     -- TSNonNullable :: ILan Maybe (TSType_ p) a -> TSBuiltIn p 'IsObj a
     -- -- extends symbol
-    TSStringManipType :: TSStringManip -> TSType p 'NotObj a -> TSBuiltIn p 'NotObj a
+    TSStringManipType
+        :: TSStringManip
+        -> TSType p 'NotObj a
+        -- -> Assign a Text        -- must be assignable to TSString
+        -> TSBuiltIn p 'NotObj a
 
 data TSType :: Nat -> IsObjType -> Type -> Type where
     TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
@@ -635,6 +643,14 @@ mkNullable t = TSUnion $
 applyBuiltIn :: TSBuiltIn p k a -> TSType p k a
 applyBuiltIn = \case
     TSPartial x -> TSObject . PreT . objectPartial . unPreT $ collapseIsObj x
+    TSStringManipType mf t -> mapStringLit (stringManipFunc mf) t
+
+stringManipFunc :: TSStringManip -> Text -> Text
+stringManipFunc = \case
+    TSUppercase -> T.toUpper
+    TSLowercase -> T.toLower
+    TSCapitalize -> uncurry (<>) . first T.toUpper . T.splitAt 1
+    TSUncapitalize -> uncurry (<>) . first T.toLower . T.splitAt 1
 
 -- | Pulls out the (x | y | z) from (x | y | z) | null.  The result is an
 -- 'ILan' where the item inside is non-nullable.
@@ -727,33 +743,27 @@ nullableUnion (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
                     (inject (TSType_ y))
                     (inject (TSType_ ys))
 
--- nonNullable :: TSType p k (Maybe a) -> TSType p 'NotObj a
--- nonNullable t = case isNullable t of
---     Nothing -> undefined
---     Just (ILan f g x) -> invmap _ _ x
+flattenUnion :: TSType p k a -> Maybe (DecAlt1 (TSType_ p) a)
+flattenUnion = \case
+    TSArray _ -> Nothing
+    TSTuple _ -> Nothing
+    TSObject _ -> Nothing
+    -- TODO: this HMonad instance should be a thing already?
+    TSUnion xs -> Just
+                . foldChain1 id (\(Night x y f ga gb) -> swerve1 f ga gb x y)
+                . unDecAlt1
+                . hmap (\(TSType_ t) -> fromMaybe (inject (TSType_ t)) (flattenUnion t))
+                $ xs
+    TSSingle x -> flattenUnion x
+    TSNamedType (TSNamed _ tsn :$ ps) -> case tsn of
+      TSNFunc tf    -> flattenUnion (tsApply tf ps)
+      TSNPrimType _ -> Nothing
+    TSVar _ -> Nothing
+    TSIntersection _ -> Nothing
+    TSBuiltInType _ -> undefined
+    TSPrimType _ -> Nothing
+    TSBaseType _ -> Nothing
 
--- -- | maybe have to pass in an @a@
--- unionNonNullable :: forall p a. DecAlt1 (TSType_ p) (Maybe a) -> Maybe (DecAlt1 (TSType_ p) a)
--- unionNonNullable (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
---   where
---     go  :: (Maybe r -> Either b c)
---         -> (b -> Maybe r)
---         -> (c -> Maybe r)
---         -> TSType_ p b
---         -> DecAlt (TSType_ p) c
---         -> Maybe (DecAlt1 (TSType_ p) r)
---     go f ga gb (TSType_ x) xs = case x of
---       TSBaseType (ICoyoneda q r TSNull) -> Just $ case xs of
---         Swerve f' ga' gb' x' xs' ->
---           DecAlt1 (either _ f' . f . Just) _ _ x' xs'
---         -- Reject h ->
---         --   DecAlt1 (either (Right . q) (Left . h) . f . Just) absurd _ (TSType_ (TSBaseType (inject TSNever))) (Reject _)
---         -- TSNull      -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
---         -- TSUndefined -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
---         -- _      -> Nothing
-    
-    
--- isNullable :: TSType p k a -> Maybe (ILan Maybe (TSType p 'NotObj) a)
 
 objectPartial
     :: Ap (Pre b (ObjMember (TSType_ p))) a
@@ -770,27 +780,22 @@ objectPartial = \case
          )
          ((=<<) . sequenceA <$> objectPartial xs)
 
--- -- yup, this is not possible.
--- objectRequired
---     :: Ap (Pre b (ObjMember (TSType_ p))) a
---     -> Ap (Pre b (ObjMember (TSType_ p))) a
--- objectRequired = \case
---     Pure x -> Pure x
---     Ap (f :>$<: o@ObjMember{..}) xs -> case objMemberVal of
---       R1 (ILan q r y) ->
---         Ap ((_ . f) :>$<: o
---              { objMemberVal = L1 $ y
---                 -- y
---              }
---            )
---         (_ $ objectRequired xs)
--- --       Ap (Just :>$<: (
--- --             o { objMemberVal = L1 $ case objMemberVal of
--- --                   -- L1 x -> invmap _ _ x
--- --                   R1 (ILan q r y) -> y
--- --                   -- R1 x -> _
--- --                   -- (ILan q r y) -> ILan (Just . q) (r =<<) y
--- --               }
--- --            )
--- --          )
--- --          (_ <$> objectRequired xs)
+mapStringLit
+    :: forall p k a. ()
+    => (Text -> Text)
+    -> TSType p k a
+    -> TSType p 'NotObj a
+mapStringLit f = go
+  where
+    go :: TSType q j b -> TSType q 'NotObj b
+    go t = case flattenUnion t of
+      Just xs -> TSUnion $ hmap (withTSType_ (TSType_ . go)) xs
+      Nothing -> case t of
+        TSPrimType PS{..} -> case psItem of
+          TSStringLit s -> TSPrimType $ PS { psItem = TSStringLit (f s), .. }
+          _ -> onTSType_ id TSSingle (TSType_ t)
+        _ -> onTSType_ id TSSingle (TSType_ t)
+
+
+-- decideTSType_ :: TSType_ p ~> (TSType p 'NotObj :+: TSType p 'IsObj)
+-- decideTSType_ = onTSType_ L1 R1
