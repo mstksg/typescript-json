@@ -39,7 +39,6 @@ module Typescript.Json.Types (
   , EnumLit(..)
   , TSType(..)
   , TSType_(..)
-  , TSBuiltIn(..)
   , TSNamed(..)
   , TSNamed_(..)
   , withTSNamed_
@@ -50,6 +49,11 @@ module Typescript.Json.Types (
   , Arg_(..)
   , withArg_
   , ObjMember(..)
+  , TSTransform(..)
+  , TSStringManip(..)
+  , ExtendsString(..)
+  , extendsString
+  , applyTransform
   , TSKeyVal
   , TSUnionBranches
   , mapTSType_
@@ -91,9 +95,9 @@ module Typescript.Json.Types (
   , shiftNameable
   , shiftTypeF
   , isNullable
+  , flattenUnion
   ) where
 
-import           Control.Applicative
 import           Control.Applicative.Free
 import           Data.Bifunctor
 import           Data.Bitraversable
@@ -101,19 +105,16 @@ import           Data.Fin                          (Fin(..))
 import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Apply.Free
-import           Data.Functor.Combinator hiding    (Comp(..))
+import           Data.Functor.Combinator
 import           Data.Functor.Invariant
 import           Data.Functor.Invariant.DecAlt
-import           Data.Functor.Invariant.DivAp
 import           Data.GADT.Show
-import           Data.HBifunctor.Associative
 import           Data.HFunctor.Chain
 import           Data.HFunctor.Route
 import           Data.Kind
 import           Data.List.NonEmpty                (NonEmpty)
 import           Data.Map                          (Map)
 import           Data.Maybe
-import           Data.Profunctor
 import           Data.Scientific                   (Scientific)
 import           Data.Set                          (Set)
 import           Data.Some                         (Some(..))
@@ -205,40 +206,23 @@ data TSStringManip = TSUppercase
                    | TSCapitalize
                    | TSUncapitalize
 
-data TSBuiltIn :: Nat -> IsObjType -> Type -> Type where
-    TSPartial :: TSType p 'IsObj a -> TSBuiltIn p 'IsObj (Maybe a)
-    -- this is not possible because a required field also *expects* Just,
-    -- but the "splitting" functions can only split into Maybe's.  this
-    -- could be possible if we pass a map of a default item for each field
-    -- but that's kinda partial.
-    -- yeah, essentially the problem is writing 'encode', since a type
-    -- might origianlly be made with an encode to an optional type, but now
-    -- with require we expect the result to be non-optional and that cannot
-    -- be guaranteed with the same 'a' type.
-    -- TSRequired :: TSType p 'IsObj a -> TSBuiltIn p 'IsObj a
+newtype ExtendsString = ExtendsString { getExtendsString :: Text }
 
-    -- -- -- must be asisgnable to symbol?
-    -- -- TSRecord :: TSType_ p 'NotObj k -> TSType_ p 'NotObj v -> TSType p 'Obj (Map k v)
-    -- -- TSPick seems impossible unless we can also specify something for
-    -- -- every item not picked, but then might as well just use omit
-    -- TSOmit    :: Map Text (Some (TSType_ p)) -> TSType p 'IsObj a -> TSBuiltIn p 'IsObj a
+-- | Canonical type to test against when using TSStringManipType
+extendsString :: TSType p 'NotObj ExtendsString
+extendsString = invmap ExtendsString getExtendsString $ TSPrimType (inject TSString)
 
-    -- TSExclude :: ILan Maybe (TSType p 'NotObj) a -> [Some (TSType_ p)] -> TSBuiltIn p 'NotObj a
-    -- TSExtract :: ILan Maybe (TSType p 'NotObj) a -> [Some (TSType_ p)] -> TSBuiltIn p 'NotObj a
-    -- hm, this seems like it has the same issues as for TSRequired.
-    -- The json becomes non-nullable, but the underlying type 'a' is still
-    -- nullable.  Maybe if it was (Maybe a) -> a, we can de-nullify the
-    -- a too, hm... ah yeah this doesn't quite work because we can't assume
-    -- that the Nothing originally went to the Null, it could have been
-    -- that the Null was encoding the Just for some reason, or it was mixed
-    -- together. rip
-    -- TSNonNullable :: ILan Maybe (TSType_ p) a -> TSBuiltIn p 'IsObj a
-    -- -- extends symbol
+-- | Built-in named type transformers in typescript, that should be
+-- displayed as such when printed.
+data TSTransform :: Nat -> IsObjType -> Type -> Type where
+    TSPartial
+        :: TSType p 'IsObj a
+        -> TSTransform p 'IsObj (Maybe a)
     TSStringManipType
         :: TSStringManip
         -> TSType p 'NotObj a
-        -- -> Assign a Text        -- must be assignable to TSString
-        -> TSBuiltIn p 'NotObj a
+        -> Assign a ExtendsString
+        -> TSTransform p 'NotObj a
 
 data TSType :: Nat -> IsObjType -> Type -> Type where
     TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
@@ -249,7 +233,7 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
     TSNamedType    :: TSApplied p k a -> TSType p k a
     TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
     TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
-    TSBuiltInType  :: ICoyoneda (TSBuiltIn p k) a -> TSType p k a
+    TSTransformType  :: ICoyoneda (TSTransform p k) a -> TSType p k a
     TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
     TSBaseType     :: ICoyoneda TSBase a -> TSType p 'NotObj a
 
@@ -362,7 +346,7 @@ instance Invariant (TSType p k) where
         TSNPrimType ps -> TSNamedType $ TSNamed nm (TSNPrimType (invmap f g ps)) :$ xs
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
-      TSBuiltInType _ -> undefined
+      TSTransformType _ -> undefined
       TSPrimType p -> TSPrimType (invmap f g p)
       TSBaseType p -> TSBaseType (invmap f g p)
 
@@ -500,7 +484,7 @@ collapseIsObj = \case
     TSObject kv -> kv
     TSNamedType (TSNamed _ (TSNFunc tf) :$ xs) -> collapseIsObj $ tsApply tf xs
     TSIntersection (PreT xs) -> PreT $ interpret (\(f :>$<: x) -> hmap (mapPre f) . unPreT $ collapseIsObj x) xs
-    TSBuiltInType _ -> undefined
+    TSTransformType _ -> undefined
 
 tsShift
     :: forall r p k a. ()
@@ -519,14 +503,7 @@ tsShift n = go
       TSNamedType a -> TSNamedType (shiftApplied n a)
       TSIntersection t -> TSIntersection (hmap go t)
       TSVar i    -> TSVar (shiftFin n i)
-      TSBuiltInType bi -> undefined
-        -- TSPartial _ -> SIsObj
-        -- TSRequired _ -> SIsObj
-        -- TSOmit _ _ -> SIsObj
-        -- TSExclude _ _ -> SNotObj
-        -- TSExtract _ _ -> SNotObj
-        -- TSNonNullable _ -> SIsObj
-        -- TSStringManipType _ _ -> SNotObj
+      TSTransformType tf -> TSTransformType (hmap (shiftTransform n) tf)
       TSPrimType t -> TSPrimType t
       TSBaseType t -> TSBaseType t
 
@@ -534,7 +511,6 @@ shiftApplied :: SNat_ r -> TSApplied p k a -> TSApplied (Plus r p) k a
 shiftApplied n (TSNamed nm nt :$ xs) =
         TSNamed nm (shiftNameable n nt)
      :$ hmap2 (withArg_ (Arg_ . shiftArg n)) xs
-     -- :$ hmap (mapTSType_ (tsShift n)) xs
 
 shiftAppliedF :: SNat_ r -> TSAppliedF p k as es a -> TSAppliedF (Plus r p) k as es a
 shiftAppliedF n (TSNamed nm nt :? xs) =
@@ -579,6 +555,11 @@ shiftArgF n ArgF{..} =
          , argfAssign
          }
 
+shiftTransform :: SNat_ r -> TSTransform p k a -> TSTransform (Plus r p) k a
+shiftTransform n = \case
+    TSPartial t -> TSPartial (tsShift n t)
+    TSStringManipType sm t a -> TSStringManipType sm (tsShift n t) a
+
 tsObjType
     :: TSType p k a
     -> SIsObjType k
@@ -594,14 +575,9 @@ tsObjType = \case
       TSNPrimType _                  -> SNotObj
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
-    TSBuiltInType (ICoyoneda _ _ bi) -> case bi of
+    TSTransformType (ICoyoneda _ _ bi) -> case bi of
       TSPartial _ -> SIsObj
-      -- TSRequired _ -> SIsObj
-      -- TSOmit _ _ -> SIsObj
-      -- TSExclude _ _ -> SNotObj
-      -- TSExtract _ _ -> SNotObj
-      -- TSNonNullable _ -> SIsObj
-      -- TSStringManipType _ _ -> SNotObj
+      TSStringManipType _ _ _ -> SNotObj
     TSPrimType _                  -> SNotObj
     TSBaseType _                  -> SNotObj
 
@@ -638,12 +614,12 @@ mkNullable t = TSUnion $
         (inject (TSType_ t))
         (inject (TSType_ (TSBaseType (inject TSNull))))
 
--- | BuiltIns are just deferred evaluations of functions.  here they are
+-- | Transforms are just deferred evaluations of functions.  here they are
 -- actually applied
-applyBuiltIn :: TSBuiltIn p k a -> TSType p k a
-applyBuiltIn = \case
+applyTransform :: TSTransform p k a -> TSType p k a
+applyTransform = \case
     TSPartial x -> TSObject . PreT . objectPartial . unPreT $ collapseIsObj x
-    TSStringManipType mf t -> mapStringLit (stringManipFunc mf) t
+    TSStringManipType mf t _ -> mapStringLit (stringManipFunc mf) t
 
 stringManipFunc :: TSStringManip -> Text -> Text
 stringManipFunc = \case
@@ -671,14 +647,7 @@ isNullable = \case
       TSNPrimType _ -> Nothing
     TSIntersection _ -> Nothing
     TSVar _ -> Nothing
-    TSBuiltInType (ICoyoneda f g bi) -> case bi of
-      TSPartial _ -> Nothing
-      -- TSRequired _ -> Nothing
-      -- TSOmit _ _ -> undefined
-      -- TSExclude _ _ -> undefined
-      -- TSExtract _ _ -> undefined
-      -- TSNonNullable _ -> Nothing
-      -- TSStringManipType _ _ -> Nothing
+    TSTransformType tf -> isNullable $ interpret applyTransform tf
     TSPrimType _ -> Nothing
     TSBaseType (ICoyoneda _ g p) -> case p of
       TSNull      -> Just $ ILan (maybe (g ()) absurd) (const Nothing) (TSBaseType (inject TSNever))
@@ -736,7 +705,10 @@ nullableUnion (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
                      ys
               _ ->
                 -- we have an option of using 'q Nothing' of 'q1 Nothing',
-                -- because there are multiple nulls removed
+                -- because there are multiple nulls removed.  this
+                -- basically determines where we route the Nothing input
+                -- TODO: check to make sure the same Nothing is routed in
+                -- both encoding and decoding
                 ILan (maybe (ga (q Nothing)) (either (ga . q . Just) (gb . q' . Just)))
                     ((bitraverse r pure =<<)  . traverse r' . f) $ TSUnion $
                   swerved1
@@ -760,10 +732,9 @@ flattenUnion = \case
       TSNPrimType _ -> Nothing
     TSVar _ -> Nothing
     TSIntersection _ -> Nothing
-    TSBuiltInType _ -> undefined
+    TSTransformType _ -> undefined
     TSPrimType _ -> Nothing
     TSBaseType _ -> Nothing
-
 
 objectPartial
     :: Ap (Pre b (ObjMember (TSType_ p))) a
@@ -784,18 +755,23 @@ mapStringLit
     :: forall p k a. ()
     => (Text -> Text)
     -> TSType p k a
-    -> TSType p 'NotObj a
+    -> TSType p k a
 mapStringLit f = go
   where
-    go :: TSType q j b -> TSType q 'NotObj b
-    go t = case flattenUnion t of
-      Just xs -> TSUnion $ hmap (withTSType_ (TSType_ . go)) xs
-      Nothing -> case t of
-        TSPrimType PS{..} -> case psItem of
-          TSStringLit s -> TSPrimType $ PS { psItem = TSStringLit (f s), .. }
-          _ -> onTSType_ id TSSingle (TSType_ t)
-        _ -> onTSType_ id TSSingle (TSType_ t)
-
-
--- decideTSType_ :: TSType_ p ~> (TSType p 'NotObj :+: TSType p 'IsObj)
--- decideTSType_ = onTSType_ L1 R1
+    go :: TSType q j b -> TSType q j b
+    go t0 = case t0 of
+      TSArray _ -> t0
+      TSTuple _ -> t0
+      TSObject _ -> t0
+      TSUnion xs -> TSUnion $ hmap (mapTSType_ go) xs
+      TSSingle x -> TSSingle (go x)
+      TSNamedType (TSNamed _ tsn :$ ps) -> case tsn of
+        TSNFunc tf    -> go (tsApply tf ps)
+        TSNPrimType _ -> t0
+      TSVar _ -> t0
+      TSIntersection _ -> t0
+      TSTransformType tf -> go $ interpret applyTransform tf
+      TSPrimType PS{..} -> case psItem of
+        TSStringLit s -> TSPrimType $ PS { psItem = TSStringLit (f s), .. }
+        _             -> t0
+      TSBaseType _ -> t0

@@ -42,6 +42,7 @@ dependencies:
 - free
 - functor-combinators >= 0.3.6
 - invariant
+- kan-extensions
 - nonempty-containers
 - prettyprinter >= 1.7
 - profunctors

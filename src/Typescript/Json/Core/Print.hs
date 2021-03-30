@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE EmptyCase           #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -130,8 +131,19 @@ ppType' = go
               )
       TSVar i -> PP.pretty (ps Vec.! i)
       TSIntersection ts  -> PP.encloseSep "" "" " & " (htoList (go ps) ts)
+      TSTransformType tf -> getConst $ (`interpret` tf) $ \case
+        TSPartial t -> Const $ "Partial<" <> go ps t <> ">"
+        TSStringManipType sm t _ -> Const $ ppStringManip sm
+                                        <> "<" <> go ps t <> ">"
       TSPrimType PS{..} -> ppPrim psItem
       TSBaseType (ICoyoneda _ _ x) -> ppBase x
+
+ppStringManip :: TSStringManip -> PP.Doc x
+ppStringManip = \case
+    TSUppercase -> "Uppercase"
+    TSLowercase -> "Lowercase"
+    TSCapitalize -> "Capitalize"
+    TSUncapitalize -> "Uncapitalize"
 
 ppNamed
     :: TSNamed 'Z k as es a
@@ -280,6 +292,9 @@ flattenType_ ps seen = go
         pure $ deps1 <> deps2
       TSVar _      -> pure S.empty
       TSIntersection ts -> hfoldMap SOP.unK <$> htraverse (fmap K . go) ts
+      TSTransformType tf -> fmap (hfoldMap SOP.unK) $ (`htraverse` tf) $ \case
+        TSPartial t -> K <$> go t
+        TSStringManipType _ t _ -> K <$> go t
       TSPrimType _ -> pure S.empty
       TSBaseType _ -> pure S.empty
 

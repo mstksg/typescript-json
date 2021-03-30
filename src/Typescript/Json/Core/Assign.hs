@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE DerivingVia         #-}
+{-# LANGUAGE EmptyCase           #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -202,6 +203,7 @@ reAssign t0 = case t0 of
               pure . Assign $ f . psSerializer
             TSNFunc _ -> Nothing
           _ -> Nothing
+    TSTransformType tf -> reAssign (interpret applyTransform tf)
     TSPrimType (PS xi _ xs) -> loopReAssign t0 $ reAssignPrim xs xi
     TSBaseType (ICoyoneda xs _ xi) -> loopReAssign t0 $ reAssignBase xs xi
 
@@ -252,6 +254,7 @@ reAssignIsObj x = \case
       TSNFunc tf -> reAssignIsObj x (tsApply tf ps)
       TSNPrimType _ -> Nothing
     TSIntersection y -> assembleIsObj mp (TSIntersection y)
+    TSTransformType tf -> reAssignIsObj x (interpret applyTransform tf)
     TSPrimType _ -> Nothing
     TSBaseType _ -> Nothing
   where
@@ -267,17 +270,23 @@ isObjKeyVals = \case
       ts
     TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
       TSNFunc tf -> isObjKeyVals (tsApply tf ps)
+    TSTransformType tf -> isObjKeyVals (interpret applyTransform tf)
 
 assembleIsObj
     :: forall a b. ()
     => Map Text (Some (Pre a (TSType_ 'Z)))
     -> TSType 'Z 'IsObj b
     -> Maybe (Assign a b)
-assembleIsObj mp = \case
-    TSObject ts -> assembleKeyVal mp ts
-    TSIntersection ts -> fmap unwrapAssign . getCompose $ interpret (Compose . fmap WrapAssign . assembleIsObj mp) ts
-    TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
-      TSNFunc tf -> assembleIsObj mp (tsApply tf ps)
+assembleIsObj mp = go
+  where
+    go :: TSType 'Z 'IsObj c -> Maybe (Assign a c)
+    go = \case
+      TSObject ts -> assembleKeyVal mp ts
+      TSIntersection ts -> fmap unwrapAssign . getCompose $ interpret (Compose . fmap WrapAssign . go) ts
+      TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
+        TSNFunc tf -> go (tsApply tf ps)
+      TSTransformType tf -> fmap unwrapAssign . getCompose $
+        interpret (Compose . fmap WrapAssign . go . applyTransform) (icoToCoco tf)
 
 assembleKeyVal
     :: forall a b. ()

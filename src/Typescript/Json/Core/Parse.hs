@@ -95,8 +95,8 @@ parseType = \case
       TSNPrimType PS{..}
             -> either (ABE.throwCustomError . PENamedPrimitive nm (Some psItem)) pure . psParser
            =<< parseNamedPrim psItem
-                        -- remove this unsafeApply if ParseT ever gets an Apply instance
     TSIntersection ts -> unwrapApplicative $ interpret (WrapApplicative . parseType) ts
+    TSTransformType tf -> interpret (parseType . applyTransform) (icoToCoco tf)
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser
                      =<< parsePrim psItem
     TSBaseType (ICoyoneda _ g x) -> g <$> parseBase x

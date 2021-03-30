@@ -68,6 +68,7 @@ objTypeToEncoding = \case
     TSIntersection ts -> preDivisibleT objTypeToEncoding ts
     TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> objTypeToEncoding (tsApply f xs)
+    TSTransformType tf -> interpret (objTypeToEncoding . applyTransform) $ icoToContraco tf
   where
     keyValToValue :: TSKeyVal 'Z ~> Op A.Series
     keyValToValue = preDivisibleT
@@ -89,7 +90,7 @@ typeToEncoding = \case
       TSNFunc f -> typeToEncoding (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToEncoding psItem . psSerializer
     TSIntersection ts -> A.pairs . getOp (objTypeToEncoding (TSIntersection ts))
-    TSBuiltInType bi -> case bi of
+    TSTransformType tf -> typeToEncoding (interpret applyTransform tf)
     TSPrimType PS{..} -> primToEncoding psItem . psSerializer
     TSBaseType (ICoyoneda f _ x) -> baseToEncoding x . f
 
@@ -130,8 +131,7 @@ objTypeToValue = \case
     TSIntersection ts -> preDivisibleT objTypeToValue ts
     TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> objTypeToValue (tsApply f xs)
-    TSBuiltInType bi -> case bi of
-
+    TSTransformType tf -> objTypeToValue (interpret applyTransform tf)
   where
     keyValToValue :: TSKeyVal 'Z ~> Op [A.Pair]
     keyValToValue = preDivisibleT
@@ -156,8 +156,7 @@ typeToValue = \case
       TSNFunc f -> typeToValue (tsApply f xs)
       TSNPrimType PS{..} -> namedPrimToValue psItem . psSerializer
     TSIntersection ts -> A.object . getOp (objTypeToValue (TSIntersection ts))
-    TSBuiltInType bi -> case bi of
-      -- TSPartial (ILan f g x) -> _
+    TSTransformType tf -> typeToValue (interpret applyTransform tf)
     TSPrimType PS{..} -> primToValue psItem . psSerializer
     TSBaseType (ICoyoneda f _ x) -> baseToValue x . f
 

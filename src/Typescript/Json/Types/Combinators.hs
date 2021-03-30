@@ -1,7 +1,9 @@
 {-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
@@ -15,6 +17,8 @@ module Typescript.Json.Types.Combinators (
   , interpretCoILan
   , interpretContraILan
   , ICoyoneda(..)
+  , icoToContraco
+  , icoToCoco
   , MP(..)
   , NP2(..)
   , hmap2
@@ -30,8 +34,9 @@ import           Data.Functor.Contravariant
 import           Data.Functor.Invariant
 import           Data.Kind
 import           Data.SOP
-import           Data.Some                  (Some(..))
-import           Data.Text                  (Text)
+import           Data.Some                           (Some(..))
+import           Data.Text                           (Text)
+import qualified Data.Functor.Contravariant.Coyoneda as CC
 
 data PS f a = forall r. PS
     { psItem       :: f r
@@ -94,9 +99,20 @@ instance Invariant (ICoyoneda f) where
 instance HFunctor ICoyoneda where
     hmap f (ICoyoneda h k x) = ICoyoneda h k (f x)
 
+instance HTraversable ICoyoneda where
+    htraverse f (ICoyoneda h k x) = ICoyoneda h k <$> f x
+
 instance Inject ICoyoneda where
     inject x = ICoyoneda id id x
 
+instance Invariant f => Interpret ICoyoneda f where
+    interpret f (ICoyoneda g h x) = invmap h g $ f x
+
+icoToContraco :: ICoyoneda f ~> CC.Coyoneda f
+icoToContraco (ICoyoneda f _ x) = CC.Coyoneda f x
+
+icoToCoco :: ICoyoneda f ~> Coyoneda f
+icoToCoco (ICoyoneda _ g x) = Coyoneda g x
 
 splitAp :: forall f b. Ap f b -> [Some f]
 splitAp = go
