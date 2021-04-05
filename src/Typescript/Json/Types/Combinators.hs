@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE EmptyCase                 #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE GADTs                     #-}
@@ -26,8 +27,10 @@ module Typescript.Json.Types.Combinators (
   , hfoldMap2
   , np2Left
   , splitAp
+  , findNP
   ) where
 
+import           Control.Applicative
 import           Control.Applicative.Free
 import           Data.Functor.Combinator
 import           Data.Functor.Contravariant
@@ -167,3 +170,15 @@ np2Left f = go
     go = \case
       Nil2 -> Nil
       x :** xs -> f x :* go xs
+
+findNP
+    :: forall f g as. ()
+    => (forall a. f a -> Maybe (g a))
+    -> NP f as
+    -> Maybe (NS g as)
+findNP f = go
+  where
+    go :: NP f bs -> Maybe (NS g bs)
+    go = \case
+      Nil -> Nothing
+      x :* xs -> (Z <$> f x) <|> (S <$> go xs)

@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE GADTs               #-}
+{-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE PolyKinds           #-}
@@ -10,7 +11,7 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module Typescript.Json.Types.SNat (
+module Typescript.Json.Types.Sing (
     Length
   , SNat_(..)
   , plusNat
@@ -24,15 +25,23 @@ module Typescript.Json.Types.SNat (
   , rightSuccPlus
   , zeroPlus
   , vecSame
+  , SSym(..)
+  , ssymToText
+  , withSSym
   ) where
 
-import           Data.Fin           (Fin(..))
+import           Data.Fin                          (Fin(..))
+import           Data.Functor
 import           Data.Kind
-import           Data.SOP           (NP(..))
+import           Data.Proxy
+import           Data.SOP                          (NP(..))
+import           Data.Text                         (Text)
 import           Data.Type.Equality
-import           Typescript.Json.Types.Combinators
 import           Data.Type.Nat
-import           Data.Vec.Lazy      (Vec(..))
+import           Data.Vec.Lazy                     (Vec(..))
+import           GHC.TypeLits                      (Symbol, KnownSymbol, symbolVal, someSymbolVal, SomeSymbol(..), sameSymbol)
+import           Typescript.Json.Types.Combinators
+import qualified Data.Text                         as T
 
 data SNat_ :: Nat -> Type where
     SZ_ :: SNat_ 'Z
@@ -126,4 +135,19 @@ prodVec2 f = go
     go = \case
       Nil2 -> VNil
       x :** xs -> f x ::: go xs
+
+data SSym :: Symbol -> Type where
+    SSym :: KnownSymbol s => SSym s
+
+ssymToText :: SSym s -> Text
+ssymToText s@SSym = T.pack (symbolVal s)
+
+withSSym :: Text -> (forall s. SSym s -> r) -> r
+withSSym t f = case someSymbolVal (T.unpack t) of
+    SomeSymbol (_ :: Proxy s) -> f (SSym @s)
+
+instance TestEquality SSym where
+    testEquality :: forall a b. SSym a -> SSym b -> Maybe (a :~: b)
+    testEquality SSym SSym = (sameSymbol (Proxy @a) (Proxy @b)) <&> \case
+      Refl -> Refl
 

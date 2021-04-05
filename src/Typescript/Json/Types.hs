@@ -34,7 +34,7 @@
 
 module Typescript.Json.Types (
     TSPrim(..)
-  , TSNamedPrim(..)
+  , TSNamedBase(..)
   , TSBase(..)
   , EnumLit(..)
   , TSType(..)
@@ -97,12 +97,22 @@ module Typescript.Json.Types (
   , shiftTypeF
   , isNullable
   , flattenUnion
+  , singletonValue
+  , summonValues
+  -- * Key Subset
+  , KeyOf(..), KeySubset(..)
+  , keyOf, KeySubsetErr(..), mkKeySubset
   ) where
 
+import           Control.Applicative
 import           Control.Applicative.Free
+import           Control.Monad.Trans.State
 import           Data.Bifunctor
 import           Data.Bitraversable
+import           Data.Coerce
 import           Data.Fin                          (Fin(..))
+import           Data.Foldable
+import           Data.Functor
 import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Apply.Free
@@ -116,6 +126,8 @@ import           Data.Kind
 import           Data.List.NonEmpty                (NonEmpty)
 import           Data.Map                          (Map)
 import           Data.Maybe
+import           Data.Profunctor
+import           Data.SOP                          (NP(..), NS(..), I(..))
 import           Data.Scientific                   (Scientific)
 import           Data.Set                          (Set)
 import           Data.Some                         (Some(..))
@@ -124,30 +136,34 @@ import           Data.Type.Equality
 import           Data.Type.Nat
 import           Data.Vec.Lazy                     (Vec(..))
 import           Data.Void
-import           GHC.Generics                      (Generic)
+import           GHC.Generics                      (Generic, (:.:)(..))
 import           Typescript.Json.Types.Combinators
-import           Typescript.Json.Types.SNat
+import           Typescript.Json.Types.Sing
 import qualified Control.Applicative.Lift          as Lift
 import qualified Data.Aeson                        as A
+import qualified Data.List.NonEmpty                as NE
 import qualified Data.Map                          as M
+import qualified Data.SOP                          as SOP
+import qualified Data.Set                          as S
 import qualified Data.Text                         as T
+import qualified Data.Vec.Lazy                     as V
 import qualified Prettyprinter                     as PP
 
 data EnumLit = ELString Text | ELNumber Scientific
   deriving (Show, Eq, Ord)
 
 data TSPrim :: Type -> Type where
-    TSBoolean    :: TSPrim Bool
     TSNumber     :: TSPrim Scientific
     TSBigInt     :: TSPrim Integer
     TSString     :: TSPrim Text
-    TSStringLit  :: Text -> TSPrim ()
-    TSNumericLit :: Scientific -> TSPrim ()
-    TSBigIntLit  :: Integer    -> TSPrim ()
     TSUnknown    :: TSPrim A.Value
     TSAny        :: TSPrim A.Value
 
 data TSBase :: Type -> Type where
+    TSBoolean    :: TSBase Bool
+    TSStringLit  :: Text -> TSBase ()
+    TSNumericLit :: Scientific -> TSBase ()
+    TSBigIntLit  :: Integer -> TSBase ()
     TSVoid       :: TSBase ()
     TSUndefined  :: TSBase ()
     TSNull       :: TSBase ()
@@ -161,14 +177,14 @@ instance GShow TSPrim where
     gshowsPrec = showsPrec
 
 -- | "Named" primitive types, that cannot be anonymous
-data TSNamedPrim :: Type -> Type where
-    TSEnum       :: Vec n (Text, EnumLit) -> TSNamedPrim (Fin n)
+data TSNamedBase :: Type -> Type where
+    TSEnum       :: Vec n (Text, EnumLit) -> TSNamedBase (Fin n)
 
-deriving instance Show (TSNamedPrim a)
-deriving instance Eq (TSNamedPrim a)
-deriving instance Ord (TSNamedPrim a)
+deriving instance Show (TSNamedBase a)
+deriving instance Eq (TSNamedBase a)
+deriving instance Ord (TSNamedBase a)
 
-instance GShow TSNamedPrim where
+instance GShow TSNamedBase where
     gshowsPrec = showsPrec
 
 data TSType_ p a = forall k. TSType_ { unTSType_ :: TSType p k a }
@@ -217,6 +233,8 @@ newtype ExtendsString = ExtendsString { getExtendsString :: Text }
 extendsString :: TSType p 'NotObj ExtendsString
 extendsString = invmap ExtendsString getExtendsString $ TSPrimType (inject TSString)
 
+data KeyOf ks a = KeyOf { getKeyOf :: NS SSym ks }
+
 -- | Built-in named type transformers in typescript, that should be
 -- displayed as such when printed.
 data TSTransform :: Nat -> IsObjType -> Type -> Type where
@@ -226,11 +244,22 @@ data TSTransform :: Nat -> IsObjType -> Type -> Type where
     TSReadOnly
         :: TSType p 'IsObj a
         -> TSTransform p 'IsObj a
+    TSPickPartial
+        :: TSType p 'IsObj a
+        -> TSType p 'NotObj (KeySubset ks a)
+        -> Assign (KeySubset ks a) (KeyOf ks a)
+        -> TSTransform p 'IsObj (Maybe a)
+    TSOmitPartial
+        :: TSType p 'IsObj a
+        -> TSType p 'NotObj (KeySubset ks a)
+        -> Assign (KeySubset ks a) (KeyOf ks a)
+        -> TSTransform p 'IsObj (Maybe a)
     TSStringManipType
         :: TSStringManip
         -> TSType p 'NotObj a
         -> Assign a ExtendsString
         -> TSTransform p 'NotObj a
+
 
 data TSType :: Nat -> IsObjType -> Type -> Type where
     TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
@@ -247,12 +276,12 @@ data TSType :: Nat -> IsObjType -> Type -> Type where
 
 data TSNameable :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type where
     TSNFunc     :: TSTypeF p k as es a -> TSNameable p k as es a
-    TSNPrimType :: PS TSNamedPrim a -> TSNameable p 'NotObj '[] '[] a
+    TSNBaseType :: ICoyoneda TSNamedBase a -> TSNameable p 'NotObj '[] '[] a
 
 instance Invariant (TSNameable p k as es) where
     invmap f g = \case
       TSNFunc x     -> TSNFunc (invmap f g x)
-      TSNPrimType x -> TSNPrimType (invmap f g x)
+      TSNBaseType x -> TSNBaseType (invmap f g x)
 
 data TSNamed_ p as es a = forall k. TSNamed_ (TSNamed p k as es a)
 
@@ -351,7 +380,7 @@ instance Invariant (TSType p k) where
       TSUnion  ts -> TSUnion (invmap f g ts)
       TSNamedType (TSNamed nm nt :$ xs) -> case nt of
         TSNFunc tf     -> TSNamedType $ TSNamed nm (TSNFunc     (invmap f g tf)) :$ xs
-        TSNPrimType ps -> TSNamedType $ TSNamed nm (TSNPrimType (invmap f g ps)) :$ xs
+        TSNBaseType ps -> TSNamedType $ TSNamed nm (TSNBaseType (invmap f g ps)) :$ xs
       TSVar i -> TSVar i
       TSIntersection ts -> TSIntersection (invmap f g ts)
       TSTransformType _ -> undefined
@@ -363,7 +392,6 @@ data ParseErr = PEInvalidEnum    [(Text, EnumLit)]
               | PEInvalidNumber  Scientific Scientific
               | PEInvalidBigInt  Integer    Integer
               | PEPrimitive      (Some TSPrim) Text
-              | PENamedPrimitive Text (Some TSNamedPrim) Text
               | PEExtraTuple     Int        Int
               | PENotInUnion     (NonEmpty (PP.Doc ()))
               | PENever
@@ -492,7 +520,7 @@ collapseIsObj = \case
     TSObject kv -> kv
     TSNamedType (TSNamed _ (TSNFunc tf) :$ xs) -> collapseIsObj $ tsApply tf xs
     TSIntersection (PreT xs) -> PreT $ interpret (\(f :>$<: x) -> hmap (mapPre f) . unPreT $ collapseIsObj x) xs
-    TSTransformType _ -> undefined
+    TSTransformType tf -> collapseIsObj (interpret applyTransform tf)
 
 tsShift
     :: forall r p k a. ()
@@ -529,7 +557,7 @@ shiftAppliedF n (TSNamed nm nt :? xs) =
 shiftNameable :: SNat_ r -> TSNameable p k as es a -> TSNameable (Plus r p) k as es a
 shiftNameable n = \case
     TSNFunc tf     -> TSNFunc (shiftTypeF n tf)
-    TSNPrimType ps -> TSNPrimType ps
+    TSNBaseType ps -> TSNBaseType ps
 
 shiftTypeF :: forall r p k as es a. SNat_ r -> TSTypeF p k as es a -> TSTypeF (Plus r p) k as es a
 shiftTypeF n = \case
@@ -567,6 +595,8 @@ shiftTransform :: SNat_ r -> TSTransform p k a -> TSTransform (Plus r p) k a
 shiftTransform n = \case
     TSPartial t -> TSPartial (tsShift n t)
     TSReadOnly t -> TSReadOnly (tsShift n t)
+    TSPickPartial o ks a -> TSPickPartial (tsShift n o) (tsShift n ks) a
+    TSOmitPartial o ks a -> TSOmitPartial (tsShift n o) (tsShift n ks) a
     TSStringManipType sm t a -> TSStringManipType sm (tsShift n t) a
 
 tsObjType
@@ -581,12 +611,14 @@ tsObjType = \case
     TSNamedType (TSNamed _ nt :$ _)     -> case nt of
       TSNFunc tsf@(TSGeneric{})      -> tsObjType (tsApplyVar tsf)
       TSNFunc (TSGenericInterface{}) -> SIsObj
-      TSNPrimType _                  -> SNotObj
+      TSNBaseType _                  -> SNotObj
     TSVar _                       -> SNotObj
     TSIntersection _              -> SIsObj
     TSTransformType (ICoyoneda _ _ tf) -> case tf of
       TSPartial _ -> SIsObj
       TSReadOnly _ -> SIsObj
+      TSPickPartial _ _ _ -> SIsObj
+      TSOmitPartial _ _ _ -> SIsObj
       TSStringManipType _ _ _ -> SNotObj
     TSPrimType _                  -> SNotObj
     TSBaseType _                  -> SNotObj
@@ -630,6 +662,18 @@ applyTransform :: TSTransform p k a -> TSType p k a
 applyTransform = \case
     TSPartial x -> TSObject . PreT . objectPartial . unPreT $ collapseIsObj x
     TSReadOnly x -> TSObject . hmap (\o -> o { objMemberReadOnly = ReadOnly }) $ collapseIsObj x
+    TSPickPartial o ks _ ->
+      -- should always be Just based on the Assign witness, but types don't
+      -- enforce it
+      let kset = S.fromList . maybe [] toList $ stringLitUnion ks
+      in  TSObject . PreT . objectPickPartial (`S.member` kset) $
+                    unPreT (collapseIsObj o)
+    TSOmitPartial o ks _ ->
+      -- should always be Just based on the Assign witness, but types don't
+      -- enforce it
+      let kset = S.fromList . maybe [] toList $ stringLitUnion ks
+      in  TSObject . PreT . objectPickPartial (`S.notMember` kset) $
+                    unPreT (collapseIsObj o)
     TSStringManipType mf t _ -> mapStringLit (stringManipFunc mf) t
 
 stringManipFunc :: TSStringManip -> Text -> Text
@@ -655,7 +699,7 @@ isNullable = \case
     TSUnion ts -> nullableUnion ts
     TSNamedType (TSNamed _ tsn :$ ps) -> case tsn of
       TSNFunc tf    -> isNullable (tsApply tf ps)
-      TSNPrimType _ -> Nothing
+      TSNBaseType _ -> Nothing
     TSIntersection _ -> Nothing
     TSVar _ -> Nothing
     TSTransformType tf -> isNullable $ interpret applyTransform tf
@@ -726,26 +770,35 @@ nullableUnion (DecAlt1 f0 ga0 gb0 x0 xs0) = go f0 ga0 gb0 x0 xs0
                     (inject (TSType_ y))
                     (inject (TSType_ ys))
 
-flattenUnion :: TSType p k a -> Maybe (DecAlt1 (TSType_ p) a)
-flattenUnion = \case
-    TSArray _ -> Nothing
-    TSTuple _ -> Nothing
-    TSObject _ -> Nothing
+flattenUnion :: TSType p k a -> DecAlt1 (TSType_ p) a
+flattenUnion t0 = case t0 of
+    TSArray _ -> inject $ TSType_ t0
+    TSTuple _ -> inject $ TSType_ t0
+    TSObject _ -> inject $ TSType_ t0
     -- TODO: this HMonad instance should be a thing already?
-    TSUnion xs -> Just
-                . foldChain1 id (\(Night x y f ga gb) -> swerve1 f ga gb x y)
+    TSUnion xs -> foldChain1 id (\(Night x y f ga gb) -> swerve1 f ga gb x y)
                 . unDecAlt1
-                . hmap (\(TSType_ t) -> fromMaybe (inject (TSType_ t)) (flattenUnion t))
+                . hmap (withTSType_ flattenUnion)
                 $ xs
     TSSingle x -> flattenUnion x
     TSNamedType (TSNamed _ tsn :$ ps) -> case tsn of
       TSNFunc tf    -> flattenUnion (tsApply tf ps)
-      TSNPrimType _ -> Nothing
-    TSVar _ -> Nothing
-    TSIntersection _ -> Nothing
-    TSTransformType _ -> undefined
-    TSPrimType _ -> Nothing
-    TSBaseType _ -> Nothing
+      TSNBaseType _ -> inject $ TSType_ t0
+    TSVar _ -> inject $ TSType_ t0
+    TSIntersection _ -> inject $ TSType_ t0
+    TSTransformType tf -> flattenUnion $ interpret applyTransform tf
+    TSPrimType _ -> inject $ TSType_ t0
+    TSBaseType _ -> inject $ TSType_ t0
+
+stringLitUnion :: forall p k a. TSType p k a -> Maybe (NonEmpty Text)
+stringLitUnion = sequence . icollect1 (withTSType_ go) . decAltDec1 . flattenUnion
+  where
+    go :: TSType p j x -> Maybe Text
+    go = \case
+      TSBaseType t -> (`iget` t) $ \case
+        TSStringLit s -> Just s
+        _             -> Nothing
+      _ -> Nothing
 
 objectPartial
     :: Ap (Pre b (ObjMember (TSType_ p))) a
@@ -762,27 +815,224 @@ objectPartial = \case
          )
          ((=<<) . sequenceA <$> objectPartial xs)
 
-mapStringLit
-    :: forall p k a. ()
-    => (Text -> Text)
-    -> TSType p k a
-    -> TSType p k a
-mapStringLit f = go
+-- | If the type is a singleton type with only one inhabitant, this gives
+-- that type.
+singletonValue :: TSType p k a -> Maybe a
+singletonValue = \case
+    TSArray _ -> Nothing
+    TSTuple ts -> interpret (withTSType_ singletonValue) ts
+    TSSingle x -> singletonValue x
+    TSObject ts -> (`interpret` ts) $ \(ObjMember{..}) ->
+      case objMemberVal of
+        L1 (TSType_ x) -> singletonValue x
+        R1 _ -> Nothing
+    TSUnion ts -> case runCoDecAlt1 (maybeToList . withTSType_ singletonValue) ts of
+      [] -> Nothing
+      x:[] -> Just x
+      _:_:_ -> Nothing
+    TSNamedType (TSNamed _ tn :$ xs) -> case tn of
+      TSNFunc tf -> singletonValue (tsApply tf xs)
+      TSNBaseType tp -> (`interpret` tp) $ \case
+        -- only if singleton enum
+        TSEnum (_ ::: VNil) -> Just FZ
+        _                   -> Nothing
+    TSVar _ -> Nothing
+    TSIntersection ts -> interpret singletonValue ts
+    TSTransformType tf -> singletonValue $ interpret applyTransform tf
+    TSPrimType _ -> Nothing
+    TSBaseType t -> (`interpret` t) $ \case
+      TSBoolean -> Nothing
+      TSStringLit _ -> Just ()
+      TSNumericLit _ -> Just ()
+      TSBigIntLit _ -> Just ()
+      TSUndefined -> Just ()
+      TSNull -> Just ()
+      TSVoid -> Just ()
+      TSNever -> Nothing
+
+-- | Summon some example values
+summonValues :: TSType p k a -> [a]
+summonValues = \case
+    TSArray (ILan f _ x) -> f <$> ([] : ((:[]) <$> summonValues x))
+    TSTuple ts -> interpret (withTSType_ summonValues) ts
+    TSSingle x -> summonValues x
+    TSObject ts -> (`interpret` ts) $ \(ObjMember{..}) ->
+      case objMemberVal of
+        L1 (TSType_ x) -> summonValues x
+        R1 (ILan f _ (TSType_ x)) -> f <$> (Nothing : (Just <$> summonValues x))
+    TSUnion ts -> runCoDecAlt1 (withTSType_ summonValues) ts
+    TSNamedType (TSNamed _ tn :$ xs) -> case tn of
+      TSNFunc tf -> summonValues (tsApply tf xs)
+      TSNBaseType tp -> (`interpret` tp) $ \case
+        TSEnum v -> toList (V.imap const v)
+    TSVar _ -> []
+    TSIntersection ts -> interpret summonValues ts
+    TSTransformType tf -> summonValues $ interpret applyTransform tf
+    TSPrimType _ -> []
+    TSBaseType t -> (`interpret` t) $ \case
+      TSBoolean -> [False, True]
+      TSStringLit _ -> [()]
+      TSNumericLit _ -> [()]
+      TSBigIntLit _ -> [()]
+      TSUndefined -> [()]
+      TSNull -> [()]
+      TSVoid -> [()]
+      TSNever -> []
+
+mkKeysOf
+    :: forall p r. ()
+    => [Text]
+    -> (forall ks. NP SSym ks -> TSType p 'NotObj (NS SSym ks) -> r)
+    -> r
+mkKeysOf [] f = f Nil $ TSBaseType $ ICoyoneda (\case {}) (absurd @(NS SSym '[])) TSNever
+mkKeysOf (x0:xs0) f0 = go x0 xs0 (\p -> f0 p . TSUnion)
   where
-    go :: TSType q j b -> TSType q j b
+    go :: Text -> [Text] -> (forall ks. NP SSym ks -> TSUnionBranches p (NS SSym ks) -> r) -> r
+    go x xs f = withSSym x $ \sx -> case xs of
+      [] -> f (sx :* Nil) . inject . invmap (const (SOP.Z sx)) (const ()) . sl $ x
+      y:ys -> go y ys $ \ss ys' -> f (sx :* ss) $
+        swerve1 (\case SOP.Z _ -> Left (); SOP.S s -> Right s) (const (SOP.Z sx)) SOP.S
+          (inject (sl x))
+          ys'
+    sl = TSType_ . TSBaseType . inject . TSStringLit
+
+keyOf
+    :: TSType p 'IsObj a
+    -> (forall ks. NP SSym ks -> TSType p 'NotObj (KeyOf ks a) -> r)
+    -> r
+keyOf t f = mkKeysOf (S.toList keys) (\p -> f p . invmap KeyOf getKeyOf)
+  where
+    keys = S.fromList
+         . icollect (\ObjMember{..} -> objMemberKey)
+         . collapseIsObj
+         $ t
+
+newtype KeySubset ks a = KeySubset { getKeySubset :: NP (Maybe :.: SSym) ks }
+
+data KeySubsetErr = KSEUnmatched (NonEmpty Text)
+                  | KSENoMatches
+
+mkKeySubset
+    :: forall ks a p. ()
+    => Set Text
+    -> NP SSym ks
+    -> Either KeySubsetErr (TSType p 'NotObj (KeySubset ks a), Assign (KeySubset ks a) (KeyOf ks a))
+mkKeySubset ts ss = case NE.nonEmpty (toList leftovers) of
+    Nothing -> case assigned of
+      Nil     -> Left KSENoMatches
+      x :* xs -> maybe (Left KSENoMatches) (Right . first TSUnion) $ go x xs
+    Just e  -> Left $ KSEUnmatched e
+  where
+    (assigned, leftovers) = runState (htraverse assignKey ss) ts
+    assignKey :: SSym k -> State (Set Text) ((Maybe :.: SSym) k)
+    assignKey x = state $ \seen ->
+      let t = ssymToText x
+      in  if t `S.member` seen
+            then (Comp1 (Just x), S.delete t seen)
+            else (Comp1 Nothing, seen)
+    go  :: forall j js. ()
+        => (Maybe :.: SSym) j
+        -> NP (Maybe :.: SSym) js
+        -> Maybe (TSUnionBranches p (KeySubset (j ': js) a), Assign (KeySubset (j ': js) a) (KeyOf (j ': js) a))
+    go x xs = case x of
+      Comp1 Nothing -> case xs of
+        Nil -> Nothing
+        y :* ys -> bimap
+              (invmap (coerce (x :*)) tlKS)
+              (Assign . dimap tlKS (fmap sKO) . runAssign)
+          <$> go y ys
+      Comp1 (Just s) ->
+        let leaf :: TSUnionBranches p (KeySubset (j ': js) a)
+            leaf = inject . TSType_ . invUnit ks . TSBaseType . inject $ TSStringLit (ssymToText s)
+            baseAssign :: Assign (KeySubset (j ': js) a) (KeyOf (j ': js) a)
+            baseAssign = Assign . const . Right $ KeyOf (SOP.Z s)
+        in  case xs of
+              Nil -> Just (leaf, baseAssign)
+              y :* ys ->
+                case go y ys of
+                  Nothing -> Just (leaf, baseAssign)
+                  Just (a,b) -> Just
+                    -- the actual value doesn't *really* matter, since we only
+                    -- care about the type
+                    ( swerve1 Left id (coerce (x :*)) leaf a
+                    , Assign . dimap tlKS (fmap sKO) . runAssign $ b
+                    )
+      where
+        ks :: KeySubset (j ': js) a
+        ks = KeySubset (x :* xs)
+    tlKS :: KeySubset (j ': js) b -> KeySubset js b
+    tlKS (KeySubset (_ :* xs)) = KeySubset xs
+    sKO :: KeyOf js b -> KeyOf (j ': js) b
+    sKO (KeyOf xs) = KeyOf (SOP.S xs)
+    invUnit :: Invariant f => b -> f () -> f b
+    invUnit x = invmap (const x) (const ())
+
+-- subsetStrings
+--     :: Assign (KeySubset ks a) (KeyOf ks a)
+--     -> Text
+--     -> Bool
+-- assignableText (Assign f) t = isRight $ f _
+
+objectPickPartial
+    :: forall p b a. ()
+    => (Text -> Bool)
+    -> Ap (Pre b (ObjMember (TSType_ p))) a
+    -> Ap (Pre (Maybe b) (ObjMember (TSType_ p))) (Maybe a)
+objectPickPartial picker = go
+  where
+    go  :: Ap (Pre b (ObjMember (TSType_ p))) c
+        -> Ap (Pre (Maybe b) (ObjMember (TSType_ p))) (Maybe c)
+    go = \case
+      Pure x -> Pure (Just x)
+      Ap (f :>$<: o@ObjMember{..}) xs
+        | picker objMemberKey ->
+            Ap (fmap f :>$<: (
+                  o { objMemberVal = R1 $ case objMemberVal of
+                        L1 x -> ilan x
+                        R1 (ILan q r y) -> ILan (Just . q) (r =<<) y
+                    }
+                 )
+               )
+               ((=<<) . sequenceA <$> go xs)
+        | otherwise -> case objMemberVal of
+            L1 (TSType_ t) -> case singletonValue t of
+              -- this was required, so there's no way in heck this will ever
+              -- parse properly
+              Nothing -> const Nothing <$> go xs
+              -- we can do this if the type is a singleton
+              Just x  -> fmap ($ x) <$> go xs
+            R1 (ILan q _ _) -> fmap ($ q Nothing) <$> go xs
+
+mapStringLit
+    :: (Text -> Text)
+    -> TSType p k a
+    -> TSType p k a
+mapStringLit f x = case traverseStringLit (Just . f) x of
+    Nothing -> x
+    Just y  -> y
+
+traverseStringLit
+    :: forall f p k a. Alternative f
+    => (Text -> f Text)
+    -> TSType p k a
+    -> f (TSType p k a)
+traverseStringLit f = go
+  where
+    go :: TSType q j b -> f (TSType q j b)
     go t0 = case t0 of
-      TSArray _ -> t0
-      TSTuple _ -> t0
-      TSObject _ -> t0
-      TSUnion xs -> TSUnion $ hmap (mapTSType_ go) xs
-      TSSingle x -> TSSingle (go x)
+      TSArray _ -> empty
+      TSTuple _ -> empty
+      TSObject _ -> empty
+      TSUnion xs -> TSUnion <$> htraverse (withTSType_ (fmap TSType_ . go)) xs
+      TSSingle x -> TSSingle <$> go x
       TSNamedType (TSNamed _ tsn :$ ps) -> case tsn of
         TSNFunc tf    -> go (tsApply tf ps)
-        TSNPrimType _ -> t0
-      TSVar _ -> t0
-      TSIntersection _ -> t0
+        TSNBaseType _ -> empty
+      TSVar _ -> empty
+      TSIntersection _ -> empty
       TSTransformType tf -> go $ interpret applyTransform tf
-      TSPrimType PS{..} -> case psItem of
-        TSStringLit s -> TSPrimType $ PS { psItem = TSStringLit (f s), .. }
-        _             -> t0
-      TSBaseType _ -> t0
+      TSPrimType _ -> empty
+      TSBaseType t -> fmap TSBaseType $ (`htraverse` t) $ \case
+        TSStringLit s -> TSStringLit <$> f s
+        _             -> empty
+

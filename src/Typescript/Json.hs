@@ -762,7 +762,7 @@ tsEnumWith
     -> TSNamed p 'NotObj '[] '[] a
 tsEnumWith nm FinIso{..} xs = TSNamed
     { tsnName = nm
-    , tsnType = TSNPrimType $
+    , tsnType = TSNBaseType $
         invmap fiGet fiPut $ inject (TSEnum xs)
     }
 
@@ -920,7 +920,7 @@ tsIsList :: Exts.IsList l => TSType_ p (Exts.Item l) -> TSType p 'NotObj l
 tsIsList = invmap Exts.fromList Exts.toList . tsList
 
 tsBoolean :: TSType p 'NotObj Bool
-tsBoolean = TSPrimType $ inject TSBoolean
+tsBoolean = TSBaseType $ inject TSBoolean
 
 tsNumber :: TSType p 'NotObj Scientific
 tsNumber = TSPrimType $ inject TSNumber
@@ -956,16 +956,16 @@ tsString :: TSType p 'NotObj String
 tsString = invmap T.unpack T.pack tsText
 
 tsStringLit :: Text -> TSType p 'NotObj ()
-tsStringLit = TSPrimType . inject . TSStringLit
+tsStringLit = TSBaseType . inject . TSStringLit
 
 tsNumericLit :: Scientific -> TSType p 'NotObj ()
-tsNumericLit = TSPrimType . inject . TSNumericLit
+tsNumericLit = TSBaseType . inject . TSNumericLit
 
 tsIntegerLit :: Integral a => a -> TSType p 'NotObj ()
-tsIntegerLit = TSPrimType . inject . TSNumericLit . fromIntegral
+tsIntegerLit = TSBaseType . inject . TSNumericLit . fromIntegral
 
 tsBigIntLit :: Integer -> TSType p 'NotObj ()
-tsBigIntLit = TSPrimType . inject . TSBigIntLit
+tsBigIntLit = TSBaseType . inject . TSBigIntLit
 
 tsUnknown :: TSType p 'NotObj A.Value
 tsUnknown = TSPrimType $ inject TSUnknown

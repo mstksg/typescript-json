@@ -44,25 +44,25 @@ eqOrFail e x y
 
 parsePrim :: TSPrim a -> ABE.Parse ParseErr a
 parsePrim = \case
-    TSBoolean   -> ABE.asBool
     TSNumber    -> ABE.asScientific
     TSBigInt    -> ABE.asIntegral
     TSString    -> ABE.asText
-    TSStringLit t -> ABE.withText $ eqOrFail (PEInvalidString t) t
-    TSNumericLit t -> ABE.withScientific $ eqOrFail (PEInvalidNumber t) t
-    TSBigIntLit t -> ABE.withIntegral $ eqOrFail (PEInvalidBigInt t) t
     TSUnknown -> ABE.asValue
     TSAny -> ABE.asValue
 
 parseBase :: TSBase a -> ABE.Parse ParseErr a
 parseBase = \case
+    TSBoolean   -> ABE.asBool
+    TSStringLit t -> ABE.withText $ eqOrFail (PEInvalidString t) t
+    TSNumericLit t -> ABE.withScientific $ eqOrFail (PEInvalidNumber t) t
+    TSBigIntLit t -> ABE.withIntegral $ eqOrFail (PEInvalidBigInt t) t
     TSVoid -> ABE.asNull
     TSUndefined -> ABE.asNull
     TSNull -> ABE.asNull
     TSNever -> ABE.throwCustomError PENever
 
 
-parseNamedPrim :: TSNamedPrim a -> ABE.Parse ParseErr a
+parseNamedPrim :: TSNamedBase a -> ABE.Parse ParseErr a
 parseNamedPrim = \case
     TSEnum es -> ABE.mapError (\_ -> PEInvalidEnum (toList es)) $ Vec.ifoldr
       (\i (_, e) ps -> (i <$ parseEnumLit e) ABE.<|> ps)
@@ -90,11 +90,9 @@ parseType = \case
       let us = icollect1 (withTSType_ ppType) $ decAltNonEmptyF_ ts
       in  foldr (ABE.<|>) (ABE.throwCustomError (PENotInUnion us)) $
             runNonEmptyF . decAltNonEmptyF $ hmap (withTSType_ parseType) ts
-    TSNamedType (TSNamed nm nt :$ xs) -> case nt of
+    TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc t -> parseType (tsApply t xs)
-      TSNPrimType PS{..}
-            -> either (ABE.throwCustomError . PENamedPrimitive nm (Some psItem)) pure . psParser
-           =<< parseNamedPrim psItem
+      TSNBaseType t -> interpret parseNamedPrim (icoToCoco t)
     TSIntersection ts -> unwrapApplicative $ interpret (WrapApplicative . parseType) ts
     TSTransformType tf -> interpret (parseType . applyTransform) (icoToCoco tf)
     TSPrimType PS{..} -> either (ABE.throwCustomError . PEPrimitive (Some psItem)) pure . psParser

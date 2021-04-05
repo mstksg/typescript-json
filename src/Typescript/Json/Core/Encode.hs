@@ -38,28 +38,28 @@ encodeEnumLit = \case
 
 primToEncoding :: TSPrim a -> a -> A.Encoding
 primToEncoding = \case
-    TSBoolean -> AE.bool
     TSNumber  -> AE.scientific
     -- hm...
     TSBigInt  -> AE.integer
     TSString  -> AE.text
-    TSStringLit t -> \_ -> AE.text t
-    TSNumericLit n -> \_ -> AE.scientific n
-    -- hm...
-    TSBigIntLit n -> \_ -> AE.integer n
     TSUnknown -> AE.value
     TSAny -> AE.value
 
 baseToEncoding :: TSBase a -> a -> A.Encoding
 baseToEncoding = \case
+    TSBoolean -> AE.bool
+    TSStringLit t -> \_ -> AE.text t
+    TSNumericLit n -> \_ -> AE.scientific n
+    -- hm...
+    TSBigIntLit n -> \_ -> AE.integer n
     -- hm...
     TSVoid -> \_ -> AE.null_
     TSUndefined -> \_ -> AE.null_
     TSNull -> \_ -> AE.null_
     TSNever -> absurd
 
-namedPrimToEncoding :: TSNamedPrim a -> a -> A.Encoding
-namedPrimToEncoding = \case
+namedBaseToEncoding :: TSNamedBase a -> a -> A.Encoding
+namedBaseToEncoding = \case
     TSEnum e -> \i -> encodeEnumLit (snd (e Vec.! i))
 
 objTypeToEncoding :: TSType 'Z 'IsObj a -> Op A.Series a
@@ -88,7 +88,7 @@ typeToEncoding = \case
     TSUnion ts        -> getOp $ runContraDecAlt1 (Op . withTSType_ typeToEncoding) ts
     TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> typeToEncoding (tsApply f xs)
-      TSNPrimType PS{..} -> namedPrimToEncoding psItem . psSerializer
+      TSNBaseType t -> getOp $ interpret (Op . namedBaseToEncoding) t
     TSIntersection ts -> A.pairs . getOp (objTypeToEncoding (TSIntersection ts))
     TSTransformType tf -> typeToEncoding (interpret applyTransform tf)
     TSPrimType PS{..} -> primToEncoding psItem . psSerializer
@@ -101,28 +101,28 @@ enumLitToValue = \case
 
 primToValue :: TSPrim a -> a -> A.Value
 primToValue = \case
-    TSBoolean -> A.Bool
     TSNumber  -> A.Number
     -- hm...
     TSBigInt  -> A.Number . fromIntegral
     TSString  -> A.String
-    TSStringLit t -> \_ -> A.String t
-    TSNumericLit n -> \_ -> A.Number n
-    -- hm...
-    TSBigIntLit n -> \_ -> A.Number (fromIntegral n)
     TSUnknown -> id
     TSAny -> id
 
 baseToValue :: TSBase a -> a -> A.Value
 baseToValue = \case
+    TSBoolean -> A.Bool
+    TSStringLit t -> \_ -> A.String t
+    TSNumericLit n -> \_ -> A.Number n
+    -- hm...
+    TSBigIntLit n -> \_ -> A.Number (fromIntegral n)
     -- hm...
     TSVoid -> \_ -> A.Null
     TSUndefined -> \_ -> A.Null
     TSNull -> \_ -> A.Null
     TSNever -> absurd
 
-namedPrimToValue :: TSNamedPrim a -> a -> A.Value
-namedPrimToValue = \case
+namedBaseToValue :: TSNamedBase a -> a -> A.Value
+namedBaseToValue = \case
     TSEnum e -> \i -> enumLitToValue (snd (e Vec.! i))
 
 objTypeToValue :: TSType 'Z 'IsObj a -> Op [A.Pair] a
@@ -154,7 +154,7 @@ typeToValue = \case
     TSUnion ts        ->  getOp $ runContraDecAlt1 (Op . withTSType_ typeToValue) ts
     TSNamedType (TSNamed _ nt :$ xs) -> case nt of
       TSNFunc f -> typeToValue (tsApply f xs)
-      TSNPrimType PS{..} -> namedPrimToValue psItem . psSerializer
+      TSNBaseType t -> getOp $ interpret (Op . namedBaseToValue) t
     TSIntersection ts -> A.object . getOp (objTypeToValue (TSIntersection ts))
     TSTransformType tf -> typeToValue (interpret applyTransform tf)
     TSPrimType PS{..} -> primToValue psItem . psSerializer

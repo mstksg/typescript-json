@@ -9,9 +9,9 @@
 {-# LANGUAGE ViewPatterns        #-}
 
 module Typescript.Json.Core.Print (
-    ppType 
+    ppType
   , ppEnumLit
-  , ppNamedPrim
+  , ppNamedBase
   , ppNamed
   , ppNamed'
   , typeExports_
@@ -43,7 +43,7 @@ import           Data.Type.Nat
 import           Data.Vec.Lazy                     (Vec(..))
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
-import           Typescript.Json.Types.SNat
+import           Typescript.Json.Types.Sing
 import qualified Control.Applicative.Lift          as Lift
 import qualified Data.Graph.Inductive.Graph        as FGL
 import qualified Data.Graph.Inductive.PatriciaTree as FGL
@@ -68,26 +68,26 @@ ppEnumLit = \case
 
 ppPrim :: TSPrim a -> PP.Doc x
 ppPrim = \case
-    TSBoolean      -> "boolean"
     TSNumber       -> "number"
     TSBigInt       -> "bigint"
     TSString       -> "string"
-    TSStringLit t  -> PP.pretty (show t)
-    TSNumericLit n -> ppScientific n
-    TSBigIntLit n  -> PP.pretty n
     TSUnknown      -> "unknown"
     TSAny          -> "any"
 
 ppBase :: TSBase a -> PP.Doc x
 ppBase = \case
+    TSBoolean      -> "boolean"
+    TSStringLit t  -> PP.pretty (show t)
+    TSNumericLit n -> ppScientific n
+    TSBigIntLit n  -> PP.pretty n
     TSVoid         -> "void"
     TSUndefined    -> "undefined"
     TSNull         -> "null"
     TSNever        -> "never"
 
 
-ppNamedPrim :: Text -> TSNamedPrim a -> PP.Doc x
-ppNamedPrim n = \case
+ppNamedBase :: Text -> TSNamedBase a -> PP.Doc x
+ppNamedBase n = \case
     TSEnum es    -> PP.fillSep
       [ "enum"
       , PP.pretty n
@@ -134,6 +134,16 @@ ppType' = go
       TSTransformType tf -> getConst $ (`interpret` tf) $ \case
         TSPartial t -> Const $ "Partial<" <> go ps t <> ">"
         TSReadOnly t -> Const $ "ReadOnly<" <> go ps t <> ">"
+        TSPickPartial o ks _ -> Const $
+          "Pick" <> PP.encloseSep "<" ">" ","
+            [ "Partial<" <> go ps o <> ">"
+            , go ps ks
+            ]
+        TSOmitPartial o ks _ -> Const $
+          "Omit" <> PP.encloseSep "<" ">" ","
+            [ "Partial<" <> go ps o <> ">"
+            , go ps ks
+            ]
         TSStringManipType sm t _ -> Const $ ppStringManip sm
                                         <> "<" <> go ps t <> ">"
       TSPrimType PS{..} -> ppPrim psItem
@@ -185,7 +195,7 @@ ppNamed' ps TSNamed{..} = case tsnType of
                   "extends" PP.<+> ppNamed' ps tf
             , Just $ ppType' (args Vec.++ ps) (tsApplyVar tsf)
             ]
-    TSNPrimType PS{..} -> ppNamedPrim tsnName psItem
+    TSNBaseType (ICoyoneda _ _ x) -> ppNamedBase tsnName x
 
 typeExports_
     :: TSType_ 'Z a
@@ -263,7 +273,7 @@ flattenNamedType_ ps seen tsn@TSNamed{..} = case tsnType of
       deps <- flattenType_ (tsfParams tsf Vec.++ ps) (S.insert tsnName seen) (tsApplyVar tsf)
       modify $ M.insert tsnName (deps, pp)
       pure deps
-    TSNPrimType PS{..} -> do
+    TSNBaseType _ -> do
       modify $ M.insert tsnName (S.empty, pp)
       pure S.empty
   where
@@ -299,6 +309,8 @@ flattenType_ ps seen = go
       TSTransformType tf -> fmap (hfoldMap SOP.unK) $ (`htraverse` tf) $ \case
         TSPartial t -> K <$> go t
         TSReadOnly t -> K <$> go t
+        TSPickPartial o ks _ -> fmap K $ (<>) <$> go o <*> go ks
+        TSOmitPartial o ks _ -> fmap K $ (<>) <$> go o <*> go ks
         TSStringManipType _ t _ -> K <$> go t
       TSPrimType _ -> pure S.empty
       TSBaseType _ -> pure S.empty

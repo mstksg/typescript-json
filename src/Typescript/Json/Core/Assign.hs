@@ -45,7 +45,7 @@ import           Typescript.Json.Core.Encode
 import           Typescript.Json.Core.Parse
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
-import           Typescript.Json.Types.SNat
+import           Typescript.Json.Types.Sing
 import qualified Data.Aeson                        as A
 import qualified Data.Aeson.BetterErrors           as ABE
 import qualified Data.Fin                          as Fin
@@ -91,15 +91,12 @@ unsafeAssign = Assign $ \_ -> Left "unsafeAssign: Unsafe meaningless assignment"
 -- https://www.typescriptlang.org/docs/handbook/type-compatibility.html#advanced-topics
 reAssignPrim :: (r -> a) -> TSPrim a -> TSType 'Z k b -> Maybe (Assign r b)
 reAssignPrim z = \case
-    TSBoolean -> \case
-      TSPrimType (PS TSBoolean f _) -> Just . Assign $ f . z
-      _ -> Nothing
     TSNumber -> \case
       TSPrimType (PS TSNumber f _) -> Just . Assign $ f . z
       -- compatible with num as long as there is at least one number, or is
       -- empty.  this is different than the spec but w/e
       TSNamedType (TSNamed{..} :$ _) -> case tsnType of
-        TSNPrimType (PS (TSEnum cs) f _)
+        TSNBaseType (ICoyoneda _ f (TSEnum cs))
           | null cs   -> Just . Assign $ \_ -> Left $ "Number out of range for empty Enum"
           | otherwise -> do
               let numberOpts =
@@ -110,7 +107,7 @@ reAssignPrim z = \case
               pure . Assign $ \(z->m) ->
                 case getFirst <$> foldMap (\(i, n) -> First i <$ guard (n == m)) numberOpts of
                   Nothing -> Left $ "Number " <> T.pack (show m) <> " out of range for Enum: " <> T.pack (show cs)
-                  Just x  -> f x
+                  Just x  -> Right $ f x
         TSNFunc _ -> Nothing
       _ -> Nothing
     TSBigInt -> \case
@@ -118,19 +115,6 @@ reAssignPrim z = \case
       _ -> Nothing
     TSString -> \case
       TSPrimType (PS TSString f _) -> Just . Assign $ f . z
-      _ -> Nothing
-    -- hey these have to be assignable to strings
-    TSStringLit s -> \case
-      TSPrimType (PS (TSStringLit t) f _) -> Assign (f . z) <$ guard (s == t)
-      TSPrimType (PS TSString f _) -> Just . Assign $ \_ -> f s
-      _ -> Nothing
-    TSNumericLit s -> \case
-      TSPrimType (PS (TSNumericLit t) f _) -> Assign (f . z) <$ guard (s == t)
-      TSPrimType (PS TSNumber f _) -> Just . Assign $ \_ -> f s
-      _ -> Nothing
-    TSBigIntLit s -> \case
-      TSPrimType (PS (TSBigIntLit t) f _) -> Assign (f . z) <$ guard (s == t)
-      TSPrimType (PS TSBigInt f _) -> Just . Assign $ \_ -> f s
       _ -> Nothing
     TSUnknown -> \case
       TSPrimType (PS TSUnknown f _) -> Just . Assign $ f . z
@@ -141,6 +125,21 @@ reAssignPrim z = \case
 
 reAssignBase :: (r -> a) -> TSBase a -> TSType 'Z k b -> Maybe (Assign r b)
 reAssignBase z = \case
+    TSBoolean -> \case
+      TSBaseType (ICoyoneda _ f TSBoolean) -> Just . Assign $ Right . f . z
+      _ -> Nothing
+    TSStringLit s -> \case
+      TSPrimType (PS TSString f _) -> Just . Assign $ \_ -> f s
+      TSBaseType (ICoyoneda _ f (TSStringLit t)) -> Assign (Right . f . z) <$ guard (s == t)
+      _ -> Nothing
+    TSNumericLit s -> \case
+      TSPrimType (PS TSNumber f _) -> Just . Assign $ \_ -> f s
+      TSBaseType (ICoyoneda _ f (TSNumericLit t)) -> Assign (Right . f . z) <$ guard (s == t)
+      _ -> Nothing
+    TSBigIntLit s -> \case
+      TSPrimType (PS TSBigInt f _) -> Just . Assign $ \_ -> f s
+      TSBaseType (ICoyoneda _ f (TSBigIntLit t)) -> Assign (Right . f . z) <$ guard (s == t)
+      _ -> Nothing
     TSVoid -> \case
       TSPrimType (PS TSAny f _) -> Just . Assign $ \_ -> f A.Null
       TSPrimType (PS TSUnknown f _) -> Just . Assign $ \_ -> f A.Null
@@ -179,28 +178,28 @@ reAssign t0 = case t0 of
     TSIntersection xs -> reAssignIsObj (TSIntersection xs)
     TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
       TSNFunc tf -> reAssign (tsApply tf ps)
-      TSNPrimType (PS{..}) -> case psItem of
+      TSNBaseType (ICoyoneda ser _ ite) -> case ite of
         TSEnum cs -> loopReAssign t0 $ \case
           -- compatible with num as long as there is at least one number, or is
           -- empty.  this is different than the spec but w/e
           TSPrimType (PS TSNumber f _) -> case cs of
-            VNil -> Just . Assign $ \i -> Right $ Fin.absurd (psSerializer i)
+            VNil -> Just . Assign $ \i -> Right $ Fin.absurd (ser i)
             _ ->
               let numberOpts =
                     [ (i, n)
                     | (i, (_, ELNumber n)) <- Vec.toList $ Vec.imap (,) cs
                     ]
               in  guard (not (null numberOpts)) $> Assign (\i ->
-                     case snd $ cs Vec.! psSerializer i of
+                     case snd $ cs Vec.! ser i of
                        ELNumber n -> f n
                        ELString s -> Left $ "Enum mismatch: expected number, got " <> s
                   )
           TSNamedType (TSNamed nm nt :$ _) -> case nt of
-            TSNPrimType (PS (TSEnum ds) f _) -> do
+            TSNBaseType (ICoyoneda _ f (TSEnum ds)) -> do
               guard $ tsnName == nm
               Refl <- vecSame (snd <$> cs) (snd <$> ds)
               guard $ cs == ds
-              pure . Assign $ f . psSerializer
+              pure . Assign $ Right . f . ser
             TSNFunc _ -> Nothing
           _ -> Nothing
     TSTransformType tf -> reAssign (interpret applyTransform tf)
@@ -252,7 +251,7 @@ reAssignIsObj x = \case
     TSUnion  _ -> undefined -- TODO: do the whole thing
     TSNamedType (TSNamed{..} :$ ps) -> case tsnType of
       TSNFunc tf -> reAssignIsObj x (tsApply tf ps)
-      TSNPrimType _ -> Nothing
+      TSNBaseType _ -> Nothing
     TSIntersection y -> assembleIsObj mp (TSIntersection y)
     TSTransformType tf -> reAssignIsObj x (interpret applyTransform tf)
     TSPrimType _ -> Nothing
