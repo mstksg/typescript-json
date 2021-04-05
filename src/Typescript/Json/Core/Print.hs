@@ -36,7 +36,6 @@ import           Data.Maybe
 import           Data.Ord
 import           Data.SOP                          (K(..))
 import           Data.Scientific                   (Scientific, toBoundedInteger)
-import qualified Data.DList as DL
 import           Data.Set                          (Set)
 import           Data.Text                         (Text)
 import           Data.Type.Nat
@@ -45,6 +44,7 @@ import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
 import           Typescript.Json.Types.Sing
 import qualified Control.Applicative.Lift          as Lift
+import qualified Data.DList                        as DL
 import qualified Data.Graph.Inductive.Graph        as FGL
 import qualified Data.Graph.Inductive.PatriciaTree as FGL
 import qualified Data.Graph.Inductive.Query.DFS    as FGL

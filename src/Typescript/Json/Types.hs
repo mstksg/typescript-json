@@ -113,7 +113,6 @@ import           Data.Coerce
 import           Data.Fin                          (Fin(..))
 import           Data.Foldable
 import           Data.Functor
-import           Data.Functor
 import           Data.Functor.Apply
 import           Data.Functor.Apply.Free
 import           Data.Functor.Combinator
@@ -127,7 +126,7 @@ import           Data.List.NonEmpty                (NonEmpty)
 import           Data.Map                          (Map)
 import           Data.Maybe
 import           Data.Profunctor
-import           Data.SOP                          (NP(..), NS(..), I(..))
+import           Data.SOP                          (NP(..), NS(..))
 import           Data.Scientific                   (Scientific)
 import           Data.Set                          (Set)
 import           Data.Some                         (Some(..))
