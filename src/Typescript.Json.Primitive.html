@@ -1,0 +1,386 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds                  #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies         #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE EmptyCase                  #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GADTs                      #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures             #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase                 #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings          #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes                 #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards            #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables        #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications           #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators              #-}</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Typescript.Json.Primitive</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Primitives</span></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsBoolean"><span class="hs-identifier">tsBoolean</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsNumber"><span class="hs-identifier">tsNumber</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsBoundedInteger"><span class="hs-identifier">tsBoundedInteger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsInteger"><span class="hs-identifier">tsInteger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsRealFloat"><span class="hs-identifier">tsRealFloat</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsDouble"><span class="hs-identifier">tsDouble</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsBigInt"><span class="hs-identifier">tsBigInt</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsText"><span class="hs-identifier">tsText</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsLazyText"><span class="hs-identifier">tsLazyText</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsString"><span class="hs-identifier">tsString</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsStringLit"><span class="hs-identifier">tsStringLit</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsNumericLit"><span class="hs-identifier">tsNumericLit</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsIntegerLit"><span class="hs-identifier">tsIntegerLit</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsBigIntLit"><span class="hs-identifier">tsBigIntLit</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsUnknown"><span class="hs-identifier">tsUnknown</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsAny"><span class="hs-identifier">tsAny</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsVoid"><span class="hs-identifier">tsVoid</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsUndefined"><span class="hs-identifier">tsUndefined</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsNull"><span class="hs-identifier">tsNull</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Primitive.html#tsNever"><span class="hs-identifier">tsNever</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Bifunctor</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Combinator</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Invariant</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Scientific</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span>                         </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Void</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.html"><span class="hs-identifier">Typescript.Json.Types</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html"><span class="hs-identifier">Typescript.Json.Types.Combinators</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>                        </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">A</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span>                         </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Lazy</span></span><span>                    </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">TL</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span id="local-6989586621679309379"><span class="annot"><a href="Typescript.Json.Primitive.html#tsBoolean"><span class="hs-identifier hs-type">tsBoolean</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309379"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-38"></span><span id="tsBoolean"><span class="annot"><span class="annottext">tsBoolean :: TSType p 'NotObj Bool
+</span><a href="Typescript.Json.Primitive.html#tsBoolean"><span class="hs-identifier hs-var hs-var">tsBoolean</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase Bool -&gt; TSType p 'NotObj Bool
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase Bool -&gt; TSType p 'NotObj Bool)
+-&gt; ICoyoneda TSBase Bool -&gt; TSType p 'NotObj Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSBase Bool -&gt; ICoyoneda TSBase Bool
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSBase Bool
+</span><a href="Typescript.Json.Types.html#TSBoolean"><span class="hs-identifier hs-var">TSBoolean</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span id="local-6989586621679309422"><span class="annot"><a href="Typescript.Json.Primitive.html#tsNumber"><span class="hs-identifier hs-type">tsNumber</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309422"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Scientific</span></span></span><span>
+</span><span id="line-41"></span><span id="tsNumber"><span class="annot"><span class="annottext">tsNumber :: TSType p 'NotObj Scientific
+</span><a href="Typescript.Json.Primitive.html#tsNumber"><span class="hs-identifier hs-var hs-var">tsNumber</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PS TSPrim Scientific -&gt; TSType p 'NotObj Scientific
+forall a (p :: Nat). PS TSPrim a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-var">TSPrimType</span></a></span><span> </span><span class="annot"><span class="annottext">(PS TSPrim Scientific -&gt; TSType p 'NotObj Scientific)
+-&gt; PS TSPrim Scientific -&gt; TSType p 'NotObj Scientific
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Scientific -&gt; PS TSPrim Scientific
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Scientific
+</span><a href="Typescript.Json.Types.html#TSNumber"><span class="hs-identifier hs-var">TSNumber</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span id="local-6989586621679309372"><span id="local-6989586621679309373"><span class="annot"><a href="Typescript.Json.Primitive.html#tsBoundedInteger"><span class="hs-identifier hs-type">tsBoundedInteger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679309373"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621679309373"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309372"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309373"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-44"></span><span id="tsBoundedInteger"><span class="annot"><span class="annottext">tsBoundedInteger :: TSType p 'NotObj a
+</span><a href="Typescript.Json.Primitive.html#tsBoundedInteger"><span class="hs-identifier hs-var hs-var">tsBoundedInteger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PS TSPrim a -&gt; TSType p 'NotObj a
+forall a (p :: Nat). PS TSPrim a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-var">TSPrimType</span></a></span><span> </span><span class="annot"><span class="annottext">(PS TSPrim a -&gt; TSType p 'NotObj a)
+-&gt; PS TSPrim a -&gt; TSType p 'NotObj a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Scientific
+-&gt; (Scientific -&gt; Either Text a)
+-&gt; (a -&gt; Scientific)
+-&gt; PS TSPrim a
+forall (f :: * -&gt; *) a r.
+f r -&gt; (r -&gt; Either Text a) -&gt; (a -&gt; r) -&gt; PS f a
+</span><a href="Typescript.Json.Types.Combinators.html#PS"><span class="hs-identifier hs-var">PS</span></a></span><span> </span><span class="annot"><span class="annottext">TSPrim Scientific
+</span><a href="Typescript.Json.Types.html#TSNumber"><span class="hs-identifier hs-var">TSNumber</span></a></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679309370"><span class="annot"><span class="annottext">x :: Scientific
+</span><a href="#local-6989586621679309370"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Maybe a
+forall i. (Integral i, Bounded i) =&gt; Scientific -&gt; Maybe i
+</span><span class="hs-identifier hs-var">toBoundedInteger</span></span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679309370"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-46"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either Text a)
+-&gt; (String -&gt; Text) -&gt; String -&gt; Either Text a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Either Text a) -&gt; String -&gt; Either Text a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Not an integer: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679309370"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-47"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679309365"><span class="annot"><span class="annottext">i :: a
+</span><a href="#local-6989586621679309365"><span class="hs-identifier hs-var">i</span></a></span></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either Text a
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679309365"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; Scientific
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621679309363"><span id="local-6989586621679309364"><span class="annot"><a href="Typescript.Json.Primitive.html#tsInteger"><span class="hs-identifier hs-type">tsInteger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679309364"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309363"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309364"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-51"></span><span id="tsInteger"><span class="annot"><span class="annottext">tsInteger :: TSType p 'NotObj a
+</span><a href="Typescript.Json.Primitive.html#tsInteger"><span class="hs-identifier hs-var hs-var">tsInteger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PS TSPrim a -&gt; TSType p 'NotObj a
+forall a (p :: Nat). PS TSPrim a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-var">TSPrimType</span></a></span><span> </span><span class="annot"><span class="annottext">(PS TSPrim a -&gt; TSType p 'NotObj a)
+-&gt; PS TSPrim a -&gt; TSType p 'NotObj a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Scientific
+-&gt; (Scientific -&gt; Either Text a)
+-&gt; (a -&gt; Scientific)
+-&gt; PS TSPrim a
+forall (f :: * -&gt; *) a r.
+f r -&gt; (r -&gt; Either Text a) -&gt; (a -&gt; r) -&gt; PS f a
+</span><a href="Typescript.Json.Types.Combinators.html#PS"><span class="hs-identifier hs-var">PS</span></a></span><span> </span><span class="annot"><span class="annottext">TSPrim Scientific
+</span><a href="Typescript.Json.Types.html#TSNumber"><span class="hs-identifier hs-var">TSNumber</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679309362"><span class="annot"><span class="annottext">x :: Scientific
+</span><a href="#local-6989586621679309362"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Double -&gt; Text) -&gt; Either Double a -&gt; Either Text a
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><span class="hs-identifier hs-var">first</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679309360"><span class="annot"><span class="annottext">n :: Double
+</span><a href="#local-6989586621679309360"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Text) -&gt; String -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Not an integer: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Double</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679309360"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Scientific -&gt; Either Double a
+forall r i. (RealFloat r, Integral i) =&gt; Scientific -&gt; Either r i
+</span><span class="hs-identifier hs-var">floatingOrInteger</span></span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679309362"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">a -&gt; Scientific
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span id="local-6989586621679309419"><span id="local-6989586621679309420"><span class="annot"><a href="Typescript.Json.Primitive.html#tsRealFloat"><span class="hs-identifier hs-type">tsRealFloat</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RealFloat</span></span><span> </span><span class="annot"><a href="#local-6989586621679309420"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309419"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309420"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-56"></span><span id="tsRealFloat"><span class="annot"><span class="annottext">tsRealFloat :: TSType p 'NotObj a
+</span><a href="Typescript.Json.Primitive.html#tsRealFloat"><span class="hs-identifier hs-var hs-var">tsRealFloat</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Scientific -&gt; a)
+-&gt; (a -&gt; Scientific)
+-&gt; TSType p 'NotObj Scientific
+-&gt; TSType p 'NotObj a
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; a
+forall a. RealFloat a =&gt; Scientific -&gt; a
+</span><span class="hs-identifier hs-var">toRealFloat</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Scientific
+forall a. RealFloat a =&gt; a -&gt; Scientific
+</span><span class="hs-identifier hs-var">fromFloatDigits</span></span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj Scientific
+forall (p :: Nat). TSType p 'NotObj Scientific
+</span><a href="Typescript.Json.Primitive.html#tsNumber"><span class="hs-identifier hs-var">tsNumber</span></a></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span id="local-6989586621679309355"><span class="annot"><a href="Typescript.Json.Primitive.html#tsDouble"><span class="hs-identifier hs-type">tsDouble</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309355"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Double</span></span></span><span>
+</span><span id="line-59"></span><span id="tsDouble"><span class="annot"><span class="annottext">tsDouble :: TSType p 'NotObj Double
+</span><a href="Typescript.Json.Primitive.html#tsDouble"><span class="hs-identifier hs-var hs-var">tsDouble</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj Double
+forall a (p :: Nat). RealFloat a =&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Primitive.html#tsRealFloat"><span class="hs-identifier hs-var">tsRealFloat</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span id="local-6989586621679309354"><span class="annot"><a href="Typescript.Json.Primitive.html#tsBigInt"><span class="hs-identifier hs-type">tsBigInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309354"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span></span><span>
+</span><span id="line-62"></span><span id="tsBigInt"><span class="annot"><span class="annottext">tsBigInt :: TSType p 'NotObj Integer
+</span><a href="Typescript.Json.Primitive.html#tsBigInt"><span class="hs-identifier hs-var hs-var">tsBigInt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PS TSPrim Integer -&gt; TSType p 'NotObj Integer
+forall a (p :: Nat). PS TSPrim a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-var">TSPrimType</span></a></span><span> </span><span class="annot"><span class="annottext">(PS TSPrim Integer -&gt; TSType p 'NotObj Integer)
+-&gt; PS TSPrim Integer -&gt; TSType p 'NotObj Integer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Integer -&gt; PS TSPrim Integer
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Integer
+</span><a href="Typescript.Json.Types.html#TSBigInt"><span class="hs-identifier hs-var">TSBigInt</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span id="local-6989586621679309414"><span class="annot"><a href="Typescript.Json.Primitive.html#tsText"><span class="hs-identifier hs-type">tsText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309414"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span></span><span>
+</span><span id="line-65"></span><span id="tsText"><span class="annot"><span class="annottext">tsText :: TSType p 'NotObj Text
+</span><a href="Typescript.Json.Primitive.html#tsText"><span class="hs-identifier hs-var hs-var">tsText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PS TSPrim Text -&gt; TSType p 'NotObj Text
+forall a (p :: Nat). PS TSPrim a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-var">TSPrimType</span></a></span><span> </span><span class="annot"><span class="annottext">(PS TSPrim Text -&gt; TSType p 'NotObj Text)
+-&gt; PS TSPrim Text -&gt; TSType p 'NotObj Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Text -&gt; PS TSPrim Text
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Text
+</span><a href="Typescript.Json.Types.html#TSString"><span class="hs-identifier hs-var">TSString</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span id="local-6989586621679309351"><span class="annot"><a href="Typescript.Json.Primitive.html#tsLazyText"><span class="hs-identifier hs-type">tsLazyText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309351"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TL.Text</span></span></span><span>
+</span><span id="line-68"></span><span id="tsLazyText"><span class="annot"><span class="annottext">tsLazyText :: TSType p 'NotObj Text
+</span><a href="Typescript.Json.Primitive.html#tsLazyText"><span class="hs-identifier hs-var hs-var">tsLazyText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text)
+-&gt; (Text -&gt; Text) -&gt; TSType p 'NotObj Text -&gt; TSType p 'NotObj Text
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">TL.fromStrict</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><span class="hs-identifier hs-var">TL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj Text
+forall (p :: Nat). TSType p 'NotObj Text
+</span><a href="Typescript.Json.Primitive.html#tsText"><span class="hs-identifier hs-var">tsText</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679309348"><span class="annot"><a href="Typescript.Json.Primitive.html#tsString"><span class="hs-identifier hs-type">tsString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309348"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span></span><span>
+</span><span id="line-71"></span><span id="tsString"><span class="annot"><span class="annottext">tsString :: TSType p 'NotObj String
+</span><a href="Typescript.Json.Primitive.html#tsString"><span class="hs-identifier hs-var hs-var">tsString</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String)
+-&gt; (String -&gt; Text)
+-&gt; TSType p 'NotObj Text
+-&gt; TSType p 'NotObj String
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj Text
+forall (p :: Nat). TSType p 'NotObj Text
+</span><a href="Typescript.Json.Primitive.html#tsText"><span class="hs-identifier hs-var">tsText</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span id="local-6989586621679309346"><span class="annot"><a href="Typescript.Json.Primitive.html#tsStringLit"><span class="hs-identifier hs-type">tsStringLit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309346"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-74"></span><span id="tsStringLit"><span class="annot"><span class="annottext">tsStringLit :: Text -&gt; TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsStringLit"><span class="hs-identifier hs-var hs-var">tsStringLit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase () -&gt; TSType p 'NotObj ())
+-&gt; (Text -&gt; ICoyoneda TSBase ()) -&gt; Text -&gt; TSType p 'NotObj ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSBase () -&gt; ICoyoneda TSBase ()
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">(TSBase () -&gt; ICoyoneda TSBase ())
+-&gt; (Text -&gt; TSBase ()) -&gt; Text -&gt; ICoyoneda TSBase ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; TSBase ()
+</span><a href="Typescript.Json.Types.html#TSStringLit"><span class="hs-identifier hs-var">TSStringLit</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span id="local-6989586621679309344"><span class="annot"><a href="Typescript.Json.Primitive.html#tsNumericLit"><span class="hs-identifier hs-type">tsNumericLit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Scientific</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309344"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-77"></span><span id="tsNumericLit"><span class="annot"><span class="annottext">tsNumericLit :: Scientific -&gt; TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsNumericLit"><span class="hs-identifier hs-var hs-var">tsNumericLit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase () -&gt; TSType p 'NotObj ())
+-&gt; (Scientific -&gt; ICoyoneda TSBase ())
+-&gt; Scientific
+-&gt; TSType p 'NotObj ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSBase () -&gt; ICoyoneda TSBase ()
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">(TSBase () -&gt; ICoyoneda TSBase ())
+-&gt; (Scientific -&gt; TSBase ()) -&gt; Scientific -&gt; ICoyoneda TSBase ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; TSBase ()
+</span><a href="Typescript.Json.Types.html#TSNumericLit"><span class="hs-identifier hs-var">TSNumericLit</span></a></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span id="local-6989586621679309341"><span id="local-6989586621679309342"><span class="annot"><a href="Typescript.Json.Primitive.html#tsIntegerLit"><span class="hs-identifier hs-type">tsIntegerLit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621679309342"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309342"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309341"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-80"></span><span id="tsIntegerLit"><span class="annot"><span class="annottext">tsIntegerLit :: a -&gt; TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsIntegerLit"><span class="hs-identifier hs-var hs-var">tsIntegerLit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase () -&gt; TSType p 'NotObj ())
+-&gt; (a -&gt; ICoyoneda TSBase ()) -&gt; a -&gt; TSType p 'NotObj ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSBase () -&gt; ICoyoneda TSBase ()
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">(TSBase () -&gt; ICoyoneda TSBase ())
+-&gt; (a -&gt; TSBase ()) -&gt; a -&gt; ICoyoneda TSBase ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; TSBase ()
+</span><a href="Typescript.Json.Types.html#TSNumericLit"><span class="hs-identifier hs-var">TSNumericLit</span></a></span><span> </span><span class="annot"><span class="annottext">(Scientific -&gt; TSBase ()) -&gt; (a -&gt; Scientific) -&gt; a -&gt; TSBase ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Scientific
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span id="local-6989586621679309340"><span class="annot"><a href="Typescript.Json.Primitive.html#tsBigIntLit"><span class="hs-identifier hs-type">tsBigIntLit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integer</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309340"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-83"></span><span id="tsBigIntLit"><span class="annot"><span class="annottext">tsBigIntLit :: Integer -&gt; TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsBigIntLit"><span class="hs-identifier hs-var hs-var">tsBigIntLit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase () -&gt; TSType p 'NotObj ())
+-&gt; (Integer -&gt; ICoyoneda TSBase ())
+-&gt; Integer
+-&gt; TSType p 'NotObj ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSBase () -&gt; ICoyoneda TSBase ()
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">(TSBase () -&gt; ICoyoneda TSBase ())
+-&gt; (Integer -&gt; TSBase ()) -&gt; Integer -&gt; ICoyoneda TSBase ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; TSBase ()
+</span><a href="Typescript.Json.Types.html#TSBigIntLit"><span class="hs-identifier hs-var">TSBigIntLit</span></a></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span id="local-6989586621679309338"><span class="annot"><a href="Typescript.Json.Primitive.html#tsUnknown"><span class="hs-identifier hs-type">tsUnknown</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309338"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Value</span></span></span><span>
+</span><span id="line-86"></span><span id="tsUnknown"><span class="annot"><span class="annottext">tsUnknown :: TSType p 'NotObj Value
+</span><a href="Typescript.Json.Primitive.html#tsUnknown"><span class="hs-identifier hs-var hs-var">tsUnknown</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PS TSPrim Value -&gt; TSType p 'NotObj Value
+forall a (p :: Nat). PS TSPrim a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-var">TSPrimType</span></a></span><span> </span><span class="annot"><span class="annottext">(PS TSPrim Value -&gt; TSType p 'NotObj Value)
+-&gt; PS TSPrim Value -&gt; TSType p 'NotObj Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Value -&gt; PS TSPrim Value
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Value
+</span><a href="Typescript.Json.Types.html#TSUnknown"><span class="hs-identifier hs-var">TSUnknown</span></a></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span id="local-6989586621679309336"><span class="annot"><a href="Typescript.Json.Primitive.html#tsAny"><span class="hs-identifier hs-type">tsAny</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309336"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Value</span></span></span><span>
+</span><span id="line-89"></span><span id="tsAny"><span class="annot"><span class="annottext">tsAny :: TSType p 'NotObj Value
+</span><a href="Typescript.Json.Primitive.html#tsAny"><span class="hs-identifier hs-var hs-var">tsAny</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PS TSPrim Value -&gt; TSType p 'NotObj Value
+forall a (p :: Nat). PS TSPrim a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-var">TSPrimType</span></a></span><span> </span><span class="annot"><span class="annottext">(PS TSPrim Value -&gt; TSType p 'NotObj Value)
+-&gt; PS TSPrim Value -&gt; TSType p 'NotObj Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Value -&gt; PS TSPrim Value
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSPrim Value
+</span><a href="Typescript.Json.Types.html#TSAny"><span class="hs-identifier hs-var">TSAny</span></a></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- TODO: to/from aeson parser</span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span id="local-6989586621679309334"><span class="annot"><a href="Typescript.Json.Primitive.html#tsVoid"><span class="hs-identifier hs-type">tsVoid</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309334"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-94"></span><span id="tsVoid"><span class="annot"><span class="annottext">tsVoid :: TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsVoid"><span class="hs-identifier hs-var hs-var">tsVoid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase () -&gt; TSType p 'NotObj ())
+-&gt; ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSBase () -&gt; ICoyoneda TSBase ()
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSBase ()
+</span><a href="Typescript.Json.Types.html#TSVoid"><span class="hs-identifier hs-var">TSVoid</span></a></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span id="local-6989586621679309332"><span class="annot"><a href="Typescript.Json.Primitive.html#tsUndefined"><span class="hs-identifier hs-type">tsUndefined</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309332"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-97"></span><span id="tsUndefined"><span class="annot"><span class="annottext">tsUndefined :: TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsUndefined"><span class="hs-identifier hs-var hs-var">tsUndefined</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase () -&gt; TSType p 'NotObj ())
+-&gt; ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSBase () -&gt; ICoyoneda TSBase ()
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSBase ()
+</span><a href="Typescript.Json.Types.html#TSUndefined"><span class="hs-identifier hs-var">TSUndefined</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span id="local-6989586621679309330"><span class="annot"><a href="Typescript.Json.Primitive.html#tsNull"><span class="hs-identifier hs-type">tsNull</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309330"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-100"></span><span id="tsNull"><span class="annot"><span class="annottext">tsNull :: TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsNull"><span class="hs-identifier hs-var hs-var">tsNull</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase () -&gt; TSType p 'NotObj ())
+-&gt; ICoyoneda TSBase () -&gt; TSType p 'NotObj ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSBase () -&gt; ICoyoneda TSBase ()
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSBase ()
+</span><a href="Typescript.Json.Types.html#TSNull"><span class="hs-identifier hs-var">TSNull</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span id="local-6989586621679309328"><span class="annot"><a href="Typescript.Json.Primitive.html#tsNever"><span class="hs-identifier hs-type">tsNever</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309328"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Void</span></span></span><span>
+</span><span id="line-103"></span><span id="tsNever"><span class="annot"><span class="annottext">tsNever :: TSType p 'NotObj Void
+</span><a href="Typescript.Json.Primitive.html#tsNever"><span class="hs-identifier hs-var hs-var">tsNever</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSBase Void -&gt; TSType p 'NotObj Void
+forall a (p :: Nat). ICoyoneda TSBase a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-var">TSBaseType</span></a></span><span> </span><span class="annot"><span class="annottext">(ICoyoneda TSBase Void -&gt; TSType p 'NotObj Void)
+-&gt; ICoyoneda TSBase Void -&gt; TSType p 'NotObj Void
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSBase Void -&gt; ICoyoneda TSBase Void
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">TSBase Void
+</span><a href="Typescript.Json.Types.html#TSNever"><span class="hs-identifier hs-var">TSNever</span></a></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span></pre></body></html>

@@ -343,6 +343,72 @@ instance Data.Functor.Invariant.Invariant f => Data.Functor.Invariant.Invariant 
 instance Data.GADT.Internal.GShow Typescript.Json.Types.TSNamedBase
 instance Data.GADT.Internal.GShow Typescript.Json.Types.TSPrim
 
+module Typescript.Json.Primitive
+tsBoolean :: TSType p 'NotObj Bool
+tsNumber :: TSType p 'NotObj Scientific
+tsBoundedInteger :: (Integral a, Bounded a) => TSType p 'NotObj a
+tsInteger :: Integral a => TSType p 'NotObj a
+tsRealFloat :: RealFloat a => TSType p 'NotObj a
+tsDouble :: TSType p 'NotObj Double
+tsBigInt :: TSType p 'NotObj Integer
+tsText :: TSType p 'NotObj Text
+tsLazyText :: TSType p 'NotObj Text
+tsString :: TSType p 'NotObj String
+tsStringLit :: Text -> TSType p 'NotObj ()
+tsNumericLit :: Scientific -> TSType p 'NotObj ()
+tsIntegerLit :: Integral a => a -> TSType p 'NotObj ()
+tsBigIntLit :: Integer -> TSType p 'NotObj ()
+tsUnknown :: TSType p 'NotObj Value
+tsAny :: TSType p 'NotObj Value
+tsVoid :: TSType p 'NotObj ()
+tsUndefined :: TSType p 'NotObj ()
+tsNull :: TSType p 'NotObj ()
+tsNever :: TSType p 'NotObj Void
+
+module Typescript.Json.Parameterized
+
+-- | A parameterized type with multiple parameters.
+tsGeneric :: Text -> NP2 (Param p) as es -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSType (Plus r p) k b) -> TSNamed p k as es b
+
+-- | Create a single-argument generic (parameterized) type.
+--   
+--   For example, we could make a type imitating <a>Maybe</a> in Haskell:
+--   
+--   <pre>
+--   mkMaybe :: TSType_ p a -&gt; TSType_ p (Maybe a)
+--   mkMaybe = tsUnion $ decide (maybe (Left ()) Right) $
+--       (tsTagged
+--   </pre>
+tsGeneric1 :: Text -> Param p a e -> (forall r. SNat_ r -> Arg_ (Plus r p) a e -> TSType (Plus r p) k b) -> TSNamed p k '[a] '[e] b
+tsGeneric2 :: Text -> Param p a ea -> Param p b eb -> (forall r. SNat_ r -> Arg_ (Plus r p) a ea -> Arg_ (Plus r p) b eb -> TSType (Plus r p) k c) -> TSNamed p k '[a, b] '[ea, eb] c
+tsGeneric3 :: Text -> Param p a ea -> Param p b eb -> Param p c ec -> (forall r. SNat_ r -> Arg_ (Plus r p) a ea -> Arg_ (Plus r p) b eb -> Arg_ (Plus r p) c ec -> TSType (Plus r p) k d) -> TSNamed p k '[a, b, c] '[ea, eb, ec] d
+tsGenericInterface :: Text -> NP2 (Param p) as es -> Lift (TSAppliedF p 'IsObj as es) a -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSKeyVal (Plus r p) b) -> TSNamed p 'IsObj as es (a, b)
+tsApplied1 :: TSNamed p k '[a] '[e] b -> Arg_ p a e -> TSType p k b
+tsApplied2 :: TSNamed p k '[a, b] '[ea, eb] c -> Arg_ p a ea -> Arg_ p b eb -> TSType p k c
+tsApplied3 :: TSNamed p k '[a, b, c] '[ea, eb, ec] d -> Arg_ p a ea -> Arg_ p b eb -> Arg_ p c ec -> TSType p k d
+tsApplied :: TSNamed p k as es b -> NP2 (Arg_ p) as es -> TSType p k b
+tsApply1 :: TSTypeF p k '[a] '[e] b -> Arg_ p a e -> TSType p k b
+tsApply2 :: TSTypeF p k '[a, b] '[ea, eb] c -> Arg_ p a ea -> Arg_ p b eb -> TSType p k c
+tsApply3 :: TSTypeF p k '[a, b, c] '[ea, eb, ec] d -> Arg_ p a ea -> Arg_ p b eb -> Arg_ p c ec -> TSType p k d
+tsApply :: TSTypeF p k as es b -> NP2 (Arg_ p) as es -> TSType p k b
+
+module Typescript.Json.Enum
+data FinIso n a
+FinIso :: (Fin n -> a) -> (a -> Fin n) -> FinIso n a
+[fiGet] :: FinIso n a -> Fin n -> a
+[fiPut] :: FinIso n a -> a -> Fin n
+tsEnumWith :: Text -> FinIso n a -> Vec n (Text, EnumLit) -> TSNamed p 'NotObj '[] '[] a
+tsIntEnumFrom :: Text -> Int -> FinIso n a -> Vec n Text -> TSNamed p 'NotObj '[] '[] a
+tsIntEnum :: Text -> FinIso n a -> Vec n Text -> TSNamed p 'NotObj '[] '[] a
+data EnumMap a
+EnumMap :: Map EnumLit (Text, a) -> (a -> EnumLit) -> EnumMap a
+[emGet] :: EnumMap a -> Map EnumLit (Text, a)
+[emPut] :: EnumMap a -> a -> EnumLit
+tsEnumMap :: Text -> EnumMap a -> TSNamed p 'NotObj '[] '[] a
+tsFinEnum :: Enum a => Text -> Vec (EnumSize a) (Text, EnumLit) -> TSNamed p 'NotObj '[] '[] a
+tsFinIntEnum :: Enum a => Text -> Vec (EnumSize a) Text -> TSNamed p 'NotObj '[] '[] a
+instance Data.Functor.Invariant.Invariant (Typescript.Json.Enum.FinIso n)
+
 module Typescript.Json.Core.Encode
 enumLitToValue :: EnumLit -> Value
 primToValue :: TSPrim a -> a -> Value
@@ -351,57 +417,7 @@ encodeEnumLit :: EnumLit -> Encoding
 primToEncoding :: TSPrim a -> a -> Encoding
 typeToEncoding :: TSType 'Z k a -> a -> Encoding
 
-module Typescript.Json.Core.Print
-ppType :: TSType 'Z k a -> Doc x
-ppType_ :: TSType_ 'Z a -> Doc x
-ppEnumLit :: EnumLit -> Doc x
-ppNamedBase :: Text -> TSNamedBase a -> Doc x
-ppNamed :: TSNamed 'Z k as es a -> Doc x
-ppNamed_ :: TSNamed_ 'Z as es a -> Doc x
-ppNamed' :: Vec p Text -> TSNamed p k as es a -> Doc x
-typeExports_ :: TSType_ 'Z a -> Doc x
-typeExports :: TSType 'Z k a -> Doc x
-typeExports' :: Vec p Text -> TSType p k a -> Doc x
-namedTypeExports_ :: TSNamed_ 'Z as es a -> Doc x
-namedTypeExports :: TSNamed 'Z k as es a -> Doc x
-namedTypeExports' :: Vec p Text -> TSNamed p k as es a -> Doc x
-ppMap :: forall x. () => Map Text (Set Text, Doc x) -> Doc x
-
--- | Pull out all of the named types to be top-level type declarations, and
---   have create a map of all of those declarations.
-flattenNamedType :: Vec p Text -> TSNamed p k as es a -> Map Text (Set Text, Doc x)
-
--- | Ignores the top level type, so why even bother?
-flattenType :: Vec p Text -> TSType p k a -> Map Text (Set Text, Doc x)
-
--- | TODO: stop if it is a recursive reference
-flattenType_ :: forall p k a x. () => Vec p Text -> Set Text -> TSType p k a -> State (Map Text (Set Text, Doc x)) (Set Text)
-
-module Typescript.Json.Core.Parse
-parseType :: forall k a. () => TSType 'Z k a -> Parse a
-showParseErr :: ParseErr -> String
-data ParseErr
-PEInvalidEnum :: [(Text, EnumLit)] -> ParseErr
-PEInvalidString :: Text -> Text -> ParseErr
-PEInvalidNumber :: Scientific -> Scientific -> ParseErr
-PEInvalidBigInt :: Integer -> Integer -> ParseErr
-PEPrimitive :: Some TSPrim -> Text -> ParseErr
-PEExtraTuple :: Int -> Int -> ParseErr
-PENotInUnion :: NonEmpty (Doc ()) -> ParseErr
-PENever :: ParseErr
-
-module Typescript.Json
-data TSType :: Nat -> IsObjType -> Type -> Type
-data TSTypeF :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type
-data EnumLit
-ELString :: Text -> EnumLit
-ELNumber :: Scientific -> EnumLit
-data TSType_ p a
-TSType_ :: TSType p k a -> TSType_ p a
-[unTSType_] :: TSType_ p a -> TSType p k a
-data TSTypeF_ p as es b
-TSTypeF_ :: TSTypeF p k as es b -> TSTypeF_ p as es b
-[unTSTypeF_] :: TSTypeF_ p as es b -> TSTypeF p k as es b
+module Typescript.Json.Collection
 tsList :: TSType_ p a -> TSType p 'NotObj [a]
 tsVector :: Vector v a => TSType_ p a -> TSType p 'NotObj (v a)
 tsIsList :: IsList l => TSType_ p (Item l) -> TSType p 'NotObj l
@@ -425,9 +441,9 @@ tsIsList :: IsList l => TSType_ p (Item l) -> TSType p 'NotObj l
 --   
 --   myTypeProps :: <a>ObjectProps</a> p MyType MyType
 --   myTypeProps = MyType
---     &lt;$&gt; <a>keyVal</a> True mta "mta" (<a>TSType_</a> <a>tsBoundedInteger</a>)
---     &lt;*&gt; keyVal True mtb "mtb" (TSType_ <a>tsBoolean</a>)
---     &lt;*&gt; <a>keyValMay</a> mtc "mtc" (TSType_ <a>tsString</a>)
+--     &lt;$&gt; <a>keyVal</a> True mta "mta" (<a>TSType_</a> <tt>tsBoundedInteger</tt>)
+--     &lt;*&gt; keyVal True mtb "mtb" (TSType_ <tt>tsBoolean</tt>)
+--     &lt;*&gt; <a>keyValMay</a> mtc "mtc" (TSType_ <tt>tsString</tt>)
 --   
 --   myType :: TSType p 'IsObj MyType
 --   myType = tsObject myTypeProps
@@ -479,9 +495,9 @@ tsObject :: ObjectProps p a a -> TSType p 'IsObj a
 --   
 --   myTypeVals :: <a>TupleVals</a> p MyType MyType
 --   myTypeVals = MyType
---     &lt;$&gt; <a>tupleVal</a> mta (TSType_ <a>tsBoundedInteger</a>)
---     &lt;*&gt; tupleVal mtb (TSType_ <a>tsBoolean</a>)
---     &lt;*&gt; tupleVal mtc (TSType_ <a>tsString</a>)
+--     &lt;$&gt; <a>tupleVal</a> mta (TSType_ <tt>tsBoundedInteger</tt>)
+--     &lt;*&gt; tupleVal mtb (TSType_ <tt>tsBoolean</tt>)
+--     &lt;*&gt; tupleVal mtc (TSType_ <tt>tsString</tt>)
 --   
 --   myType :: TSType p 'NotObj MyType
 --   myType = tsTuple myTypeVals
@@ -514,122 +530,6 @@ tupleVal :: (a -> b) -> TSType_ p b -> TupleVals p a b
 tsTuple :: TupleVals p a a -> TSType p 'NotObj a
 stripObjectVals :: ObjectProps p a b -> TupleVals p a b
 
--- | Build up a union type from a <tt>unionBranch</tt>.
-tsUnion :: TSUnionBranches p a -> TSType p 'NotObj a
-tsUnions :: (a -> NS I (b : bs)) -> NP (Op a) (b : bs) -> NP (TSType_ p) (b : bs) -> TSType p 'NotObj a
-
--- | A utility for a simple situation of a "tag" key-value pair, where the
---   property value is just a string literal singleton. Often used to
---   simulate discriminated unions in typescript.
---   
---   <pre>
---   ppType . TSType_ . tsObject $
---     tagVal "tag" "something"
---   -- =&gt; { tag: "sometning" }
---   </pre>
---   
---   You can combine this with other properties:
---   
---   <pre>
---   <a>ppType</a> . <a>TSType_</a> . <a>tsObject</a> $
---        <a>tagVal</a> "tag" "something"
---     *&gt; <a>keyVal</a> True "contents" id <a>tsBoolean</a>
---   -- =&gt; { tag: "someting", contents: boolean }
---   </pre>
---   
---   See also <a>taggedObject</a>, which uses an intersection instead of
---   joining the keys directly.
-tagVal :: Mutability -> Text -> Text -> ObjectProps p a ()
-
--- | A utility for a simple situation of a "tag" key-value pair intersected
---   with an object type. Often used to simulate discriminated unions in
---   typescript.
---   
---   <pre>
---   <a>ppType</a> . <a>TSType_</a> $
---        <a>taggedObject</a> "tag" "something" $
---            <a>tsObject</a> $
---              (,) <a>$</a> <a>keyVal</a> True "name" fst (TSType_ <a>tsText</a>)
---                  <a>*</a> <a>keyVal</a> True "age" snd (TSType_ <a>tsBoundedInteger</a>)
---   -- =&gt; { tag: "something" } &amp; { name: string, age: number }
---   </pre>
---   
---   See also <a>taggedObject</a>, which uses an intersection instead of
---   joining the keys directly.
-taggedObject :: Mutability -> Text -> Text -> TSType p 'IsObj a -> TSType p 'IsObj a
-
--- | High-level utility to wrap a <a>TSType_</a> with a "tag".
---   
---   Assuming both flags are set to <a>True</a>:
---   
---   <ol>
---   <li>If the contents type is an object, this will be <tt>{ tagkey:
---   tagvalue } &amp; contents</tt> (the same behavior as
---   <a>taggedObject</a>).</li>
---   <li>If the contents type is a nullable value, this well be <tt>{
---   tagkey: tagvalue, contentskey?: contents}</tt></li>
---   <li>Otherwise, this well be <tt>{ tagkey: tagvalue, contentskey:
---   contents}</tt></li>
---   </ol>
---   
---   If the first argument is <a>False</a>, will avoid case (1). If the
---   second argument is <a>False</a>, will avoid case (2).
---   
---   <pre>
---   case1 :: TSType_ p (Text, Int)
---   case1 = <a>TSType_</a> . <a>tsObject</a> $
---     (,) &lt;$&gt; <a>keyVal</a> True "name" fst (TSType_ <a>tsText</a>)
---         &lt;*&gt; <a>keyVal</a> True "age" snd (TSType_ <a>tsBoundedInteger</a>)
---   
---   case2 :: TSType_ p (Maybe Int)
---   case2 = <a>TSType_</a> $ <tt>tsNullable</tt> (<a>TSType_</a> <a>tsBoundedInteger</a>)
---   
---   case3 :: TSType_ p String
---   case3 = <a>TSType_</a> <a>tsString</a>
---   </pre>
---   
---   <pre>
---   <a>ppType</a> . <a>TSType_</a> $ <a>taggedValue</a> True True "tag" "something" "contents" case1
---   -- =&gt; { tag: "something" } &amp; { name: string, age: number }
---   
---   <a>ppType</a> . <a>TSType_</a> $ <a>taggedValue</a> True True "tag" "something" "contents" case2
---   -- =&gt; { tag: "something", contents?: number }
---   
---   <a>ppType</a> . <a>TSType_</a> $ <a>taggedValue</a> True True "tag" "something" "contents" case3
---   -- =&gt; { tag: "something", contents: string }
---   </pre>
-taggedValue :: TaggedValueOpts -> Text -> TSType_ p a -> TSType p 'IsObj a
-taggedNullary :: TaggedValueOpts -> Text -> a -> TSType_ p a
-
--- | A high-level data type describing the common pattern of a "tagged"
---   union (sum types in Haskell), where each branch comes in the form of
---   an object with a "tag" property with a string literal singleton, and
---   the rest of the object is the contents. We would store an <tt>Either
---   Int Bool</tt> as, say, <tt>{ tag: <a>Left</a>, contents: number } | {
---   tag: <a>Right</a>, contents: boolean }</tt>.
---   
---   Meant to be constructed using <a>taggedBranch</a> and other
---   <tt>Decide</tt> combinators.
-newtype TaggedBranches p a
-TaggedBranches :: DecAlt1 (Branch p) a -> TaggedBranches p a
-[getTaggedBranches] :: TaggedBranches p a -> DecAlt1 (Branch p) a
-data Branch p a
-Branch :: Text -> Lift (TSType_ p) a -> Branch p a
-[branchTag] :: Branch p a -> Text
-[branchType] :: Branch p a -> Lift (TSType_ p) a
-data TaggedValueOpts
-TVOTagAndContents :: TagAndContents -> TaggedValueOpts
-TVOTagIsKey :: TagIsKey -> TaggedValueOpts
-
--- | Create a singleton <a>TaggedBranches</a>, to be combined with
---   <tt>Decide</tt> combinators with others. Can also be used with
---   <a>tsUnions</a> if you want to combine a large number.
-taggedBranch :: Text -> TSType_ p a -> TaggedBranches p a
-mergeTB :: (a -> Either b c) -> (b -> a) -> (c -> a) -> TaggedBranches p b -> TaggedBranches p c -> TaggedBranches p a
-emptyTaggedBranch :: Text -> a -> TaggedBranches p a
-tsTaggedUnion :: TaggedValueOpts -> TaggedBranches p a -> TSType p 'NotObj a
-tsTaggedUnions :: TaggedValueOpts -> (a -> NS I (b : bs)) -> NP (Op a) (b : bs) -> NP (TaggedBranches p) (b : bs) -> TSType p 'NotObj a
-
 -- | A type aggregating the parts of an intersection. Meant to be assembled
 --   using <a>intersectVal</a> and combined using its <a>Applicative</a>
 --   instance. To finally turn one into a <a>TSType</a>, use
@@ -648,9 +548,9 @@ tsTaggedUnions :: TaggedValueOpts -> (a -> NS I (b : bs)) -> NP (Op a) (b : bs) 
 --   
 --   myType :: TSType p 'IsObj MyType
 --   myType = tsObject $ MyType
---     &lt;$&gt; <a>keyVal</a> True mta "mta" (<a>TSType_</a> <a>tsBoundedInteger</a>)
---     &lt;*&gt; keyVal True mtb "mtb" (TSType_ <a>tsBoolean</a>)
---     &lt;*&gt; <a>keyValMay</a> mtc "mtc" (TSType_ <a>tsString</a>)
+--     &lt;$&gt; <a>keyVal</a> True mta "mta" (<a>TSType_</a> <tt>tsBoundedInteger</tt>)
+--     &lt;*&gt; keyVal True mtb "mtb" (TSType_ <tt>tsBoolean</tt>)
+--     &lt;*&gt; <a>keyValMay</a> mtc "mtc" (TSType_ <tt>tsString</tt>)
 --   
 --   -- { tag: "something" }
 --   tagType :: TSType p 'IsObj ()
@@ -693,6 +593,234 @@ intersectVal :: (a -> b) -> TSType p 'IsObj b -> IntersectVals p a b
 -- | Gather together intersection values into a <a>TSType</a>. See
 --   <tt>IntersectionVals</tt> for details on how to use this.
 tsIntersection :: IntersectVals p a a -> TSType p 'IsObj a
+instance Data.Functor.Bind.Class.Apply (Typescript.Json.Collection.IntersectVals p a)
+instance GHC.Base.Functor (Typescript.Json.Collection.IntersectVals p a)
+instance GHC.Base.Applicative (Typescript.Json.Collection.TupleVals p a)
+instance Data.Functor.Bind.Class.Apply (Typescript.Json.Collection.TupleVals p a)
+instance GHC.Base.Functor (Typescript.Json.Collection.TupleVals p a)
+instance GHC.Base.Applicative (Typescript.Json.Collection.ObjectProps p a)
+instance Data.Functor.Bind.Class.Apply (Typescript.Json.Collection.ObjectProps p a)
+instance GHC.Base.Functor (Typescript.Json.Collection.ObjectProps p a)
+instance Data.Functor.Invariant.Invariant (Typescript.Json.Collection.IntersectVals p a)
+instance Data.Profunctor.Unsafe.Profunctor (Typescript.Json.Collection.IntersectVals p)
+instance Data.Functor.Invariant.Invariant (Typescript.Json.Collection.TupleVals p a)
+instance Data.Profunctor.Unsafe.Profunctor (Typescript.Json.Collection.TupleVals p)
+instance Data.Functor.Invariant.Invariant (Typescript.Json.Collection.ObjectProps p a)
+instance Data.Profunctor.Unsafe.Profunctor (Typescript.Json.Collection.ObjectProps p)
+
+module Typescript.Json.Core.Print
+ppType :: TSType 'Z k a -> Doc x
+ppType_ :: TSType_ 'Z a -> Doc x
+ppEnumLit :: EnumLit -> Doc x
+ppNamedBase :: Text -> TSNamedBase a -> Doc x
+ppNamed :: TSNamed 'Z k as es a -> Doc x
+ppNamed_ :: TSNamed_ 'Z as es a -> Doc x
+ppNamed' :: Vec p Text -> TSNamed p k as es a -> Doc x
+typeExports_ :: TSType_ 'Z a -> Doc x
+typeExports :: TSType 'Z k a -> Doc x
+typeExports' :: Vec p Text -> TSType p k a -> Doc x
+namedTypeExports_ :: TSNamed_ 'Z as es a -> Doc x
+namedTypeExports :: TSNamed 'Z k as es a -> Doc x
+namedTypeExports' :: Vec p Text -> TSNamed p k as es a -> Doc x
+ppMap :: forall x. () => Map Text (Set Text, Doc x) -> Doc x
+
+-- | Pull out all of the named types to be top-level type declarations, and
+--   have create a map of all of those declarations.
+flattenNamedType :: Vec p Text -> TSNamed p k as es a -> Map Text (Set Text, Doc x)
+
+-- | Ignores the top level type, so why even bother?
+flattenType :: Vec p Text -> TSType p k a -> Map Text (Set Text, Doc x)
+
+-- | TODO: stop if it is a recursive reference
+flattenType_ :: forall p k a x. () => Vec p Text -> Set Text -> TSType p k a -> State (Map Text (Set Text, Doc x)) (Set Text)
+
+module Typescript.Json.Core.Parse
+parseType :: forall k a. () => TSType 'Z k a -> Parse a
+showParseErr :: ParseErr -> String
+data ParseErr
+PEInvalidEnum :: [(Text, EnumLit)] -> ParseErr
+PEInvalidString :: Text -> Text -> ParseErr
+PEInvalidNumber :: Scientific -> Scientific -> ParseErr
+PEInvalidBigInt :: Integer -> Integer -> ParseErr
+PEPrimitive :: Some TSPrim -> Text -> ParseErr
+PEExtraTuple :: Int -> Int -> ParseErr
+PENotInUnion :: NonEmpty (Doc ()) -> ParseErr
+PENever :: ParseErr
+
+module Typescript.Json.Core.Assign
+
+-- | answers: is X assignable to Y?
+--   
+--   
+--   <a>https://basarat.gitbook.io/typescript/type-system/type-compatibility</a>
+isAssignable :: TSType 'Z k a -> TSType 'Z j b -> Bool
+
+-- | If X is assignable to Y, then convert x to the more general y,
+--   potentially losing information.
+reAssign :: TSType 'Z k a -> TSType 'Z j b -> Maybe (Assign a b)
+unsafeReAssign :: TSType 'Z k a -> TSType 'Z j b -> Assign a b
+
+-- | Completely 100% unsafe, but at least it doesn't require having a type
+--   without any free variables
+unsafeAssign :: Assign a b
+instance Data.Profunctor.Unsafe.Profunctor Typescript.Json.Core.Assign.WrappedAssign
+instance GHC.Base.Functor (Typescript.Json.Core.Assign.WrappedAssign a)
+instance GHC.Base.Applicative (Typescript.Json.Core.Assign.WrappedAssign a)
+instance Data.Functor.Bind.Class.Apply (Typescript.Json.Core.Assign.WrappedAssign a)
+
+module Typescript.Json.Core
+mkArg :: Param 'Z a e -> TSType 'Z k a -> Maybe (Arg_ 'Z a e)
+mkArgs :: NP2 (Param 'Z) as es -> NP (TSType_ 'Z) as -> Maybe (NP2 (Arg_ 'Z) as es)
+unsafeMkArg :: Param 'Z a e -> TSType 'Z k a -> Arg_ 'Z a e
+unsafeMkArgs :: NP2 (Param 'Z) as es -> NP (TSType_ 'Z) as -> NP2 (Arg_ 'Z) as es
+instance Typescript.Json.Core.SafeMkArgs '[] '[]
+instance Typescript.Json.Core.SafeMkArgs as es => Typescript.Json.Core.SafeMkArgs (a : as) ('GHC.Maybe.Nothing : es)
+
+module Typescript.Json.Union
+
+-- | Build up a union type from a <tt>unionBranch</tt>.
+tsUnion :: TSUnionBranches p a -> TSType p 'NotObj a
+tsUnions :: (a -> NS I (b : bs)) -> NP (Op a) (b : bs) -> NP (TSType_ p) (b : bs) -> TSType p 'NotObj a
+
+-- | A utility for a simple situation of a "tag" key-value pair, where the
+--   property value is just a string literal singleton. Often used to
+--   simulate discriminated unions in typescript.
+--   
+--   <pre>
+--   ppType . TSType_ . tsObject $
+--     tagVal "tag" "something"
+--   -- =&gt; { tag: "sometning" }
+--   </pre>
+--   
+--   You can combine this with other properties:
+--   
+--   <pre>
+--   <tt>ppType</tt> . <a>TSType_</a> . <a>tsObject</a> $
+--        <a>tagVal</a> "tag" "something"
+--     *&gt; <a>keyVal</a> True "contents" id <a>tsBoolean</a>
+--   -- =&gt; { tag: "someting", contents: boolean }
+--   </pre>
+--   
+--   See also <a>taggedObject</a>, which uses an intersection instead of
+--   joining the keys directly.
+tagVal :: Mutability -> Text -> Text -> ObjectProps p a ()
+
+-- | A utility for a simple situation of a "tag" key-value pair intersected
+--   with an object type. Often used to simulate discriminated unions in
+--   typescript.
+--   
+--   <pre>
+--   <tt>ppType</tt> . <a>TSType_</a> $
+--        <a>taggedObject</a> "tag" "something" $
+--            <a>tsObject</a> $
+--              (,) <a>$</a> <a>keyVal</a> True "name" fst (TSType_ <a>tsText</a>)
+--                  <a>*</a> <a>keyVal</a> True "age" snd (TSType_ <a>tsBoundedInteger</a>)
+--   -- =&gt; { tag: "something" } &amp; { name: string, age: number }
+--   </pre>
+--   
+--   See also <a>taggedObject</a>, which uses an intersection instead of
+--   joining the keys directly.
+taggedObject :: Mutability -> Text -> Text -> TSType p 'IsObj a -> TSType p 'IsObj a
+
+-- | High-level utility to wrap a <a>TSType_</a> with a "tag".
+--   
+--   Assuming both flags are set to <a>True</a>:
+--   
+--   <ol>
+--   <li>If the contents type is an object, this will be <tt>{ tagkey:
+--   tagvalue } &amp; contents</tt> (the same behavior as
+--   <a>taggedObject</a>).</li>
+--   <li>If the contents type is a nullable value, this well be <tt>{
+--   tagkey: tagvalue, contentskey?: contents}</tt></li>
+--   <li>Otherwise, this well be <tt>{ tagkey: tagvalue, contentskey:
+--   contents}</tt></li>
+--   </ol>
+--   
+--   If the first argument is <a>False</a>, will avoid case (1). If the
+--   second argument is <a>False</a>, will avoid case (2).
+--   
+--   <pre>
+--   case1 :: TSType_ p (Text, Int)
+--   case1 = <a>TSType_</a> . <a>tsObject</a> $
+--     (,) &lt;$&gt; <a>keyVal</a> True "name" fst (TSType_ <a>tsText</a>)
+--         &lt;*&gt; <a>keyVal</a> True "age" snd (TSType_ <a>tsBoundedInteger</a>)
+--   
+--   case2 :: TSType_ p (Maybe Int)
+--   case2 = <a>TSType_</a> $ <tt>tsNullable</tt> (<a>TSType_</a> <a>tsBoundedInteger</a>)
+--   
+--   case3 :: TSType_ p String
+--   case3 = <a>TSType_</a> <a>tsString</a>
+--   </pre>
+--   
+--   <pre>
+--   <tt>ppType</tt> . <a>TSType_</a> $ <a>taggedValue</a> True True "tag" "something" "contents" case1
+--   -- =&gt; { tag: "something" } &amp; { name: string, age: number }
+--   
+--   <tt>ppType</tt> . <a>TSType_</a> $ <a>taggedValue</a> True True "tag" "something" "contents" case2
+--   -- =&gt; { tag: "something", contents?: number }
+--   
+--   <tt>ppType</tt> . <a>TSType_</a> $ <a>taggedValue</a> True True "tag" "something" "contents" case3
+--   -- =&gt; { tag: "something", contents: string }
+--   </pre>
+taggedValue :: TaggedValueOpts -> Text -> TSType_ p a -> TSType p 'IsObj a
+taggedNullary :: TaggedValueOpts -> Text -> a -> TSType_ p a
+
+-- | A high-level data type describing the common pattern of a "tagged"
+--   union (sum types in Haskell), where each branch comes in the form of
+--   an object with a "tag" property with a string literal singleton, and
+--   the rest of the object is the contents. We would store an <tt>Either
+--   Int Bool</tt> as, say, <tt>{ tag: <a>Left</a>, contents: number } | {
+--   tag: <a>Right</a>, contents: boolean }</tt>.
+--   
+--   Meant to be constructed using <a>taggedBranch</a> and other
+--   <tt>Decide</tt> combinators.
+newtype TaggedBranches p a
+TaggedBranches :: DecAlt1 (Branch p) a -> TaggedBranches p a
+[getTaggedBranches] :: TaggedBranches p a -> DecAlt1 (Branch p) a
+data Branch p a
+Branch :: Text -> Lift (TSType_ p) a -> Branch p a
+[branchTag] :: Branch p a -> Text
+[branchType] :: Branch p a -> Lift (TSType_ p) a
+data TaggedValueOpts
+TVOTagAndContents :: TagAndContents -> TaggedValueOpts
+TVOTagIsKey :: TagIsKey -> TaggedValueOpts
+
+-- | Create a singleton <a>TaggedBranches</a>, to be combined with
+--   <tt>Decide</tt> combinators with others. Can also be used with
+--   <a>tsUnions</a> if you want to combine a large number.
+taggedBranch :: Text -> TSType_ p a -> TaggedBranches p a
+mergeTB :: (a -> Either b c) -> (b -> a) -> (c -> a) -> TaggedBranches p b -> TaggedBranches p c -> TaggedBranches p a
+emptyTaggedBranch :: Text -> a -> TaggedBranches p a
+tsTaggedUnion :: TaggedValueOpts -> TaggedBranches p a -> TSType p 'NotObj a
+tsTaggedUnions :: TaggedValueOpts -> (a -> NS I (b : bs)) -> NP (Op a) (b : bs) -> NP (TaggedBranches p) (b : bs) -> TSType p 'NotObj a
+tsMaybe :: Text -> Text -> TSType_ p a -> TSType p 'NotObj (Maybe a)
+instance GHC.Classes.Ord Typescript.Json.Union.TaggedValueOpts
+instance GHC.Classes.Eq Typescript.Json.Union.TaggedValueOpts
+instance GHC.Show.Show Typescript.Json.Union.TaggedValueOpts
+instance GHC.Classes.Ord Typescript.Json.Union.TagIsKey
+instance GHC.Classes.Eq Typescript.Json.Union.TagIsKey
+instance GHC.Show.Show Typescript.Json.Union.TagIsKey
+instance GHC.Classes.Ord Typescript.Json.Union.TagAndContents
+instance GHC.Classes.Eq Typescript.Json.Union.TagAndContents
+instance GHC.Show.Show Typescript.Json.Union.TagAndContents
+instance Data.Functor.Invariant.Invariant (Typescript.Json.Union.TaggedBranches p)
+instance Data.Default.Class.Default Typescript.Json.Union.TaggedValueOpts
+instance Data.Default.Class.Default Typescript.Json.Union.TagIsKey
+instance Data.Default.Class.Default Typescript.Json.Union.TagAndContents
+instance Data.Functor.Invariant.Invariant (Typescript.Json.Union.Branch p)
+
+module Typescript.Json
+data TSType :: Nat -> IsObjType -> Type -> Type
+data TSTypeF :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type
+data EnumLit
+ELString :: Text -> EnumLit
+ELNumber :: Scientific -> EnumLit
+data TSType_ p a
+TSType_ :: TSType p k a -> TSType_ p a
+[unTSType_] :: TSType_ p a -> TSType p k a
+data TSTypeF_ p as es b
+TSTypeF_ :: TSTypeF p k as es b -> TSTypeF_ p as es b
+[unTSTypeF_] :: TSTypeF_ p as es b -> TSTypeF p k as es b
 
 -- | Wrap a type in a name, in a way that preserves <tt>k</tt> (whether or
 --   not the type is an object literal).
@@ -707,66 +835,6 @@ tsNamed :: Text -> TSType p k a -> TSNamed p k '[] '[] a
 --   If the same name appears twice within a type, it must describe the
 --   same type underneath. Otherwise, behavior is undefined.
 tsNamed_ :: Text -> TSType_ p a -> TSNamed_ p '[] '[] a
-
--- | A parameterized type with multiple parameters.
-tsGeneric :: Text -> NP2 (Param p) as es -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSType (Plus r p) k b) -> TSNamed p k as es b
-
--- | Create a single-argument generic (parameterized) type.
---   
---   For example, we could make a type imitating <a>Maybe</a> in Haskell:
---   
---   <pre>
---   mkMaybe :: TSType_ p a -&gt; TSType_ p (Maybe a)
---   mkMaybe = tsUnion $ decide (maybe (Left ()) Right) $
---       (tsTagged
---   </pre>
-tsGeneric1 :: Text -> Param p a e -> (forall r. SNat_ r -> Arg_ (Plus r p) a e -> TSType (Plus r p) k b) -> TSNamed p k '[a] '[e] b
-tsGeneric2 :: Text -> Param p a ea -> Param p b eb -> (forall r. SNat_ r -> Arg_ (Plus r p) a ea -> Arg_ (Plus r p) b eb -> TSType (Plus r p) k c) -> TSNamed p k '[a, b] '[ea, eb] c
-tsGeneric3 :: Text -> Param p a ea -> Param p b eb -> Param p c ec -> (forall r. SNat_ r -> Arg_ (Plus r p) a ea -> Arg_ (Plus r p) b eb -> Arg_ (Plus r p) c ec -> TSType (Plus r p) k d) -> TSNamed p k '[a, b, c] '[ea, eb, ec] d
-tsGenericInterface :: Text -> NP2 (Param p) as es -> Lift (TSAppliedF p 'IsObj as es) a -> (forall r. SNat_ r -> NP2 (Arg_ (Plus r p)) as es -> TSKeyVal (Plus r p) b) -> TSNamed p 'IsObj as es (a, b)
-tsApplied1 :: TSNamed p k '[a] '[e] b -> Arg_ p a e -> TSType p k b
-tsApplied2 :: TSNamed p k '[a, b] '[ea, eb] c -> Arg_ p a ea -> Arg_ p b eb -> TSType p k c
-tsApplied3 :: TSNamed p k '[a, b, c] '[ea, eb, ec] d -> Arg_ p a ea -> Arg_ p b eb -> Arg_ p c ec -> TSType p k d
-tsApplied :: TSNamed p k as es b -> NP2 (Arg_ p) as es -> TSType p k b
-tsApply1 :: TSTypeF p k '[a] '[e] b -> Arg_ p a e -> TSType p k b
-tsApply2 :: TSTypeF p k '[a, b] '[ea, eb] c -> Arg_ p a ea -> Arg_ p b eb -> TSType p k c
-tsApply3 :: TSTypeF p k '[a, b, c] '[ea, eb, ec] d -> Arg_ p a ea -> Arg_ p b eb -> Arg_ p c ec -> TSType p k d
-tsApply :: TSTypeF p k as es b -> NP2 (Arg_ p) as es -> TSType p k b
-tsBoolean :: TSType p 'NotObj Bool
-tsNumber :: TSType p 'NotObj Scientific
-tsBoundedInteger :: (Integral a, Bounded a) => TSType p 'NotObj a
-tsInteger :: Integral a => TSType p 'NotObj a
-tsRealFloat :: RealFloat a => TSType p 'NotObj a
-tsDouble :: TSType p 'NotObj Double
-tsBigInt :: TSType p 'NotObj Integer
-tsText :: TSType p 'NotObj Text
-tsLazyText :: TSType p 'NotObj Text
-tsString :: TSType p 'NotObj String
-tsStringLit :: Text -> TSType p 'NotObj ()
-tsNumericLit :: Scientific -> TSType p 'NotObj ()
-tsIntegerLit :: Integral a => a -> TSType p 'NotObj ()
-tsBigIntLit :: Integer -> TSType p 'NotObj ()
-tsUnknown :: TSType p 'NotObj Value
-tsAny :: TSType p 'NotObj Value
-tsVoid :: TSType p 'NotObj ()
-tsUndefined :: TSType p 'NotObj ()
-tsNull :: TSType p 'NotObj ()
-tsNever :: TSType p 'NotObj Void
-tsMaybe :: Text -> Text -> TSType_ p a -> TSType p 'NotObj (Maybe a)
-data FinIso n a
-FinIso :: (Fin n -> a) -> (a -> Fin n) -> FinIso n a
-[fiGet] :: FinIso n a -> Fin n -> a
-[fiPut] :: FinIso n a -> a -> Fin n
-tsEnumWith :: Text -> FinIso n a -> Vec n (Text, EnumLit) -> TSNamed p 'NotObj '[] '[] a
-tsIntEnumFrom :: Text -> Int -> FinIso n a -> Vec n Text -> TSNamed p 'NotObj '[] '[] a
-tsIntEnum :: Text -> FinIso n a -> Vec n Text -> TSNamed p 'NotObj '[] '[] a
-data EnumMap a
-EnumMap :: Map EnumLit (Text, a) -> (a -> EnumLit) -> EnumMap a
-[emGet] :: EnumMap a -> Map EnumLit (Text, a)
-[emPut] :: EnumMap a -> a -> EnumLit
-tsEnumMap :: Text -> EnumMap a -> TSNamed p 'NotObj '[] '[] a
-tsFinEnum :: Enum a => Text -> Vec (EnumSize a) (Text, EnumLit) -> TSNamed p 'NotObj '[] '[] a
-tsFinIntEnum :: Enum a => Text -> Vec (EnumSize a) Text -> TSNamed p 'NotObj '[] '[] a
 ppType :: TSType 'Z k a -> Doc x
 ppType_ :: TSType_ 'Z a -> Doc x
 ppNamed :: TSNamed 'Z k as es a -> Doc x
@@ -783,35 +851,6 @@ typeToValue :: TSType 'Z k a -> a -> Value
 decodeType :: TSType 'Z k a -> ByteString -> Either (ParseError ParseErr) a
 decodeTypeStrict :: TSType 'Z k a -> ByteString -> Either (ParseError ParseErr) a
 parseType :: forall k a. () => TSType 'Z k a -> Parse a
-instance Data.Functor.Bind.Class.Apply (Typescript.Json.IntersectVals p a)
-instance GHC.Base.Functor (Typescript.Json.IntersectVals p a)
-instance GHC.Classes.Ord Typescript.Json.TaggedValueOpts
-instance GHC.Classes.Eq Typescript.Json.TaggedValueOpts
-instance GHC.Show.Show Typescript.Json.TaggedValueOpts
-instance GHC.Classes.Ord Typescript.Json.TagIsKey
-instance GHC.Classes.Eq Typescript.Json.TagIsKey
-instance GHC.Show.Show Typescript.Json.TagIsKey
-instance GHC.Classes.Ord Typescript.Json.TagAndContents
-instance GHC.Classes.Eq Typescript.Json.TagAndContents
-instance GHC.Show.Show Typescript.Json.TagAndContents
-instance Data.Functor.Invariant.Invariant (Typescript.Json.TaggedBranches p)
-instance GHC.Base.Applicative (Typescript.Json.TupleVals p a)
-instance Data.Functor.Bind.Class.Apply (Typescript.Json.TupleVals p a)
-instance GHC.Base.Functor (Typescript.Json.TupleVals p a)
-instance GHC.Base.Applicative (Typescript.Json.ObjectProps p a)
-instance Data.Functor.Bind.Class.Apply (Typescript.Json.ObjectProps p a)
-instance GHC.Base.Functor (Typescript.Json.ObjectProps p a)
-instance Data.Functor.Invariant.Invariant (Typescript.Json.FinIso n)
-instance Data.Functor.Invariant.Invariant (Typescript.Json.IntersectVals p a)
-instance Data.Profunctor.Unsafe.Profunctor (Typescript.Json.IntersectVals p)
-instance Data.Default.Class.Default Typescript.Json.TaggedValueOpts
-instance Data.Default.Class.Default Typescript.Json.TagIsKey
-instance Data.Default.Class.Default Typescript.Json.TagAndContents
-instance Data.Functor.Invariant.Invariant (Typescript.Json.Branch p)
-instance Data.Functor.Invariant.Invariant (Typescript.Json.TupleVals p a)
-instance Data.Profunctor.Unsafe.Profunctor (Typescript.Json.TupleVals p)
-instance Data.Functor.Invariant.Invariant (Typescript.Json.ObjectProps p a)
-instance Data.Profunctor.Unsafe.Profunctor (Typescript.Json.ObjectProps p)
 
 module Typescript.Json.Generics
 class GTSType (f :: Type -> Type)
@@ -909,9 +948,9 @@ instance GHC.TypeLits.KnownSymbol ctr => Typescript.Json.Generics.GTSEnumBranche
 instance Data.Default.Class.Default Typescript.Json.Generics.EnumOpts
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSProductF t f, Typescript.Json.Generics.GTSProductF t g, Typescript.Json.Generics.WrapProduct k t) => Typescript.Json.Generics.GTSTypeF (f GHC.Generics.:*: g)
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSProductF t f, Typescript.Json.Generics.GTSProductF t g) => Typescript.Json.Generics.GTSProductF t (f GHC.Generics.:*: g)
-instance GHC.TypeLits.KnownSymbol k => Typescript.Json.Generics.GTSProductF Typescript.Json.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k) a b c) (GHC.Generics.K1 i r))
-instance forall k1 (k2 :: GHC.Types.Symbol) (a :: GHC.Generics.SourceUnpackedness) (b :: GHC.Generics.SourceStrictness) (c :: GHC.Generics.DecidedStrictness) (i :: k1) r. GHC.TypeLits.KnownSymbol k2 => Typescript.Json.Generics.GTSProductF Typescript.Json.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k2) a b c) (Typescript.Json.Generics.KM1 i r))
-instance Typescript.Json.Generics.GTSTypeF f => Typescript.Json.Generics.GTSProductF Typescript.Json.TupleVals (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel 'GHC.Maybe.Nothing a b c) f)
+instance GHC.TypeLits.KnownSymbol k => Typescript.Json.Generics.GTSProductF Typescript.Json.Collection.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k) a b c) (GHC.Generics.K1 i r))
+instance forall k1 (k2 :: GHC.Types.Symbol) (a :: GHC.Generics.SourceUnpackedness) (b :: GHC.Generics.SourceStrictness) (c :: GHC.Generics.DecidedStrictness) (i :: k1) r. GHC.TypeLits.KnownSymbol k2 => Typescript.Json.Generics.GTSProductF Typescript.Json.Collection.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k2) a b c) (Typescript.Json.Generics.KM1 i r))
+instance Typescript.Json.Generics.GTSTypeF f => Typescript.Json.Generics.GTSProductF Typescript.Json.Collection.TupleVals (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel 'GHC.Maybe.Nothing a b c) f)
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSSumF f, Typescript.Json.Generics.GTSSumF g) => Typescript.Json.Generics.GTSTypeF (f GHC.Generics.:+: g)
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSSumF f, Typescript.Json.Generics.GTSSumF g) => Typescript.Json.Generics.GTSSumF (f GHC.Generics.:+: g)
 instance GHC.TypeLits.KnownSymbol constr => Typescript.Json.Generics.GTSSumF (GHC.Generics.M1 GHC.Generics.C ('GHC.Generics.MetaCons constr a b) GHC.Generics.U1)
@@ -926,11 +965,11 @@ instance Typescript.Json.Generics.GTSTypeF GHC.Generics.U1
 instance Typescript.Json.Generics.GTSTypeF GHC.Generics.V1
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSProduct t f, Typescript.Json.Generics.GTSProduct t g, Typescript.Json.Generics.WrapProduct k t) => Typescript.Json.Generics.GTSType (f GHC.Generics.:*: g)
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSProduct t f, Typescript.Json.Generics.GTSProduct t g) => Typescript.Json.Generics.GTSProduct t (f GHC.Generics.:*: g)
-instance GHC.TypeLits.KnownSymbol k => Typescript.Json.Generics.GTSProduct Typescript.Json.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k) a b c) (GHC.Generics.K1 i r))
-instance forall k1 (k2 :: GHC.Types.Symbol) (a :: GHC.Generics.SourceUnpackedness) (b :: GHC.Generics.SourceStrictness) (c :: GHC.Generics.DecidedStrictness) (i :: k1) r. GHC.TypeLits.KnownSymbol k2 => Typescript.Json.Generics.GTSProduct Typescript.Json.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k2) a b c) (Typescript.Json.Generics.KM1 i r))
-instance Typescript.Json.Generics.GTSType f => Typescript.Json.Generics.GTSProduct Typescript.Json.TupleVals (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel 'GHC.Maybe.Nothing a b c) f)
-instance Typescript.Json.Generics.WrapProduct 'Typescript.Json.Types.IsObj Typescript.Json.ObjectProps
-instance Typescript.Json.Generics.WrapProduct 'Typescript.Json.Types.NotObj Typescript.Json.TupleVals
+instance GHC.TypeLits.KnownSymbol k => Typescript.Json.Generics.GTSProduct Typescript.Json.Collection.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k) a b c) (GHC.Generics.K1 i r))
+instance forall k1 (k2 :: GHC.Types.Symbol) (a :: GHC.Generics.SourceUnpackedness) (b :: GHC.Generics.SourceStrictness) (c :: GHC.Generics.DecidedStrictness) (i :: k1) r. GHC.TypeLits.KnownSymbol k2 => Typescript.Json.Generics.GTSProduct Typescript.Json.Collection.ObjectProps (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel ('GHC.Maybe.Just k2) a b c) (Typescript.Json.Generics.KM1 i r))
+instance Typescript.Json.Generics.GTSType f => Typescript.Json.Generics.GTSProduct Typescript.Json.Collection.TupleVals (GHC.Generics.M1 GHC.Generics.S ('GHC.Generics.MetaSel 'GHC.Maybe.Nothing a b c) f)
+instance Typescript.Json.Generics.WrapProduct 'Typescript.Json.Types.IsObj Typescript.Json.Collection.ObjectProps
+instance Typescript.Json.Generics.WrapProduct 'Typescript.Json.Types.NotObj Typescript.Json.Collection.TupleVals
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSSum f, Typescript.Json.Generics.GTSSum g) => Typescript.Json.Generics.GTSType (f GHC.Generics.:+: g)
 instance (Data.SOP.Constraint.All Data.SOP.Constraint.Top (Typescript.Json.Generics.LeafTypes f), Typescript.Json.Generics.GTSSum f, Typescript.Json.Generics.GTSSum g) => Typescript.Json.Generics.GTSSum (f GHC.Generics.:+: g)
 instance GHC.TypeLits.KnownSymbol constr => Typescript.Json.Generics.GTSSum (GHC.Generics.M1 GHC.Generics.C ('GHC.Generics.MetaCons constr a b) GHC.Generics.U1)
@@ -950,32 +989,3 @@ instance forall k (i :: k) a. Typescript.Json.Generics.GTSType (Typescript.Json.
 instance Typescript.Json.Generics.GTSType GHC.Generics.U1
 instance Typescript.Json.Generics.GTSType GHC.Generics.V1
 instance Data.Default.Class.Default Typescript.Json.Generics.TSOpts
-
-module Typescript.Json.Core.Assign
-
--- | answers: is X assignable to Y?
---   
---   
---   <a>https://basarat.gitbook.io/typescript/type-system/type-compatibility</a>
-isAssignable :: TSType 'Z k a -> TSType 'Z j b -> Bool
-
--- | If X is assignable to Y, then convert x to the more general y,
---   potentially losing information.
-reAssign :: TSType 'Z k a -> TSType 'Z j b -> Maybe (Assign a b)
-unsafeReAssign :: TSType 'Z k a -> TSType 'Z j b -> Assign a b
-
--- | Completely 100% unsafe, but at least it doesn't require having a type
---   without any free variables
-unsafeAssign :: Assign a b
-instance Data.Profunctor.Unsafe.Profunctor Typescript.Json.Core.Assign.WrappedAssign
-instance GHC.Base.Functor (Typescript.Json.Core.Assign.WrappedAssign a)
-instance GHC.Base.Applicative (Typescript.Json.Core.Assign.WrappedAssign a)
-instance Data.Functor.Bind.Class.Apply (Typescript.Json.Core.Assign.WrappedAssign a)
-
-module Typescript.Json.Core
-mkArg :: Param 'Z a e -> TSType 'Z k a -> Maybe (Arg_ 'Z a e)
-mkArgs :: NP2 (Param 'Z) as es -> NP (TSType_ 'Z) as -> Maybe (NP2 (Arg_ 'Z) as es)
-unsafeMkArg :: Param 'Z a e -> TSType 'Z k a -> Arg_ 'Z a e
-unsafeMkArgs :: NP2 (Param 'Z) as es -> NP (TSType_ 'Z) as -> NP2 (Arg_ 'Z) as es
-instance Typescript.Json.Core.SafeMkArgs '[] '[]
-instance Typescript.Json.Core.SafeMkArgs as es => Typescript.Json.Core.SafeMkArgs (a : as) ('GHC.Maybe.Nothing : es)

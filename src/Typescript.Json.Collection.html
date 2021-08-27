@@ -1,0 +1,1146 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds                  #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies         #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE EmptyCase                  #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GADTs                      #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures             #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase                 #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings          #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes                 #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards            #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables        #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications           #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators              #-}</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Typescript.Json.Collection</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Lists and Nullables</span></span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><a href="Typescript.Json.Collection.html#tsList"><span class="hs-identifier">tsList</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#tsVector"><span class="hs-identifier">tsVector</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#tsIsList"><span class="hs-identifier">tsIsList</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Object</span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier">ObjectProps</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier">keyVal</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#keyValMay"><span class="hs-identifier">keyValMay</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier">tsObject</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Tuple</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier">TupleVals</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#tupleVal"><span class="hs-identifier">tupleVal</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#tsTuple"><span class="hs-identifier">tsTuple</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#stripObjectVals"><span class="hs-identifier">stripObjectVals</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Intersections</span></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier">IntersectVals</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#intersectVal"><span class="hs-identifier">intersectVal</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#tsIntersection"><span class="hs-identifier">tsIntersection</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Control.Applicative.Free</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Apply</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Combinator</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Invariant</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.HFunctor.Route</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Profunctor</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span>                         </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.html"><span class="hs-identifier">Typescript.Json.Types</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html"><span class="hs-identifier">Typescript.Json.Types.Combinators</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector.Generic</span></span><span>               </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Exts</span></span><span>                          </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Exts</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span id="local-6989586621679310849"><span id="local-6989586621679310850"><span class="annot"><a href="Typescript.Json.Collection.html#tsList"><span class="hs-identifier hs-type">tsList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310850"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310849"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310850"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679310849"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-44"></span><span id="tsList"><span class="annot"><span class="annottext">tsList :: TSType_ p a -&gt; TSType p 'NotObj [a]
+</span><a href="Typescript.Json.Collection.html#tsList"><span class="hs-identifier hs-var hs-var">tsList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType p k a -&gt; TSType p 'NotObj [a])
+-&gt; TSType_ p a -&gt; TSType p 'NotObj [a]
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ILan [] (TSType p k) [a] -&gt; TSType p 'NotObj [a]
+forall (p :: Nat) (k :: IsObjType) a.
+ILan [] (TSType p k) a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSArray"><span class="hs-identifier hs-var">TSArray</span></a></span><span> </span><span class="annot"><span class="annottext">(ILan [] (TSType p k) [a] -&gt; TSType p 'NotObj [a])
+-&gt; (TSType p k a -&gt; ILan [] (TSType p k) [a])
+-&gt; TSType p k a
+-&gt; TSType p 'NotObj [a]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType p k a -&gt; ILan [] (TSType p k) [a]
+forall k (h :: k -&gt; *) (a :: k) (g :: k -&gt; *).
+h a -&gt; ILan g h (g a)
+</span><a href="Typescript.Json.Types.Combinators.html#ilan"><span class="hs-identifier hs-var">ilan</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span id="local-6989586621679310525"><span id="local-6989586621679310526"><span id="local-6989586621679310527"><span class="annot"><a href="Typescript.Json.Collection.html#tsVector"><span class="hs-identifier hs-type">tsVector</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V.Vector</span></span><span> </span><span class="annot"><a href="#local-6989586621679310527"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310526"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310525"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310526"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310525"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679310527"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310526"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-47"></span><span id="tsVector"><span class="annot"><span class="annottext">tsVector :: TSType_ p a -&gt; TSType p 'NotObj (v a)
+</span><a href="Typescript.Json.Collection.html#tsVector"><span class="hs-identifier hs-var hs-var">tsVector</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([a] -&gt; v a)
+-&gt; (v a -&gt; [a]) -&gt; TSType p 'NotObj [a] -&gt; TSType p 'NotObj (v a)
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="annot"><span class="annottext">[a] -&gt; v a
+forall (v :: * -&gt; *) a. Vector v a =&gt; [a] -&gt; v a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">v a -&gt; [a]
+forall (v :: * -&gt; *) a. Vector v a =&gt; v a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">(TSType p 'NotObj [a] -&gt; TSType p 'NotObj (v a))
+-&gt; (TSType_ p a -&gt; TSType p 'NotObj [a])
+-&gt; TSType_ p a
+-&gt; TSType p 'NotObj (v a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType_ p a -&gt; TSType p 'NotObj [a]
+forall (p :: Nat) a. TSType_ p a -&gt; TSType p 'NotObj [a]
+</span><a href="Typescript.Json.Collection.html#tsList"><span class="hs-identifier hs-var">tsList</span></a></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span id="local-6989586621679310520"><span id="local-6989586621679310521"><span class="annot"><a href="Typescript.Json.Collection.html#tsIsList"><span class="hs-identifier hs-type">tsIsList</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Exts.IsList</span></span><span> </span><span class="annot"><a href="#local-6989586621679310521"><span class="hs-identifier hs-type">l</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310520"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Exts.Item</span></span><span> </span><span class="annot"><a href="#local-6989586621679310521"><span class="hs-identifier hs-type">l</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310520"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310521"><span class="hs-identifier hs-type">l</span></a></span></span></span><span>
+</span><span id="line-50"></span><span id="tsIsList"><span class="annot"><span class="annottext">tsIsList :: TSType_ p (Item l) -&gt; TSType p 'NotObj l
+</span><a href="Typescript.Json.Collection.html#tsIsList"><span class="hs-identifier hs-var hs-var">tsIsList</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Item l] -&gt; l)
+-&gt; (l -&gt; [Item l])
+-&gt; TSType p 'NotObj [Item l]
+-&gt; TSType p 'NotObj l
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="annot"><span class="annottext">[Item l] -&gt; l
+forall l. IsList l =&gt; [Item l] -&gt; l
+</span><span class="hs-identifier hs-var">Exts.fromList</span></span><span> </span><span class="annot"><span class="annottext">l -&gt; [Item l]
+forall l. IsList l =&gt; l -&gt; [Item l]
+</span><span class="hs-identifier hs-var">Exts.toList</span></span><span> </span><span class="annot"><span class="annottext">(TSType p 'NotObj [Item l] -&gt; TSType p 'NotObj l)
+-&gt; (TSType_ p (Item l) -&gt; TSType p 'NotObj [Item l])
+-&gt; TSType_ p (Item l)
+-&gt; TSType p 'NotObj l
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType_ p (Item l) -&gt; TSType p 'NotObj [Item l]
+forall (p :: Nat) a. TSType_ p a -&gt; TSType p 'NotObj [a]
+</span><a href="Typescript.Json.Collection.html#tsList"><span class="hs-identifier hs-var">tsList</span></a></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- | A type aggregating key-value pairs for an object.  Meant to</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- be assembled using 'keyVal' (for required properties) and 'keyValMay'</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- (for optional properties) and combined using its 'Applicative' instance.</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- To finally turn one into a 'TSType', use 'tsObject'.</span><span>
+</span><span id="line-57"></span><span class="hs-comment">--</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- In a @'ObjectProps' p a b@, the @a@ represents the overall aggregate</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- type, and the @b@ represents the type of the part that this 'ObjectProps'</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- is describing.</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- data MyType = MyType</span><span>
+</span><span id="line-64"></span><span class="hs-comment">--   { mta :: Int</span><span>
+</span><span id="line-65"></span><span class="hs-comment">--   , mtb :: Bool</span><span>
+</span><span id="line-66"></span><span class="hs-comment">--   , mtc :: Maybe String</span><span>
+</span><span id="line-67"></span><span class="hs-comment">--   }</span><span>
+</span><span id="line-68"></span><span class="hs-comment">--</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- myTypeProps :: 'ObjectProps' p MyType MyType</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- myTypeProps = MyType</span><span>
+</span><span id="line-71"></span><span class="hs-comment">--   \&lt;$\&gt; 'keyVal' True mta &quot;mta&quot; ('TSType_' 'tsBoundedInteger')</span><span>
+</span><span id="line-72"></span><span class="hs-comment">--   \&lt;*\&gt; keyVal True mtb &quot;mtb&quot; (TSType_ 'tsBoolean')</span><span>
+</span><span id="line-73"></span><span class="hs-comment">--   \&lt;*\&gt; 'keyValMay' mtc &quot;mtc&quot; (TSType_ 'tsString')</span><span>
+</span><span id="line-74"></span><span class="hs-comment">--</span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- myType :: TSType p 'IsObj MyType</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- myType = tsObject myTypeProps</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-78"></span><span class="hs-comment">--</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- ppType myType</span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- -- =&gt; { mta: number, mtb: boolean, mtc?: string }</span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-83"></span><span class="hs-comment">--</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- In the above, @keyVal True mta &quot;mta&quot; tsBoundedInteger@ has the type</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- @ObjectProps p MyType Int@, showing that it refers to the @Int@ field</span><span>
+</span><span id="line-86"></span><span class="hs-comment">-- of the @MyType@.  The trick to using this is to assemble 'ObjectProps'</span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- together using Applicative combinators until the @a@ and @b@ &quot;match&quot;,</span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- and the 'ObjectProps' describes the entire value.  Then you can use</span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- 'tsObject'.</span><span>
+</span><span id="line-90"></span><span class="hs-keyword">newtype</span><span> </span><span id="ObjectProps"><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-var">ObjectProps</span></a></span></span><span> </span><span id="local-6989586621679310737"><span class="annot"><a href="#local-6989586621679310737"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679310738"><span class="annot"><a href="#local-6989586621679310738"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679310736"><span class="annot"><a href="#local-6989586621679310736"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ObjectProps"><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-var">ObjectProps</span></a></span></span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="getObjectProps"><span class="annot"><span class="annottext">ObjectProps p a b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b
+</span><a href="Typescript.Json.Collection.html#getObjectProps"><span class="hs-identifier hs-var hs-var">getObjectProps</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Pre</span></span><span> </span><span class="annot"><a href="#local-6989586621679310738"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#ObjMember"><span class="hs-identifier hs-type">ObjMember</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310737"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679310736"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679310514"><span id="local-6989586621679310516"><span class="annot"><span class="annottext">a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+(a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+(forall a b. (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b)
+-&gt; (forall a b. a -&gt; ObjectProps p a b -&gt; ObjectProps p a a)
+-&gt; Functor (ObjectProps p a)
+forall a b. a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+forall a b. (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+forall (p :: Nat) a a b.
+a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+forall (p :: Nat) a a b.
+(a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+$c&lt;$ :: forall (p :: Nat) a a b.
+a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+fmap :: (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+$cfmap :: forall (p :: Nat) a a b.
+(a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679310504"><span id="local-6989586621679310506"><span id="local-6989586621679310508"><span id="local-6989586621679310510"><span class="annot"><span class="annottext">Functor (ObjectProps p a)
+Functor (ObjectProps p a) =&gt;
+(forall a b.
+ ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b)
+-&gt; (forall a b.
+    ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b)
+-&gt; (forall a b.
+    ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c)
+-&gt; Apply (ObjectProps p a)
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+forall a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+forall a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+forall a b.
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+forall (p :: Nat) a. Functor (ObjectProps p a)
+forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+forall (p :: Nat) a a b.
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; Apply f
+liftF2 :: (a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+$cliftF2 :: forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+&lt;. :: ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+$c&lt;. :: forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+.&gt; :: ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+$c.&gt; :: forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+&lt;.&gt; :: ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+$c&lt;.&gt; :: forall (p :: Nat) a a b.
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+$cp1Apply :: forall (p :: Nat) a. Functor (ObjectProps p a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Apply</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679310492"><span id="local-6989586621679310494"><span id="local-6989586621679310496"><span id="local-6989586621679310498"><span id="local-6989586621679310500"><span class="annot"><span class="annottext">Functor (ObjectProps p a)
+a -&gt; ObjectProps p a a
+Functor (ObjectProps p a) =&gt;
+(forall a. a -&gt; ObjectProps p a a)
+-&gt; (forall a b.
+    ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c)
+-&gt; (forall a b.
+    ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b)
+-&gt; (forall a b.
+    ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a)
+-&gt; Applicative (ObjectProps p a)
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+forall a. a -&gt; ObjectProps p a a
+forall a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+forall a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+forall a b.
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+forall (p :: Nat) a. Functor (ObjectProps p a)
+forall (p :: Nat) a a. a -&gt; ObjectProps p a a
+forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+forall (p :: Nat) a a b.
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a. a -&gt; f a)
+-&gt; (forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; Applicative f
+&lt;* :: ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+$c&lt;* :: forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a a
+*&gt; :: ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+$c*&gt; :: forall (p :: Nat) a a b.
+ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a b
+liftA2 :: (a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+$cliftA2 :: forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; ObjectProps p a a -&gt; ObjectProps p a b -&gt; ObjectProps p a c
+&lt;*&gt; :: ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+$c&lt;*&gt; :: forall (p :: Nat) a a b.
+ObjectProps p a (a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+pure :: a -&gt; ObjectProps p a a
+$cpure :: forall (p :: Nat) a a. a -&gt; ObjectProps p a a
+$cp1Applicative :: forall (p :: Nat) a. Functor (ObjectProps p a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span id="local-6989586621679310489"><span id="local-6989586621679310490"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Invariant</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-type">ObjectProps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310490"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310489"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-95"></span><span>    </span><span id="local-6989586621679310486"><span class="annot"><span class="annottext">invmap :: (a -&gt; b) -&gt; (b -&gt; a) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+</span><a href="#local-6989586621679310486"><span class="hs-identifier hs-var hs-var hs-var hs-var">invmap</span></a></span></span><span> </span><span id="local-6989586621679310485"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310485"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; ObjectProps p a a -&gt; ObjectProps p a b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310485"><span class="hs-identifier hs-var">f</span></a></span></span></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span id="local-6989586621679310484"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679310475"><span id="local-6989586621679310477"><span id="local-6989586621679310479"><span id="local-6989586621679310481"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-type">ObjectProps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310484"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-98"></span><span>    </span><span id="local-6989586621679310473"><span class="annot"><span class="annottext">dimap :: (a -&gt; b) -&gt; (c -&gt; d) -&gt; ObjectProps p b c -&gt; ObjectProps p a d
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">dimap</span></span></span><span> </span><span id="local-6989586621679310471"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310471"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679310470"><span class="annot"><span class="annottext">g :: c -&gt; d
+</span><a href="#local-6989586621679310470"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (ObjMember (TSType_ p))) d -&gt; ObjectProps p a d
+forall (p :: Nat) a b.
+Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-var">ObjectProps</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (ObjMember (TSType_ p))) d -&gt; ObjectProps p a d)
+-&gt; (ObjectProps p b c -&gt; Ap (Pre a (ObjMember (TSType_ p))) d)
+-&gt; ObjectProps p b c
+-&gt; ObjectProps p a d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Pre b (ObjMember (TSType_ p)) ~&gt; Pre a (ObjMember (TSType_ p)))
+-&gt; Ap (Pre b (ObjMember (TSType_ p)))
+   ~&gt; Ap (Pre a (ObjMember (TSType_ p)))
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b)
+-&gt; Pre b (ObjMember (TSType_ p)) x
+-&gt; Pre a (ObjMember (TSType_ p)) x
+forall c a (f :: * -&gt; *) b. (c -&gt; a) -&gt; Pre a f b -&gt; Pre c f b
+</span><span class="hs-identifier hs-var">mapPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310471"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Ap (Pre b (ObjMember (TSType_ p))) d
+ -&gt; Ap (Pre a (ObjMember (TSType_ p))) d)
+-&gt; (ObjectProps p b c -&gt; Ap (Pre b (ObjMember (TSType_ p))) d)
+-&gt; ObjectProps p b c
+-&gt; Ap (Pre a (ObjMember (TSType_ p))) d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d)
+-&gt; Ap (Pre b (ObjMember (TSType_ p))) c
+-&gt; Ap (Pre b (ObjMember (TSType_ p))) d
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679310470"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre b (ObjMember (TSType_ p))) c
+ -&gt; Ap (Pre b (ObjMember (TSType_ p))) d)
+-&gt; (ObjectProps p b c -&gt; Ap (Pre b (ObjMember (TSType_ p))) c)
+-&gt; ObjectProps p b c
+-&gt; Ap (Pre b (ObjMember (TSType_ p))) d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ObjectProps p b c -&gt; Ap (Pre b (ObjMember (TSType_ p))) c
+forall (p :: Nat) a b.
+ObjectProps p a b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b
+</span><a href="Typescript.Json.Collection.html#getObjectProps"><span class="hs-identifier hs-var hs-var">getObjectProps</span></a></span></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- | Create a single key-value pair for an object.  If the first argument</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- is 'True', will try to turn any nullable value into an optional property</span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- with non-nullable type if possible.  Otherwise, always uses a required</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- property.</span><span>
+</span><span id="line-104"></span><span id="local-6989586621679310465"><span id="local-6989586621679310466"><span id="local-6989586621679310467"><span class="annot"><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-type">keyVal</span></a></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>             </span><span class="hs-comment">-- ^ turn nullable types into optional params if possible</span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679310467"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679310466"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>         </span><span class="hs-comment">-- ^ project this pair's value out of the aggregate type</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Mutability"><span class="hs-identifier hs-type">Mutability</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>             </span><span class="hs-comment">-- ^ key (property name)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310465"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310466"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-type">ObjectProps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310465"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310467"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310466"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-111"></span><span id="keyVal"><span class="annot"><span class="annottext">keyVal :: Bool
+-&gt; (a -&gt; b)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p b
+-&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var hs-var">keyVal</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">True</span></span><span> </span><span id="local-6989586621679310464"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310464"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679310463"><span class="annot"><span class="annottext">ro :: Mutability
+</span><a href="#local-6989586621679310463"><span class="hs-identifier hs-var">ro</span></a></span></span><span> </span><span id="local-6989586621679310462"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679310462"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span id="local-6989586621679310460"><span class="annot"><span class="annottext">t :: TSType p k b
+</span><a href="#local-6989586621679310460"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b
+forall (p :: Nat) a b.
+Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-var">ObjectProps</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b)
+-&gt; (ObjMember (TSType_ p) b
+    -&gt; Ap (Pre a (ObjMember (TSType_ p))) b)
+-&gt; ObjMember (TSType_ p) b
+-&gt; ObjectProps p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b)
+-&gt; ObjMember (TSType_ p) b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) a b (f :: * -&gt; *).
+Inject t =&gt;
+(a -&gt; b) -&gt; f b -&gt; t (Pre a f) b
+</span><span class="hs-identifier hs-var">injectPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310464"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(ObjMember (TSType_ p) b -&gt; ObjectProps p a b)
+-&gt; ObjMember (TSType_ p) b -&gt; ObjectProps p a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ObjMember :: forall (f :: * -&gt; *) a.
+Mutability -&gt; Text -&gt; (:+:) f (ILan Maybe f) a -&gt; ObjMember f a
+</span><a href="Typescript.Json.Types.html#ObjMember"><span class="hs-identifier hs-type hs-type">ObjMember</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">objMemberReadOnly :: Mutability
+</span><a href="Typescript.Json.Types.html#objMemberReadOnly"><span class="hs-identifier hs-var">objMemberReadOnly</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679310463"><span class="hs-identifier hs-var">ro</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">objMemberKey :: Text
+</span><a href="Typescript.Json.Types.html#objMemberKey"><span class="hs-identifier hs-var">objMemberKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679310462"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">objMemberVal :: (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b
+</span><a href="Typescript.Json.Types.html#objMemberVal"><span class="hs-identifier hs-var">objMemberVal</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSType p k b -&gt; Maybe (ILan Maybe (TSType p 'NotObj) b)
+forall (p :: Nat) (k :: IsObjType) a.
+TSType p k a -&gt; Maybe (ILan Maybe (TSType p 'NotObj) a)
+</span><a href="Typescript.Json.Types.html#isNullable"><span class="hs-identifier hs-var">isNullable</span></a></span><span> </span><span class="annot"><span class="annottext">TSType p k b
+</span><a href="#local-6989586621679310460"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-115"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType_ p b -&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). f p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">L1</span></span><span> </span><span class="annot"><span class="annottext">(TSType_ p b -&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b)
+-&gt; TSType_ p b -&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSType p k b -&gt; TSType_ p b
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">TSType p k b
+</span><a href="#local-6989586621679310460"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-116"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679310451"><span class="annot"><span class="annottext">u :: ILan Maybe (TSType p 'NotObj) b
+</span><a href="#local-6989586621679310451"><span class="hs-identifier hs-var">u</span></a></span></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ILan Maybe (TSType_ p) b
+-&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). g p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">R1</span></span><span> </span><span class="annot"><span class="annottext">(ILan Maybe (TSType_ p) b
+ -&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b)
+-&gt; ILan Maybe (TSType_ p) b
+-&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(TSType p 'NotObj ~&gt; TSType_ p)
+-&gt; ILan Maybe (TSType p 'NotObj) b -&gt; ILan Maybe (TSType_ p) b
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj ~&gt; TSType_ p
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">ILan Maybe (TSType p 'NotObj) b
+</span><a href="#local-6989586621679310451"><span class="hs-identifier hs-var">u</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-118"></span><span class="annot"><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var">keyVal</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">False</span></span><span> </span><span id="local-6989586621679310449"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310449"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679310448"><span class="annot"><span class="annottext">ro :: Mutability
+</span><a href="#local-6989586621679310448"><span class="hs-identifier hs-var">ro</span></a></span></span><span> </span><span id="local-6989586621679310447"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679310447"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679310446"><span class="annot"><span class="annottext">t :: TSType_ p b
+</span><a href="#local-6989586621679310446"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b
+forall (p :: Nat) a b.
+Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-var">ObjectProps</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b)
+-&gt; (ObjMember (TSType_ p) b
+    -&gt; Ap (Pre a (ObjMember (TSType_ p))) b)
+-&gt; ObjMember (TSType_ p) b
+-&gt; ObjectProps p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b)
+-&gt; ObjMember (TSType_ p) b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) a b (f :: * -&gt; *).
+Inject t =&gt;
+(a -&gt; b) -&gt; f b -&gt; t (Pre a f) b
+</span><span class="hs-identifier hs-var">injectPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310449"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(ObjMember (TSType_ p) b -&gt; ObjectProps p a b)
+-&gt; ObjMember (TSType_ p) b -&gt; ObjectProps p a b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ObjMember :: forall (f :: * -&gt; *) a.
+Mutability -&gt; Text -&gt; (:+:) f (ILan Maybe f) a -&gt; ObjMember f a
+</span><a href="Typescript.Json.Types.html#ObjMember"><span class="hs-identifier hs-type hs-type">ObjMember</span></a></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">objMemberReadOnly :: Mutability
+</span><a href="Typescript.Json.Types.html#objMemberReadOnly"><span class="hs-identifier hs-var">objMemberReadOnly</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679310448"><span class="hs-identifier hs-var">ro</span></a></span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">objMemberKey :: Text
+</span><a href="Typescript.Json.Types.html#objMemberKey"><span class="hs-identifier hs-var">objMemberKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679310447"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">objMemberVal :: (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b
+</span><a href="Typescript.Json.Types.html#objMemberVal"><span class="hs-identifier hs-var">objMemberVal</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSType_ p b -&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) b
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). f p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">L1</span></span><span> </span><span class="annot"><span class="annottext">TSType_ p b
+</span><a href="#local-6989586621679310446"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- | Create a single optional key-value pair for an object.</span><span>
+</span><span id="line-125"></span><span id="local-6989586621679310443"><span id="local-6989586621679310444"><span id="local-6989586621679310445"><span class="annot"><a href="Typescript.Json.Collection.html#keyValMay"><span class="hs-identifier hs-type">keyValMay</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679310445"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679310444"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>   </span><span class="hs-comment">-- ^ project this pair's value out of the aggregate type, potentially revealing it is not present.</span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Mutability"><span class="hs-identifier hs-type">Mutability</span></a></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>             </span><span class="hs-comment">-- ^ key (property name)</span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310443"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310444"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-type">ObjectProps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310443"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310445"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679310444"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-131"></span><span id="keyValMay"><span class="annot"><span class="annottext">keyValMay :: (a -&gt; Maybe b)
+-&gt; Mutability -&gt; Text -&gt; TSType_ p b -&gt; ObjectProps p a (Maybe b)
+</span><a href="Typescript.Json.Collection.html#keyValMay"><span class="hs-identifier hs-var hs-var">keyValMay</span></a></span></span><span> </span><span id="local-6989586621679310442"><span class="annot"><span class="annottext">f :: a -&gt; Maybe b
+</span><a href="#local-6989586621679310442"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679310441"><span class="annot"><span class="annottext">ro :: Mutability
+</span><a href="#local-6989586621679310441"><span class="hs-identifier hs-var">ro</span></a></span></span><span> </span><span id="local-6989586621679310440"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679310440"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679310439"><span class="annot"><span class="annottext">t :: TSType_ p b
+</span><a href="#local-6989586621679310439"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (ObjMember (TSType_ p))) (Maybe b)
+-&gt; ObjectProps p a (Maybe b)
+forall (p :: Nat) a b.
+Ap (Pre a (ObjMember (TSType_ p))) b -&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-var">ObjectProps</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (ObjMember (TSType_ p))) (Maybe b)
+ -&gt; ObjectProps p a (Maybe b))
+-&gt; (ObjMember (TSType_ p) (Maybe b)
+    -&gt; Ap (Pre a (ObjMember (TSType_ p))) (Maybe b))
+-&gt; ObjMember (TSType_ p) (Maybe b)
+-&gt; ObjectProps p a (Maybe b)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe b)
+-&gt; ObjMember (TSType_ p) (Maybe b)
+-&gt; Ap (Pre a (ObjMember (TSType_ p))) (Maybe b)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) a b (f :: * -&gt; *).
+Inject t =&gt;
+(a -&gt; b) -&gt; f b -&gt; t (Pre a f) b
+</span><span class="hs-identifier hs-var">injectPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe b
+</span><a href="#local-6989586621679310442"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(ObjMember (TSType_ p) (Maybe b) -&gt; ObjectProps p a (Maybe b))
+-&gt; ObjMember (TSType_ p) (Maybe b) -&gt; ObjectProps p a (Maybe b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ObjMember :: forall (f :: * -&gt; *) a.
+Mutability -&gt; Text -&gt; (:+:) f (ILan Maybe f) a -&gt; ObjMember f a
+</span><a href="Typescript.Json.Types.html#ObjMember"><span class="hs-identifier hs-type hs-type">ObjMember</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">objMemberReadOnly :: Mutability
+</span><a href="Typescript.Json.Types.html#objMemberReadOnly"><span class="hs-identifier hs-var">objMemberReadOnly</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679310441"><span class="hs-identifier hs-var">ro</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">objMemberKey :: Text
+</span><a href="Typescript.Json.Types.html#objMemberKey"><span class="hs-identifier hs-var">objMemberKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679310440"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">objMemberVal :: (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) (Maybe b)
+</span><a href="Typescript.Json.Types.html#objMemberVal"><span class="hs-identifier hs-var">objMemberVal</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ILan Maybe (TSType_ p) (Maybe b)
+-&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) (Maybe b)
+forall k (f :: k -&gt; *) (g :: k -&gt; *) (p :: k). g p -&gt; (:+:) f g p
+</span><span class="hs-identifier hs-var">R1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType_ p b -&gt; ILan Maybe (TSType_ p) (Maybe b)
+forall k (h :: k -&gt; *) (a :: k) (g :: k -&gt; *).
+h a -&gt; ILan g h (g a)
+</span><a href="Typescript.Json.Types.Combinators.html#ilan"><span class="hs-identifier hs-var">ilan</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ p b
+</span><a href="#local-6989586621679310439"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- | Gather together object properties into a 'TSType'.  See 'ObjectProps'</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- for details on how to use this.</span><span>
+</span><span id="line-139"></span><span id="local-6989586621679310437"><span id="local-6989586621679310438"><span class="annot"><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-type">tsObject</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-type">ObjectProps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310438"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310437"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310437"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310438"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310437"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-142"></span><span id="tsObject"><span class="annot"><span class="annottext">tsObject :: ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var hs-var">tsObject</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSKeyVal p a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a. TSKeyVal p a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-var">TSObject</span></a></span><span> </span><span class="annot"><span class="annottext">(TSKeyVal p a -&gt; TSType p 'IsObj a)
+-&gt; (ObjectProps p a a -&gt; TSKeyVal p a)
+-&gt; ObjectProps p a a
+-&gt; TSType p 'IsObj a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (ObjMember (TSType_ p))) a -&gt; TSKeyVal p a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (f :: * -&gt; *) a.
+t (Pre a f) a -&gt; PreT t f a
+</span><span class="hs-identifier hs-var">PreT</span></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (ObjMember (TSType_ p))) a -&gt; TSKeyVal p a)
+-&gt; (ObjectProps p a a -&gt; Ap (Pre a (ObjMember (TSType_ p))) a)
+-&gt; ObjectProps p a a
+-&gt; TSKeyVal p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ObjectProps p a a -&gt; Ap (Pre a (ObjMember (TSType_ p))) a
+forall (p :: Nat) a b.
+ObjectProps p a b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b
+</span><a href="Typescript.Json.Collection.html#getObjectProps"><span class="hs-identifier hs-var hs-var">getObjectProps</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- | A type aggregating values in a tuple type.  Meant to</span><span>
+</span><span id="line-145"></span><span class="hs-comment">-- be assembled using 'tupleVal' and combined using its 'Applicative'</span><span>
+</span><span id="line-146"></span><span class="hs-comment">-- instance.  To finally turn one into a 'TSType', use 'tsTuple'.</span><span>
+</span><span id="line-147"></span><span class="hs-comment">--</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- In a @'TupleVals' p a b@, the @a@ represents the overall aggregate</span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- type, and the @b@ represents the type of the part that this 'TupleVals'</span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- is describing.</span><span>
+</span><span id="line-151"></span><span class="hs-comment">--</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- data MyType = MyType</span><span>
+</span><span id="line-154"></span><span class="hs-comment">--   { mta :: Int</span><span>
+</span><span id="line-155"></span><span class="hs-comment">--   , mtb :: Bool</span><span>
+</span><span id="line-156"></span><span class="hs-comment">--   , mtc :: String</span><span>
+</span><span id="line-157"></span><span class="hs-comment">--   }</span><span>
+</span><span id="line-158"></span><span class="hs-comment">--</span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- myTypeVals :: 'TupleVals' p MyType MyType</span><span>
+</span><span id="line-160"></span><span class="hs-comment">-- myTypeVals = MyType</span><span>
+</span><span id="line-161"></span><span class="hs-comment">--   \&lt;$\&gt; 'tupleVal' mta (TSType_ 'tsBoundedInteger')</span><span>
+</span><span id="line-162"></span><span class="hs-comment">--   \&lt;*\&gt; tupleVal mtb (TSType_ 'tsBoolean')</span><span>
+</span><span id="line-163"></span><span class="hs-comment">--   \&lt;*\&gt; tupleVal mtc (TSType_ 'tsString')</span><span>
+</span><span id="line-164"></span><span class="hs-comment">--</span><span>
+</span><span id="line-165"></span><span class="hs-comment">-- myType :: TSType p 'NotObj MyType</span><span>
+</span><span id="line-166"></span><span class="hs-comment">-- myType = tsTuple myTypeVals</span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-168"></span><span class="hs-comment">--</span><span>
+</span><span id="line-169"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- ppType myType</span><span>
+</span><span id="line-171"></span><span class="hs-comment">-- -- =&gt; [number, boolean, string]</span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-173"></span><span class="hs-comment">--</span><span>
+</span><span id="line-174"></span><span class="hs-comment">-- In the above, @tupleVal mta tsBoundedInteger@ has the type</span><span>
+</span><span id="line-175"></span><span class="hs-comment">-- @TupleVals p MyType Int@, showing that it refers to the @Int@ field</span><span>
+</span><span id="line-176"></span><span class="hs-comment">-- of the @MyType@.  The trick to using this is to assemble 'TupleVals'</span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- together using Applicative combinators until the @a@ and @b@ &quot;match&quot;,</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- and the 'TupleVals' describes the entire value.  Then you can use</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- 'tsTuple'.</span><span>
+</span><span id="line-180"></span><span class="hs-comment">--</span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- Note that the order that the 'Applicative' combination matters: it</span><span>
+</span><span id="line-182"></span><span class="hs-comment">-- determines the ordering of the tuple.</span><span>
+</span><span id="line-183"></span><span class="hs-keyword">newtype</span><span> </span><span id="TupleVals"><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-var">TupleVals</span></a></span></span><span> </span><span id="local-6989586621679310627"><span class="annot"><a href="#local-6989586621679310627"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679310628"><span class="annot"><a href="#local-6989586621679310628"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679310626"><span class="annot"><a href="#local-6989586621679310626"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TupleVals"><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-var">TupleVals</span></a></span></span><span>
+</span><span id="line-184"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="getTupleVals"><span class="annot"><span class="annottext">TupleVals p a b -&gt; Ap (Pre a (TSType_ p)) b
+</span><a href="Typescript.Json.Collection.html#getTupleVals"><span class="hs-identifier hs-var hs-var">getTupleVals</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Pre</span></span><span> </span><span class="annot"><a href="#local-6989586621679310628"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310627"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679310626"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-185"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679310429"><span id="local-6989586621679310431"><span class="annot"><span class="annottext">a -&gt; TupleVals p a b -&gt; TupleVals p a a
+(a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+(forall a b. (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b)
+-&gt; (forall a b. a -&gt; TupleVals p a b -&gt; TupleVals p a a)
+-&gt; Functor (TupleVals p a)
+forall a b. a -&gt; TupleVals p a b -&gt; TupleVals p a a
+forall a b. (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+forall (p :: Nat) a a b. a -&gt; TupleVals p a b -&gt; TupleVals p a a
+forall (p :: Nat) a a b.
+(a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; TupleVals p a b -&gt; TupleVals p a a
+$c&lt;$ :: forall (p :: Nat) a a b. a -&gt; TupleVals p a b -&gt; TupleVals p a a
+fmap :: (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+$cfmap :: forall (p :: Nat) a a b.
+(a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679310420"><span id="local-6989586621679310422"><span id="local-6989586621679310424"><span id="local-6989586621679310426"><span class="annot"><span class="annottext">Functor (TupleVals p a)
+Functor (TupleVals p a) =&gt;
+(forall a b.
+ TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b)
+-&gt; (forall a b.
+    TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b)
+-&gt; (forall a b.
+    TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c)
+-&gt; Apply (TupleVals p a)
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+forall a b. TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+forall a b. TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+forall a b.
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+forall (p :: Nat) a. Functor (TupleVals p a)
+forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+forall (p :: Nat) a a b.
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; Apply f
+liftF2 :: (a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+$cliftF2 :: forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+&lt;. :: TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+$c&lt;. :: forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+.&gt; :: TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+$c.&gt; :: forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+&lt;.&gt; :: TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+$c&lt;.&gt; :: forall (p :: Nat) a a b.
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+$cp1Apply :: forall (p :: Nat) a. Functor (TupleVals p a)
+</span><a href="#local-6989586621679310420"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Apply</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679310409"><span id="local-6989586621679310411"><span id="local-6989586621679310413"><span id="local-6989586621679310415"><span id="local-6989586621679310417"><span class="annot"><span class="annottext">Functor (TupleVals p a)
+a -&gt; TupleVals p a a
+Functor (TupleVals p a) =&gt;
+(forall a. a -&gt; TupleVals p a a)
+-&gt; (forall a b.
+    TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c)
+-&gt; (forall a b.
+    TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b)
+-&gt; (forall a b.
+    TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a)
+-&gt; Applicative (TupleVals p a)
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+forall a. a -&gt; TupleVals p a a
+forall a b. TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+forall a b. TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+forall a b.
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+forall (p :: Nat) a. Functor (TupleVals p a)
+forall (p :: Nat) a a. a -&gt; TupleVals p a a
+forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+forall (p :: Nat) a a b.
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a. a -&gt; f a)
+-&gt; (forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; Applicative f
+&lt;* :: TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+$c&lt;* :: forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a a
+*&gt; :: TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+$c*&gt; :: forall (p :: Nat) a a b.
+TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a b
+liftA2 :: (a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+$cliftA2 :: forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; TupleVals p a a -&gt; TupleVals p a b -&gt; TupleVals p a c
+&lt;*&gt; :: TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+$c&lt;*&gt; :: forall (p :: Nat) a a b.
+TupleVals p a (a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+pure :: a -&gt; TupleVals p a a
+$cpure :: forall (p :: Nat) a a. a -&gt; TupleVals p a a
+$cp1Applicative :: forall (p :: Nat) a. Functor (TupleVals p a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-186"></span><span>
+</span><span id="line-187"></span><span id="local-6989586621679310407"><span id="local-6989586621679310408"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Invariant</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-type">TupleVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310408"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310407"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-188"></span><span>    </span><span id="local-6989586621679310405"><span class="annot"><span class="annottext">invmap :: (a -&gt; b) -&gt; (b -&gt; a) -&gt; TupleVals p a a -&gt; TupleVals p a b
+</span><a href="#local-6989586621679310405"><span class="hs-identifier hs-var hs-var hs-var hs-var">invmap</span></a></span></span><span> </span><span id="local-6989586621679310404"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310404"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; TupleVals p a a -&gt; TupleVals p a b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310404"><span class="hs-identifier hs-var">f</span></a></span></span></span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span id="local-6989586621679310403"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679310394"><span id="local-6989586621679310396"><span id="local-6989586621679310398"><span id="local-6989586621679310400"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-type">TupleVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310403"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-191"></span><span>    </span><span id="local-6989586621679310393"><span class="annot"><span class="annottext">dimap :: (a -&gt; b) -&gt; (c -&gt; d) -&gt; TupleVals p b c -&gt; TupleVals p a d
+</span><a href="#local-6989586621679310393"><span class="hs-identifier hs-var hs-var hs-var hs-var">dimap</span></a></span></span><span> </span><span id="local-6989586621679310392"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310392"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679310391"><span class="annot"><span class="annottext">g :: c -&gt; d
+</span><a href="#local-6989586621679310391"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (TSType_ p)) d -&gt; TupleVals p a d
+forall (p :: Nat) a b. Ap (Pre a (TSType_ p)) b -&gt; TupleVals p a b
+</span><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-var">TupleVals</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (TSType_ p)) d -&gt; TupleVals p a d)
+-&gt; (TupleVals p b c -&gt; Ap (Pre a (TSType_ p)) d)
+-&gt; TupleVals p b c
+-&gt; TupleVals p a d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Pre b (TSType_ p) ~&gt; Pre a (TSType_ p))
+-&gt; Ap (Pre b (TSType_ p)) ~&gt; Ap (Pre a (TSType_ p))
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Pre b (TSType_ p) x -&gt; Pre a (TSType_ p) x
+forall c a (f :: * -&gt; *) b. (c -&gt; a) -&gt; Pre a f b -&gt; Pre c f b
+</span><span class="hs-identifier hs-var">mapPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310392"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Ap (Pre b (TSType_ p)) d -&gt; Ap (Pre a (TSType_ p)) d)
+-&gt; (TupleVals p b c -&gt; Ap (Pre b (TSType_ p)) d)
+-&gt; TupleVals p b c
+-&gt; Ap (Pre a (TSType_ p)) d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d) -&gt; Ap (Pre b (TSType_ p)) c -&gt; Ap (Pre b (TSType_ p)) d
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679310391"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre b (TSType_ p)) c -&gt; Ap (Pre b (TSType_ p)) d)
+-&gt; (TupleVals p b c -&gt; Ap (Pre b (TSType_ p)) c)
+-&gt; TupleVals p b c
+-&gt; Ap (Pre b (TSType_ p)) d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TupleVals p b c -&gt; Ap (Pre b (TSType_ p)) c
+forall (p :: Nat) a b. TupleVals p a b -&gt; Ap (Pre a (TSType_ p)) b
+</span><a href="Typescript.Json.Collection.html#getTupleVals"><span class="hs-identifier hs-var hs-var">getTupleVals</span></a></span></span><span>
+</span><span id="line-192"></span><span>
+</span><span id="line-193"></span><span class="hs-comment">-- | Create a singleton 'TupleVals', to be combined with applicative</span><span>
+</span><span id="line-194"></span><span class="hs-comment">-- combinators with others.</span><span>
+</span><span id="line-195"></span><span id="local-6989586621679310388"><span id="local-6989586621679310389"><span id="local-6989586621679310390"><span class="annot"><a href="Typescript.Json.Collection.html#tupleVal"><span class="hs-identifier hs-type">tupleVal</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679310390"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679310389"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>         </span><span class="hs-comment">-- ^ project this pair's value out of the aggregate type</span><span>
+</span><span id="line-197"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310388"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310389"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-198"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-type">TupleVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310388"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310390"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310389"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-199"></span><span id="tupleVal"><span class="annot"><span class="annottext">tupleVal :: (a -&gt; b) -&gt; TSType_ p b -&gt; TupleVals p a b
+</span><a href="Typescript.Json.Collection.html#tupleVal"><span class="hs-identifier hs-var hs-var">tupleVal</span></a></span></span><span> </span><span id="local-6989586621679310387"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310387"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (TSType_ p)) b -&gt; TupleVals p a b
+forall (p :: Nat) a b. Ap (Pre a (TSType_ p)) b -&gt; TupleVals p a b
+</span><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-var">TupleVals</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (TSType_ p)) b -&gt; TupleVals p a b)
+-&gt; (TSType_ p b -&gt; Ap (Pre a (TSType_ p)) b)
+-&gt; TSType_ p b
+-&gt; TupleVals p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; TSType_ p b -&gt; Ap (Pre a (TSType_ p)) b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) a b (f :: * -&gt; *).
+Inject t =&gt;
+(a -&gt; b) -&gt; f b -&gt; t (Pre a f) b
+</span><span class="hs-identifier hs-var">injectPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310387"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span class="hs-comment">-- | Gather together tuple values into a 'TSType'.  See 'TupleVals' for</span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- details on how to use this.</span><span>
+</span><span id="line-203"></span><span id="local-6989586621679310385"><span id="local-6989586621679310386"><span class="annot"><a href="Typescript.Json.Collection.html#tsTuple"><span class="hs-identifier hs-type">tsTuple</span></a></span><span>
+</span><span id="line-204"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-type">TupleVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310386"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310385"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310385"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-205"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310386"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310385"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-206"></span><span id="tsTuple"><span class="annot"><span class="annottext">tsTuple :: TupleVals p a a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Collection.html#tsTuple"><span class="hs-identifier hs-var hs-var">tsTuple</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PreT Ap (TSType_ p) a -&gt; TSType p 'NotObj a
+forall (p :: Nat) a. PreT Ap (TSType_ p) a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSTuple"><span class="hs-identifier hs-var">TSTuple</span></a></span><span> </span><span class="annot"><span class="annottext">(PreT Ap (TSType_ p) a -&gt; TSType p 'NotObj a)
+-&gt; (TupleVals p a a -&gt; PreT Ap (TSType_ p) a)
+-&gt; TupleVals p a a
+-&gt; TSType p 'NotObj a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (TSType_ p)) a -&gt; PreT Ap (TSType_ p) a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (f :: * -&gt; *) a.
+t (Pre a f) a -&gt; PreT t f a
+</span><span class="hs-identifier hs-var">PreT</span></span><span> </span><span class="annot"><span class="annottext">(Ap (Pre a (TSType_ p)) a -&gt; PreT Ap (TSType_ p) a)
+-&gt; (TupleVals p a a -&gt; Ap (Pre a (TSType_ p)) a)
+-&gt; TupleVals p a a
+-&gt; PreT Ap (TSType_ p) a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TupleVals p a a -&gt; Ap (Pre a (TSType_ p)) a
+forall (p :: Nat) a b. TupleVals p a b -&gt; Ap (Pre a (TSType_ p)) b
+</span><a href="Typescript.Json.Collection.html#getTupleVals"><span class="hs-identifier hs-var hs-var">getTupleVals</span></a></span><span>
+</span><span id="line-207"></span><span>
+</span><span id="line-208"></span><span id="local-6989586621679310381"><span id="local-6989586621679310382"><span id="local-6989586621679310383"><span class="annot"><a href="Typescript.Json.Collection.html#stripObjectVals"><span class="hs-identifier hs-type">stripObjectVals</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-type">ObjectProps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310383"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310382"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310381"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-type">TupleVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310383"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310382"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310381"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-209"></span><span id="stripObjectVals"><span class="annot"><span class="annottext">stripObjectVals :: ObjectProps p a b -&gt; TupleVals p a b
+</span><a href="Typescript.Json.Collection.html#stripObjectVals"><span class="hs-identifier hs-var hs-var">stripObjectVals</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap (Pre a (TSType_ p)) b -&gt; TupleVals p a b
+forall (p :: Nat) a b. Ap (Pre a (TSType_ p)) b -&gt; TupleVals p a b
+</span><a href="Typescript.Json.Collection.html#TupleVals"><span class="hs-identifier hs-var">TupleVals</span></a></span><span>
+</span><span id="line-210"></span><span>                </span><span class="annot"><span class="annottext">(Ap (Pre a (TSType_ p)) b -&gt; TupleVals p a b)
+-&gt; (ObjectProps p a b -&gt; Ap (Pre a (TSType_ p)) b)
+-&gt; ObjectProps p a b
+-&gt; TupleVals p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Pre a (ObjMember (TSType_ p)) ~&gt; Pre a (TSType_ p))
+-&gt; Ap (Pre a (ObjMember (TSType_ p))) ~&gt; Ap (Pre a (TSType_ p))
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(ObjMember (TSType_ p) ~&gt; TSType_ p)
+-&gt; Pre a (ObjMember (TSType_ p)) ~&gt; Pre a (TSType_ p)
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall a. a -&gt; a
+forall x. TSType_ p x -&gt; TSType_ p x
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">(forall x. TSType_ p x -&gt; TSType_ p x)
+-&gt; (ILan Maybe (TSType_ p) ~&gt; TSType_ p)
+-&gt; (TSType_ p :+: ILan Maybe (TSType_ p)) ~&gt; TSType_ p
+forall (t :: (* -&gt; *) -&gt; (* -&gt; *) -&gt; * -&gt; *) (h :: * -&gt; *)
+       (f :: * -&gt; *) (g :: * -&gt; *).
+SemigroupIn t h =&gt;
+(f ~&gt; h) -&gt; (g ~&gt; h) -&gt; t f g ~&gt; h
+</span><span class="hs-operator hs-var">!*!</span></span><span> </span><span class="annot"><span class="annottext">ILan Maybe (TSType_ p) ~&gt; TSType_ p
+forall (p :: Nat) a. ILan Maybe (TSType_ p) a -&gt; TSType_ p a
+</span><a href="#local-6989586621679310378"><span class="hs-identifier hs-var">go</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((:+:) (TSType_ p) (ILan Maybe (TSType_ p)) x -&gt; TSType_ p x)
+-&gt; (ObjMember (TSType_ p) x
+    -&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) x)
+-&gt; ObjMember (TSType_ p) x
+-&gt; TSType_ p x
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ObjMember (TSType_ p) x
+-&gt; (:+:) (TSType_ p) (ILan Maybe (TSType_ p)) x
+forall (f :: * -&gt; *) a. ObjMember f a -&gt; (:+:) f (ILan Maybe f) a
+</span><a href="Typescript.Json.Types.html#objMemberVal"><span class="hs-identifier hs-var hs-var">objMemberVal</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-211"></span><span>                </span><span class="annot"><span class="annottext">(Ap (Pre a (ObjMember (TSType_ p))) b -&gt; Ap (Pre a (TSType_ p)) b)
+-&gt; (ObjectProps p a b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b)
+-&gt; ObjectProps p a b
+-&gt; Ap (Pre a (TSType_ p)) b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ObjectProps p a b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b
+forall (p :: Nat) a b.
+ObjectProps p a b -&gt; Ap (Pre a (ObjMember (TSType_ p))) b
+</span><a href="Typescript.Json.Collection.html#getObjectProps"><span class="hs-identifier hs-var hs-var">getObjectProps</span></a></span><span>
+</span><span id="line-212"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-213"></span><span>    </span><span id="local-6989586621679310378"><span class="annot"><span class="annottext">go :: ILan Maybe (TSType_ p) a -&gt; TSType_ p a
+</span><a href="#local-6989586621679310378"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#ILan"><span class="hs-identifier hs-type">ILan</span></a></span><span> </span><span id="local-6989586621679310376"><span class="annot"><span class="annottext">f :: Maybe x -&gt; a
+</span><a href="#local-6989586621679310376"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679310375"><span class="annot"><span class="annottext">g :: a -&gt; Maybe x
+</span><a href="#local-6989586621679310375"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span id="local-6989586621679310374"><span class="annot"><a href="#local-6989586621679310374"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj a -&gt; TSType_ p a
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType p 'NotObj a -&gt; TSType_ p a)
+-&gt; (TSType p 'NotObj (Maybe x) -&gt; TSType p 'NotObj a)
+-&gt; TSType p 'NotObj (Maybe x)
+-&gt; TSType_ p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Maybe x -&gt; a)
+-&gt; (a -&gt; Maybe x)
+-&gt; TSType p 'NotObj (Maybe x)
+-&gt; TSType p 'NotObj a
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="annot"><span class="annottext">Maybe x -&gt; a
+</span><a href="#local-6989586621679310376"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe x
+</span><a href="#local-6989586621679310375"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType p 'NotObj (Maybe x) -&gt; TSType_ p a)
+-&gt; TSType p 'NotObj (Maybe x) -&gt; TSType_ p a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSType p k x -&gt; TSType p 'NotObj (Maybe x)
+forall (p :: Nat) (k :: IsObjType) a.
+TSType p k a -&gt; TSType p 'NotObj (Maybe a)
+</span><a href="Typescript.Json.Types.html#mkNullable"><span class="hs-identifier hs-var">mkNullable</span></a></span><span> </span><span class="annot"><span class="annottext">TSType p k x
+</span><a href="#local-6989586621679310374"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-214"></span><span>
+</span><span id="line-215"></span><span>
+</span><span id="line-216"></span><span class="hs-comment">-- | A type aggregating the parts of an intersection.  Meant to be</span><span>
+</span><span id="line-217"></span><span class="hs-comment">-- assembled using 'intersectVal' and combined using its 'Applicative'</span><span>
+</span><span id="line-218"></span><span class="hs-comment">-- instance.  To finally turn one into a 'TSType', use 'tsIntersection'.</span><span>
+</span><span id="line-219"></span><span class="hs-comment">--</span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- In a @'IntersectVals' p a b@, the @a@ represents the overall aggregate</span><span>
+</span><span id="line-221"></span><span class="hs-comment">-- type, and the @b@ represents the type of the part that this 'IntersectVals'</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- is describing.</span><span>
+</span><span id="line-223"></span><span class="hs-comment">--</span><span>
+</span><span id="line-224"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- data MyType = MyType</span><span>
+</span><span id="line-226"></span><span class="hs-comment">--   { mta :: Int</span><span>
+</span><span id="line-227"></span><span class="hs-comment">--   , mtb :: Bool</span><span>
+</span><span id="line-228"></span><span class="hs-comment">--   , mtc :: Maybe String</span><span>
+</span><span id="line-229"></span><span class="hs-comment">--   }</span><span>
+</span><span id="line-230"></span><span class="hs-comment">--</span><span>
+</span><span id="line-231"></span><span class="hs-comment">-- myType :: TSType p 'IsObj MyType</span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- myType = tsObject $ MyType</span><span>
+</span><span id="line-233"></span><span class="hs-comment">--   \&lt;$\&gt; 'keyVal' True mta &quot;mta&quot; ('TSType_' 'tsBoundedInteger')</span><span>
+</span><span id="line-234"></span><span class="hs-comment">--   \&lt;*\&gt; keyVal True mtb &quot;mtb&quot; (TSType_ 'tsBoolean')</span><span>
+</span><span id="line-235"></span><span class="hs-comment">--   \&lt;*\&gt; 'keyValMay' mtc &quot;mtc&quot; (TSType_ 'tsString')</span><span>
+</span><span id="line-236"></span><span class="hs-comment">--</span><span>
+</span><span id="line-237"></span><span class="hs-comment">-- -- { tag: &quot;something&quot; }</span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- tagType :: TSType p 'IsObj ()</span><span>
+</span><span id="line-239"></span><span class="hs-comment">-- tagType = tagVal &quot;tag&quot; &quot;something&quot;</span><span>
+</span><span id="line-240"></span><span class="hs-comment">--</span><span>
+</span><span id="line-241"></span><span class="hs-comment">-- myTaggedType :: IntersectVals p MyType MyType</span><span>
+</span><span id="line-242"></span><span class="hs-comment">-- myTaggedType = intersectVal tagType</span><span>
+</span><span id="line-243"></span><span class="hs-comment">--             .&gt; intersectVal myType</span><span>
+</span><span id="line-244"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-245"></span><span class="hs-comment">--</span><span>
+</span><span id="line-246"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-247"></span><span class="hs-comment">-- ppType $ tsIntersection myTaggedType</span><span>
+</span><span id="line-248"></span><span class="hs-comment">-- -- =&gt; { tag: &quot;something&quot; } &amp;  { mta: number, mtb: boolean, mtc?: string }</span><span>
+</span><span id="line-249"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-250"></span><span class="hs-comment">--</span><span>
+</span><span id="line-251"></span><span class="hs-comment">-- This works in the same style as 'TupleVals' and 'ObjectProps', so see</span><span>
+</span><span id="line-252"></span><span class="hs-comment">-- those types for more examples of using an 'Applicative' instance.</span><span>
+</span><span id="line-253"></span><span class="hs-comment">--</span><span>
+</span><span id="line-254"></span><span class="hs-comment">-- If any of the objects in the intersection have duplicate keys of the</span><span>
+</span><span id="line-255"></span><span class="hs-comment">-- same type, the property value from the rightmost branch will be used</span><span>
+</span><span id="line-256"></span><span class="hs-comment">-- when decoding.</span><span>
+</span><span id="line-257"></span><span class="hs-comment">--</span><span>
+</span><span id="line-258"></span><span class="hs-comment">-- If any of the objects in the intersection have duplicate keys of</span><span>
+</span><span id="line-259"></span><span class="hs-comment">-- different types, this describes an invalid typescript type.  The</span><span>
+</span><span id="line-260"></span><span class="hs-comment">-- behavior of encoding/decoding is undefined; for encoding, the result</span><span>
+</span><span id="line-261"></span><span class="hs-comment">-- will most likely not typecheck in typescript.  for decoding, the result</span><span>
+</span><span id="line-262"></span><span class="hs-comment">-- will most likely fail to parse.</span><span>
+</span><span id="line-263"></span><span class="hs-keyword">newtype</span><span> </span><span id="IntersectVals"><span class="annot"><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-var">IntersectVals</span></a></span></span><span> </span><span id="local-6989586621679310552"><span class="annot"><a href="#local-6989586621679310552"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679310553"><span class="annot"><a href="#local-6989586621679310553"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span id="local-6989586621679310551"><span class="annot"><a href="#local-6989586621679310551"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="IntersectVals"><span class="annot"><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-var">IntersectVals</span></a></span></span><span>
+</span><span id="line-264"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="getIntersectVals"><span class="annot"><span class="annottext">IntersectVals p a b -&gt; Ap1 (Pre a (TSType p 'IsObj)) b
+</span><a href="Typescript.Json.Collection.html#getIntersectVals"><span class="hs-identifier hs-var hs-var">getIntersectVals</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ap1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Pre</span></span><span> </span><span class="annot"><a href="#local-6989586621679310553"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310552"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679310551"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-265"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679310367"><span id="local-6989586621679310369"><span class="annot"><span class="annottext">a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+(a -&gt; b) -&gt; IntersectVals p a a -&gt; IntersectVals p a b
+(forall a b.
+ (a -&gt; b) -&gt; IntersectVals p a a -&gt; IntersectVals p a b)
+-&gt; (forall a b. a -&gt; IntersectVals p a b -&gt; IntersectVals p a a)
+-&gt; Functor (IntersectVals p a)
+forall a b. a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+forall a b. (a -&gt; b) -&gt; IntersectVals p a a -&gt; IntersectVals p a b
+forall (p :: Nat) a a b.
+a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+forall (p :: Nat) a a b.
+(a -&gt; b) -&gt; IntersectVals p a a -&gt; IntersectVals p a b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+$c&lt;$ :: forall (p :: Nat) a a b.
+a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+fmap :: (a -&gt; b) -&gt; IntersectVals p a a -&gt; IntersectVals p a b
+$cfmap :: forall (p :: Nat) a a b.
+(a -&gt; b) -&gt; IntersectVals p a a -&gt; IntersectVals p a b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679310358"><span id="local-6989586621679310360"><span id="local-6989586621679310362"><span id="local-6989586621679310364"><span class="annot"><span class="annottext">Functor (IntersectVals p a)
+Functor (IntersectVals p a) =&gt;
+(forall a b.
+ IntersectVals p a (a -&gt; b)
+ -&gt; IntersectVals p a a -&gt; IntersectVals p a b)
+-&gt; (forall a b.
+    IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a b)
+-&gt; (forall a b.
+    IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a a)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c)
+    -&gt; IntersectVals p a a
+    -&gt; IntersectVals p a b
+    -&gt; IntersectVals p a c)
+-&gt; Apply (IntersectVals p a)
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a b
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+IntersectVals p a (a -&gt; b)
+-&gt; IntersectVals p a a -&gt; IntersectVals p a b
+(a -&gt; b -&gt; c)
+-&gt; IntersectVals p a a
+-&gt; IntersectVals p a b
+-&gt; IntersectVals p a c
+forall a b.
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+forall a b.
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a b
+forall a b.
+IntersectVals p a (a -&gt; b)
+-&gt; IntersectVals p a a -&gt; IntersectVals p a b
+forall a b c.
+(a -&gt; b -&gt; c)
+-&gt; IntersectVals p a a
+-&gt; IntersectVals p a b
+-&gt; IntersectVals p a c
+forall (p :: Nat) a. Functor (IntersectVals p a)
+forall (p :: Nat) a a b.
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+forall (p :: Nat) a a b.
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a b
+forall (p :: Nat) a a b.
+IntersectVals p a (a -&gt; b)
+-&gt; IntersectVals p a a -&gt; IntersectVals p a b
+forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; IntersectVals p a a
+-&gt; IntersectVals p a b
+-&gt; IntersectVals p a c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; Apply f
+liftF2 :: (a -&gt; b -&gt; c)
+-&gt; IntersectVals p a a
+-&gt; IntersectVals p a b
+-&gt; IntersectVals p a c
+$cliftF2 :: forall (p :: Nat) a a b c.
+(a -&gt; b -&gt; c)
+-&gt; IntersectVals p a a
+-&gt; IntersectVals p a b
+-&gt; IntersectVals p a c
+&lt;. :: IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+$c&lt;. :: forall (p :: Nat) a a b.
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a a
+.&gt; :: IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a b
+$c.&gt; :: forall (p :: Nat) a a b.
+IntersectVals p a a -&gt; IntersectVals p a b -&gt; IntersectVals p a b
+&lt;.&gt; :: IntersectVals p a (a -&gt; b)
+-&gt; IntersectVals p a a -&gt; IntersectVals p a b
+$c&lt;.&gt; :: forall (p :: Nat) a a b.
+IntersectVals p a (a -&gt; b)
+-&gt; IntersectVals p a a -&gt; IntersectVals p a b
+$cp1Apply :: forall (p :: Nat) a. Functor (IntersectVals p a)
+</span><a href="#local-6989586621679310358"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Apply</span></a></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span id="local-6989586621679310356"><span id="local-6989586621679310357"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Invariant</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-type">IntersectVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310357"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310356"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-268"></span><span>    </span><span id="local-6989586621679310354"><span class="annot"><span class="annottext">invmap :: (a -&gt; b) -&gt; (b -&gt; a) -&gt; IntersectVals p a a -&gt; IntersectVals p a b
+</span><a href="#local-6989586621679310354"><span class="hs-identifier hs-var hs-var hs-var hs-var">invmap</span></a></span></span><span> </span><span id="local-6989586621679310353"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310353"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; IntersectVals p a a -&gt; IntersectVals p a b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310353"><span class="hs-identifier hs-var">f</span></a></span></span></span><span>
+</span><span id="line-269"></span><span>
+</span><span id="line-270"></span><span id="local-6989586621679310352"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679310343"><span id="local-6989586621679310345"><span id="local-6989586621679310347"><span id="local-6989586621679310349"><span class="annot"><span class="hs-identifier hs-type">Profunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-type">IntersectVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310352"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-271"></span><span>    </span><span id="local-6989586621679310342"><span class="annot"><span class="annottext">dimap :: (a -&gt; b) -&gt; (c -&gt; d) -&gt; IntersectVals p b c -&gt; IntersectVals p a d
+</span><a href="#local-6989586621679310342"><span class="hs-identifier hs-var hs-var hs-var hs-var">dimap</span></a></span></span><span> </span><span id="local-6989586621679310341"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310341"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679310340"><span class="annot"><span class="annottext">g :: c -&gt; d
+</span><a href="#local-6989586621679310340"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap1 (Pre a (TSType p 'IsObj)) d -&gt; IntersectVals p a d
+forall (p :: Nat) a b.
+Ap1 (Pre a (TSType p 'IsObj)) b -&gt; IntersectVals p a b
+</span><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-var">IntersectVals</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap1 (Pre a (TSType p 'IsObj)) d -&gt; IntersectVals p a d)
+-&gt; (IntersectVals p b c -&gt; Ap1 (Pre a (TSType p 'IsObj)) d)
+-&gt; IntersectVals p b c
+-&gt; IntersectVals p a d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Pre b (TSType p 'IsObj) ~&gt; Pre a (TSType p 'IsObj))
+-&gt; Ap1 (Pre b (TSType p 'IsObj)) ~&gt; Ap1 (Pre a (TSType p 'IsObj))
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; Pre b (TSType p 'IsObj) x -&gt; Pre a (TSType p 'IsObj) x
+forall c a (f :: * -&gt; *) b. (c -&gt; a) -&gt; Pre a f b -&gt; Pre c f b
+</span><span class="hs-identifier hs-var">mapPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310341"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Ap1 (Pre b (TSType p 'IsObj)) d
+ -&gt; Ap1 (Pre a (TSType p 'IsObj)) d)
+-&gt; (IntersectVals p b c -&gt; Ap1 (Pre b (TSType p 'IsObj)) d)
+-&gt; IntersectVals p b c
+-&gt; Ap1 (Pre a (TSType p 'IsObj)) d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(c -&gt; d)
+-&gt; Ap1 (Pre b (TSType p 'IsObj)) c
+-&gt; Ap1 (Pre b (TSType p 'IsObj)) d
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; d
+</span><a href="#local-6989586621679310340"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap1 (Pre b (TSType p 'IsObj)) c
+ -&gt; Ap1 (Pre b (TSType p 'IsObj)) d)
+-&gt; (IntersectVals p b c -&gt; Ap1 (Pre b (TSType p 'IsObj)) c)
+-&gt; IntersectVals p b c
+-&gt; Ap1 (Pre b (TSType p 'IsObj)) d
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IntersectVals p b c -&gt; Ap1 (Pre b (TSType p 'IsObj)) c
+forall (p :: Nat) a b.
+IntersectVals p a b -&gt; Ap1 (Pre a (TSType p 'IsObj)) b
+</span><a href="Typescript.Json.Collection.html#getIntersectVals"><span class="hs-identifier hs-var hs-var">getIntersectVals</span></a></span></span><span>
+</span><span id="line-272"></span><span>
+</span><span id="line-273"></span><span class="hs-comment">-- | Create a singleton 'IntersectVals', to be combined with applicative</span><span>
+</span><span id="line-274"></span><span class="hs-comment">-- combinators with others.</span><span>
+</span><span id="line-275"></span><span class="hs-comment">--</span><span>
+</span><span id="line-276"></span><span class="hs-comment">-- Note that the input type must an object literal, indicated by @''IsObj'@</span><span>
+</span><span id="line-277"></span><span id="local-6989586621679310337"><span id="local-6989586621679310338"><span id="local-6989586621679310339"><span class="annot"><a href="Typescript.Json.Collection.html#intersectVal"><span class="hs-identifier hs-type">intersectVal</span></a></span><span>
+</span><span id="line-278"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679310339"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679310338"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-279"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310337"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310338"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-280"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-type">IntersectVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310337"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310339"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310338"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-281"></span><span id="intersectVal"><span class="annot"><span class="annottext">intersectVal :: (a -&gt; b) -&gt; TSType p 'IsObj b -&gt; IntersectVals p a b
+</span><a href="Typescript.Json.Collection.html#intersectVal"><span class="hs-identifier hs-var hs-var">intersectVal</span></a></span></span><span> </span><span id="local-6989586621679310336"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679310336"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ap1 (Pre a (TSType p 'IsObj)) b -&gt; IntersectVals p a b
+forall (p :: Nat) a b.
+Ap1 (Pre a (TSType p 'IsObj)) b -&gt; IntersectVals p a b
+</span><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-var">IntersectVals</span></a></span><span> </span><span class="annot"><span class="annottext">(Ap1 (Pre a (TSType p 'IsObj)) b -&gt; IntersectVals p a b)
+-&gt; (TSType p 'IsObj b -&gt; Ap1 (Pre a (TSType p 'IsObj)) b)
+-&gt; TSType p 'IsObj b
+-&gt; IntersectVals p a b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; TSType p 'IsObj b -&gt; Ap1 (Pre a (TSType p 'IsObj)) b
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) a b (f :: * -&gt; *).
+Inject t =&gt;
+(a -&gt; b) -&gt; f b -&gt; t (Pre a f) b
+</span><span class="hs-identifier hs-var">injectPre</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679310336"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-282"></span><span>
+</span><span id="line-283"></span><span class="hs-comment">-- | Gather together intersection values into a 'TSType'.  See</span><span>
+</span><span id="line-284"></span><span class="hs-comment">-- 'IntersectionVals' for details on how to use this.</span><span>
+</span><span id="line-285"></span><span id="local-6989586621679310334"><span id="local-6989586621679310335"><span class="annot"><a href="Typescript.Json.Collection.html#tsIntersection"><span class="hs-identifier hs-type">tsIntersection</span></a></span><span>
+</span><span id="line-286"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#IntersectVals"><span class="hs-identifier hs-type">IntersectVals</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310335"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310334"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310334"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-287"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310335"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310334"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-288"></span><span id="tsIntersection"><span class="annot"><span class="annottext">tsIntersection :: IntersectVals p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsIntersection"><span class="hs-identifier hs-var hs-var">tsIntersection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PreT Ap1 (TSType p 'IsObj) a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a.
+PreT Ap1 (TSType p 'IsObj) a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-var">TSIntersection</span></a></span><span> </span><span class="annot"><span class="annottext">(PreT Ap1 (TSType p 'IsObj) a -&gt; TSType p 'IsObj a)
+-&gt; (IntersectVals p a a -&gt; PreT Ap1 (TSType p 'IsObj) a)
+-&gt; IntersectVals p a a
+-&gt; TSType p 'IsObj a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Ap1 (Pre a (TSType p 'IsObj)) a -&gt; PreT Ap1 (TSType p 'IsObj) a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (f :: * -&gt; *) a.
+t (Pre a f) a -&gt; PreT t f a
+</span><span class="hs-identifier hs-var">PreT</span></span><span> </span><span class="annot"><span class="annottext">(Ap1 (Pre a (TSType p 'IsObj)) a -&gt; PreT Ap1 (TSType p 'IsObj) a)
+-&gt; (IntersectVals p a a -&gt; Ap1 (Pre a (TSType p 'IsObj)) a)
+-&gt; IntersectVals p a a
+-&gt; PreT Ap1 (TSType p 'IsObj) a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IntersectVals p a a -&gt; Ap1 (Pre a (TSType p 'IsObj)) a
+forall (p :: Nat) a b.
+IntersectVals p a b -&gt; Ap1 (Pre a (TSType p 'IsObj)) b
+</span><a href="Typescript.Json.Collection.html#getIntersectVals"><span class="hs-identifier hs-var hs-var">getIntersectVals</span></a></span><span>
+</span><span id="line-289"></span><span>
+</span><span id="line-290"></span></pre></body></html>

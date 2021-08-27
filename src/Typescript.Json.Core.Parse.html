@@ -38,8 +38,8 @@ forall a. Show a =&gt; a -&gt; String
 </span><span id="line-35"></span><span class="annot"><a href="Typescript.Json.Core.Parse.html#parseEnumLit"><span class="hs-identifier hs-type">parseEnumLit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#EnumLit"><span class="hs-identifier hs-type">EnumLit</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.Parse</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-36"></span><span id="parseEnumLit"><span class="annot"><span class="annottext">parseEnumLit :: EnumLit -&gt; Parse () ()
 </span><a href="Typescript.Json.Core.Parse.html#parseEnumLit"><span class="hs-identifier hs-var hs-var">parseEnumLit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-37"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELString"><span class="hs-identifier hs-type">ELString</span></a></span><span> </span><span id="local-6989586621679310465"><span class="annot"><span class="annottext">t :: Text
-</span><a href="#local-6989586621679310465"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either () ()) -&gt; Parse () ()
+</span><span id="line-37"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELString"><span class="hs-identifier hs-type">ELString</span></a></span><span> </span><span id="local-6989586621679311721"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621679311721"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either () ()) -&gt; Parse () ()
 forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 (Text -&gt; Either err a) -&gt; ParseT err m a
@@ -51,9 +51,9 @@ forall a e. Eq a =&gt; (a -&gt; e) -&gt; a -&gt; a -&gt; Either e ()
 </span><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-var">eqOrFail</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Text -&gt; ()
 forall a b. a -&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679310465"><span class="hs-identifier hs-var">t</span></a></span><span>
-</span><span id="line-38"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELNumber"><span class="hs-identifier hs-type">ELNumber</span></a></span><span> </span><span id="local-6989586621679310460"><span class="annot"><span class="annottext">t :: Scientific
-</span><a href="#local-6989586621679310460"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Scientific -&gt; Either () ()) -&gt; Parse () ()
+</span><a href="#local-6989586621679311721"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELNumber"><span class="hs-identifier hs-type">ELNumber</span></a></span><span> </span><span id="local-6989586621679311716"><span class="annot"><span class="annottext">t :: Scientific
+</span><a href="#local-6989586621679311716"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Scientific -&gt; Either () ()) -&gt; Parse () ()
 forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 (Scientific -&gt; Either err a) -&gt; ParseT err m a
@@ -65,29 +65,29 @@ forall a e. Eq a =&gt; (a -&gt; e) -&gt; a -&gt; a -&gt; Either e ()
 </span><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-var">eqOrFail</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; Scientific -&gt; ()
 forall a b. a -&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Scientific
-</span><a href="#local-6989586621679310460"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><a href="#local-6989586621679311716"><span class="hs-identifier hs-var">t</span></a></span><span>
 </span><span id="line-39"></span><span>
-</span><span id="line-40"></span><span id="local-6989586621679310691"><span id="local-6989586621679310692"><span class="annot"><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-type">eqOrFail</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621679310692"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679310692"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679310691"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679310692"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679310692"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679310691"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-40"></span><span id="local-6989586621679311947"><span id="local-6989586621679311948"><span class="annot"><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-type">eqOrFail</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621679311948"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679311948"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679311947"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679311948"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679311948"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679311947"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
 </span><span id="line-41"></span><span id="eqOrFail"><span class="annot"><span class="annottext">eqOrFail :: (a -&gt; e) -&gt; a -&gt; a -&gt; Either e ()
-</span><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-var hs-var">eqOrFail</span></a></span></span><span> </span><span id="local-6989586621679310458"><span class="annot"><span class="annottext">e :: a -&gt; e
-</span><a href="#local-6989586621679310458"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span id="local-6989586621679310457"><span class="annot"><span class="annottext">x :: a
-</span><a href="#local-6989586621679310457"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679310456"><span class="annot"><span class="annottext">y :: a
-</span><a href="#local-6989586621679310456"><span class="hs-identifier hs-var">y</span></a></span></span><span>
+</span><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-var hs-var">eqOrFail</span></a></span></span><span> </span><span id="local-6989586621679311714"><span class="annot"><span class="annottext">e :: a -&gt; e
+</span><a href="#local-6989586621679311714"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span id="local-6989586621679311713"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621679311713"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span id="local-6989586621679311712"><span class="annot"><span class="annottext">y :: a
+</span><a href="#local-6989586621679311712"><span class="hs-identifier hs-var">y</span></a></span></span><span>
 </span><span id="line-42"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679310457"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+</span><a href="#local-6989586621679311713"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679310456"><span class="hs-identifier hs-var">y</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; Either e ()
+</span><a href="#local-6989586621679311712"><span class="hs-identifier hs-var">y</span></a></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; Either e ()
 forall a b. b -&gt; Either a b
 </span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-43"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">e -&gt; Either e ()
 forall a b. a -&gt; Either a b
 </span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; e
-</span><a href="#local-6989586621679310458"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679310456"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679311714"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679311712"><span class="hs-identifier hs-var">y</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-44"></span><span>
-</span><span id="line-45"></span><span id="local-6989586621679310489"><span class="annot"><a href="Typescript.Json.Core.Parse.html#parsePrim"><span class="hs-identifier hs-type">parsePrim</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrim"><span class="hs-identifier hs-type">TSPrim</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310489"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.Parse</span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#ParseErr"><span class="hs-identifier hs-type">ParseErr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310489"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-45"></span><span id="local-6989586621679311745"><span class="annot"><a href="Typescript.Json.Core.Parse.html#parsePrim"><span class="hs-identifier hs-type">parsePrim</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrim"><span class="hs-identifier hs-type">TSPrim</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311745"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.Parse</span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#ParseErr"><span class="hs-identifier hs-type">ParseErr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311745"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-46"></span><span id="parsePrim"><span class="annot"><span class="annottext">parsePrim :: TSPrim a -&gt; Parse ParseErr a
 </span><a href="Typescript.Json.Core.Parse.html#parsePrim"><span class="hs-identifier hs-var hs-var">parsePrim</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-47"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNumber"><span class="hs-identifier hs-type">TSNumber</span></a></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Parse ParseErr a
@@ -114,14 +114,14 @@ forall (m :: * -&gt; *) err.
 ParseT err m Value
 </span><span class="hs-identifier hs-var">ABE.asValue</span></span><span>
 </span><span id="line-52"></span><span>
-</span><span id="line-53"></span><span id="local-6989586621679310487"><span class="annot"><a href="Typescript.Json.Core.Parse.html#parseBase"><span class="hs-identifier hs-type">parseBase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSBase"><span class="hs-identifier hs-type">TSBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310487"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.Parse</span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#ParseErr"><span class="hs-identifier hs-type">ParseErr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310487"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-53"></span><span id="local-6989586621679311743"><span class="annot"><a href="Typescript.Json.Core.Parse.html#parseBase"><span class="hs-identifier hs-type">parseBase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSBase"><span class="hs-identifier hs-type">TSBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311743"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.Parse</span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#ParseErr"><span class="hs-identifier hs-type">ParseErr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311743"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-54"></span><span id="parseBase"><span class="annot"><span class="annottext">parseBase :: TSBase a -&gt; Parse ParseErr a
 </span><a href="Typescript.Json.Core.Parse.html#parseBase"><span class="hs-identifier hs-var hs-var">parseBase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-55"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBoolean"><span class="hs-identifier hs-type">TSBoolean</span></a></span><span>   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Parse ParseErr a
 forall (m :: * -&gt; *) err. (Functor m, Monad m) =&gt; ParseT err m Bool
 </span><span class="hs-identifier hs-var">ABE.asBool</span></span><span>
-</span><span id="line-56"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSStringLit"><span class="hs-identifier hs-type">TSStringLit</span></a></span><span> </span><span id="local-6989586621679310441"><span class="annot"><span class="annottext">t :: Text
-</span><a href="#local-6989586621679310441"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either ParseErr ()) -&gt; Parse ParseErr a
+</span><span id="line-56"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSStringLit"><span class="hs-identifier hs-type">TSStringLit</span></a></span><span> </span><span id="local-6989586621679311697"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621679311697"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either ParseErr ()) -&gt; Parse ParseErr a
 forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 (Text -&gt; Either err a) -&gt; ParseT err m a
@@ -132,10 +132,10 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a e. Eq a =&gt; (a -&gt; e) -&gt; a -&gt; a -&gt; Either e ()
 </span><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-var">eqOrFail</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; ParseErr
 </span><a href="Typescript.Json.Types.html#PEInvalidString"><span class="hs-identifier hs-var">PEInvalidString</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679310441"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679310441"><span class="hs-identifier hs-var">t</span></a></span><span>
-</span><span id="line-57"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNumericLit"><span class="hs-identifier hs-type">TSNumericLit</span></a></span><span> </span><span id="local-6989586621679310438"><span class="annot"><span class="annottext">t :: Scientific
-</span><a href="#local-6989586621679310438"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Scientific -&gt; Either ParseErr ()) -&gt; Parse ParseErr a
+</span><a href="#local-6989586621679311697"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679311697"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNumericLit"><span class="hs-identifier hs-type">TSNumericLit</span></a></span><span> </span><span id="local-6989586621679311694"><span class="annot"><span class="annottext">t :: Scientific
+</span><a href="#local-6989586621679311694"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Scientific -&gt; Either ParseErr ()) -&gt; Parse ParseErr a
 forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 (Scientific -&gt; Either err a) -&gt; ParseT err m a
@@ -147,10 +147,10 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a e. Eq a =&gt; (a -&gt; e) -&gt; a -&gt; a -&gt; Either e ()
 </span><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-var">eqOrFail</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Scientific -&gt; Scientific -&gt; ParseErr
 </span><a href="Typescript.Json.Types.html#PEInvalidNumber"><span class="hs-identifier hs-var">PEInvalidNumber</span></a></span><span> </span><span class="annot"><span class="annottext">Scientific
-</span><a href="#local-6989586621679310438"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Scientific
-</span><a href="#local-6989586621679310438"><span class="hs-identifier hs-var">t</span></a></span><span>
-</span><span id="line-58"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBigIntLit"><span class="hs-identifier hs-type">TSBigIntLit</span></a></span><span> </span><span id="local-6989586621679310435"><span class="annot"><span class="annottext">t :: Integer
-</span><a href="#local-6989586621679310435"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Either ParseErr ()) -&gt; Parse ParseErr a
+</span><a href="#local-6989586621679311694"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679311694"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBigIntLit"><span class="hs-identifier hs-type">TSBigIntLit</span></a></span><span> </span><span id="local-6989586621679311691"><span class="annot"><span class="annottext">t :: Integer
+</span><a href="#local-6989586621679311691"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Either ParseErr ()) -&gt; Parse ParseErr a
 forall (m :: * -&gt; *) a err b.
 (Functor m, Monad m, Integral a) =&gt;
 (a -&gt; Either err b) -&gt; ParseT err m b
@@ -161,8 +161,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a e. Eq a =&gt; (a -&gt; e) -&gt; a -&gt; a -&gt; Either e ()
 </span><a href="Typescript.Json.Core.Parse.html#eqOrFail"><span class="hs-identifier hs-var">eqOrFail</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; ParseErr
 </span><a href="Typescript.Json.Types.html#PEInvalidBigInt"><span class="hs-identifier hs-var">PEInvalidBigInt</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679310435"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679310435"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><a href="#local-6989586621679311691"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679311691"><span class="hs-identifier hs-var">t</span></a></span><span>
 </span><span id="line-59"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSVoid"><span class="hs-identifier hs-type">TSVoid</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Parse ParseErr a
 forall (m :: * -&gt; *) err. (Functor m, Monad m) =&gt; ParseT err m ()
 </span><span class="hs-identifier hs-var">ABE.asNull</span></span><span>
@@ -180,11 +180,11 @@ err -&gt; ParseT err m a
 </span><a href="Typescript.Json.Types.html#PENever"><span class="hs-identifier hs-var">PENever</span></a></span><span>
 </span><span id="line-63"></span><span>
 </span><span id="line-64"></span><span>
-</span><span id="line-65"></span><span id="local-6989586621679310425"><span class="annot"><a href="Typescript.Json.Core.Parse.html#parseNamedPrim"><span class="hs-identifier hs-type">parseNamedPrim</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedBase"><span class="hs-identifier hs-type">TSNamedBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310425"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.Parse</span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#ParseErr"><span class="hs-identifier hs-type">ParseErr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310425"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679311681"><span class="annot"><a href="Typescript.Json.Core.Parse.html#parseNamedPrim"><span class="hs-identifier hs-type">parseNamedPrim</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedBase"><span class="hs-identifier hs-type">TSNamedBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311681"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.Parse</span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#ParseErr"><span class="hs-identifier hs-type">ParseErr</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311681"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-66"></span><span id="parseNamedPrim"><span class="annot"><span class="annottext">parseNamedPrim :: TSNamedBase a -&gt; Parse ParseErr a
 </span><a href="Typescript.Json.Core.Parse.html#parseNamedPrim"><span class="hs-identifier hs-var hs-var">parseNamedPrim</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-67"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSEnum"><span class="hs-identifier hs-type">TSEnum</span></a></span><span> </span><span id="local-6989586621679310422"><span class="annot"><span class="annottext">es :: Vec n (Text, EnumLit)
-</span><a href="#local-6989586621679310422"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; ParseErr)
+</span><span id="line-67"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSEnum"><span class="hs-identifier hs-type">TSEnum</span></a></span><span> </span><span id="local-6989586621679311678"><span class="annot"><span class="annottext">es :: Vec n (Text, EnumLit)
+</span><a href="#local-6989586621679311678"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; ParseErr)
 -&gt; ParseT () Identity (Fin n) -&gt; ParseT ParseErr Identity (Fin n)
 forall (m :: * -&gt; *) err err' a.
 Functor m =&gt;
@@ -193,7 +193,7 @@ Functor m =&gt;
 </span><a href="Typescript.Json.Types.html#PEInvalidEnum"><span class="hs-identifier hs-var">PEInvalidEnum</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vec n (Text, EnumLit) -&gt; [(Text, EnumLit)]
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
 </span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">Vec n (Text, EnumLit)
-</span><a href="#local-6989586621679310422"><span class="hs-identifier hs-var">es</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ParseT () Identity (Fin n) -&gt; Parse ParseErr a)
+</span><a href="#local-6989586621679311678"><span class="hs-identifier hs-var">es</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ParseT () Identity (Fin n) -&gt; Parse ParseErr a)
 -&gt; ParseT () Identity (Fin n) -&gt; Parse ParseErr a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Fin n
@@ -205,39 +205,39 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 -&gt; ParseT () Identity (Fin n)
 forall a b (n :: Nat). (Fin n -&gt; a -&gt; b -&gt; b) -&gt; b -&gt; Vec n a -&gt; b
 </span><span class="hs-identifier hs-var">Vec.ifoldr</span></span><span>
-</span><span id="line-68"></span><span>      </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679310417"><span class="annot"><span class="annottext">i :: Fin n
-</span><a href="#local-6989586621679310417"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679310416"><span class="annot"><span class="annottext">e :: EnumLit
-</span><a href="#local-6989586621679310416"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679310415"><span class="annot"><span class="annottext">ps :: ParseT () Identity (Fin n)
-</span><a href="#local-6989586621679310415"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fin n
-</span><a href="#local-6989586621679310417"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Fin n -&gt; Parse () () -&gt; ParseT () Identity (Fin n)
+</span><span id="line-68"></span><span>      </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679311673"><span class="annot"><span class="annottext">i :: Fin n
+</span><a href="#local-6989586621679311673"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679311672"><span class="annot"><span class="annottext">e :: EnumLit
+</span><a href="#local-6989586621679311672"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679311671"><span class="annot"><span class="annottext">ps :: ParseT () Identity (Fin n)
+</span><a href="#local-6989586621679311671"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fin n
+</span><a href="#local-6989586621679311673"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Fin n -&gt; Parse () () -&gt; ParseT () Identity (Fin n)
 forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
 </span><span class="hs-operator hs-var">&lt;$</span></span><span> </span><span class="annot"><span class="annottext">EnumLit -&gt; Parse () ()
 </span><a href="Typescript.Json.Core.Parse.html#parseEnumLit"><span class="hs-identifier hs-var">parseEnumLit</span></a></span><span> </span><span class="annot"><span class="annottext">EnumLit
-</span><a href="#local-6989586621679310416"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ParseT () Identity (Fin n)
+</span><a href="#local-6989586621679311672"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ParseT () Identity (Fin n)
 -&gt; ParseT () Identity (Fin n) -&gt; ParseT () Identity (Fin n)
 forall (m :: * -&gt; *) err a.
 Monad m =&gt;
 ParseT err m a -&gt; ParseT err m a -&gt; ParseT err m a
 </span><span class="hs-operator hs-var">ABE.&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">ParseT () Identity (Fin n)
-</span><a href="#local-6989586621679310415"><span class="hs-identifier hs-var">ps</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679311671"><span class="hs-identifier hs-var">ps</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-69"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; ParseT () Identity (Fin n)
 forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 err -&gt; ParseT err m a
 </span><span class="hs-identifier hs-var">ABE.throwCustomError</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-70"></span><span>      </span><span class="annot"><span class="annottext">Vec n (Text, EnumLit)
-</span><a href="#local-6989586621679310422"><span class="hs-identifier hs-var">es</span></a></span><span>
+</span><a href="#local-6989586621679311678"><span class="hs-identifier hs-var">es</span></a></span><span>
 </span><span id="line-71"></span><span>
 </span><span id="line-72"></span><span class="hs-keyword">type</span><span> </span><span id="Parse"><span class="annot"><a href="Typescript.Json.Core.Parse.html#Parse"><span class="hs-identifier hs-var">Parse</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ABE.ParseT</span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#ParseErr"><span class="hs-identifier hs-type">ParseErr</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Identity</span></span><span>
 </span><span id="line-73"></span><span>
 </span><span id="line-74"></span><span class="annot"><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-type">parseType</span></a></span><span>
-</span><span id="line-75"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679310603"><span class="annot"><a href="#local-6989586621679310603"><span class="hs-identifier hs-type">k</span></a></span></span><span> </span><span id="local-6989586621679310602"><span class="annot"><a href="#local-6989586621679310602"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-76"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679310603"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310602"><span class="hs-identifier hs-type">a</span></a></span><span>
-</span><span id="line-77"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Core.Parse.html#Parse"><span class="hs-identifier hs-type">Parse</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679310602"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679311859"><span class="annot"><a href="#local-6989586621679311859"><span class="hs-identifier hs-type">k</span></a></span></span><span> </span><span id="local-6989586621679311858"><span class="annot"><a href="#local-6989586621679311858"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679311859"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311858"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Core.Parse.html#Parse"><span class="hs-identifier hs-type">Parse</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679311858"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-78"></span><span id="parseType"><span class="annot"><span class="annottext">parseType :: TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var hs-var">parseType</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-79"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSArray"><span class="hs-identifier hs-type">TSArray</span></a></span><span> </span><span id="local-6989586621679310411"><span class="annot"><span class="annottext">ts :: ILan [] (TSType 'Z k) a
-</span><a href="#local-6989586621679310411"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">WrappedFunctor (ParseT ParseErr Identity) a -&gt; Parse a
+</span><span id="line-79"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSArray"><span class="hs-identifier hs-type">TSArray</span></a></span><span> </span><span id="local-6989586621679311667"><span class="annot"><span class="annottext">ts :: ILan [] (TSType 'Z k) a
+</span><a href="#local-6989586621679311667"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">WrappedFunctor (ParseT ParseErr Identity) a -&gt; Parse a
 forall k (f :: k -&gt; *) (a :: k). WrappedFunctor f a -&gt; f a
 </span><span class="hs-identifier hs-var hs-var">unwrapFunctor</span></span><span> </span><span class="annot"><span class="annottext">(WrappedFunctor (ParseT ParseErr Identity) a -&gt; Parse a)
 -&gt; WrappedFunctor (ParseT ParseErr Identity) a -&gt; Parse a
@@ -270,12 +270,12 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k x -&gt; ParseT ParseErr Identity x
 forall (k :: IsObjType) a. TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var">parseType</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ILan [] (TSType 'Z k) a
-</span><a href="#local-6989586621679310411"><span class="hs-identifier hs-var">ts</span></a></span><span>
-</span><span id="line-80"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTuple"><span class="hs-identifier hs-type">TSTuple</span></a></span><span> </span><span id="local-6989586621679310404"><span class="annot"><span class="annottext">ts :: PreT Ap (TSType_ 'Z) a
-</span><a href="#local-6989586621679310404"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-81"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679310403"><span class="annot"><span class="annottext">res :: a
-</span><a href="#local-6989586621679310403"><span class="hs-identifier hs-var">res</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679310402"><span class="annot"><span class="annottext">n :: Int
-</span><a href="#local-6989586621679310402"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(StateT Int (ParseT ParseErr Identity) a
+</span><a href="#local-6989586621679311667"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTuple"><span class="hs-identifier hs-type">TSTuple</span></a></span><span> </span><span id="local-6989586621679311660"><span class="annot"><span class="annottext">ts :: PreT Ap (TSType_ 'Z) a
+</span><a href="#local-6989586621679311660"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-81"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679311659"><span class="annot"><span class="annottext">res :: a
+</span><a href="#local-6989586621679311659"><span class="hs-identifier hs-var">res</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679311658"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621679311658"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(StateT Int (ParseT ParseErr Identity) a
  -&gt; Int -&gt; ParseT ParseErr Identity (a, Int))
 -&gt; Int
 -&gt; StateT Int (ParseT ParseErr Identity) a
@@ -296,13 +296,13 @@ forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
 Interpret t f =&gt;
 (g ~&gt; f) -&gt; t g ~&gt; f
 </span><span class="hs-operator hs-var">`interpret`</span></span><span> </span><span class="annot"><span class="annottext">PreT Ap (TSType_ 'Z) a
-</span><a href="#local-6989586621679310404"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((TSType_ 'Z ~&gt; StateT Int (ParseT ParseErr Identity))
+</span><a href="#local-6989586621679311660"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((TSType_ 'Z ~&gt; StateT Int (ParseT ParseErr Identity))
  -&gt; StateT Int (ParseT ParseErr Identity) a)
 -&gt; (TSType_ 'Z ~&gt; StateT Int (ParseT ParseErr Identity))
 -&gt; StateT Int (ParseT ParseErr Identity) a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679310398"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
-</span><a href="#local-6989586621679310398"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; ParseT ParseErr Identity (x, Int))
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679311654"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
+</span><a href="#local-6989586621679311654"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; ParseT ParseErr Identity (x, Int))
 -&gt; StateT Int (ParseT ParseErr Identity) x
 forall s (m :: * -&gt; *) a. (s -&gt; m (a, s)) -&gt; StateT s m a
 </span><span class="hs-identifier hs-var">StateT</span></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; ParseT ParseErr Identity (x, Int))
@@ -310,10 +310,10 @@ forall s (m :: * -&gt; *) a. (s -&gt; m (a, s)) -&gt; StateT s m a
 -&gt; (Int -&gt; ParseT ParseErr Identity (x, Int))
 -&gt; StateT Int (ParseT ParseErr Identity) x
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679310396"><span class="annot"><span class="annottext">i :: Int
-</span><a href="#local-6989586621679310396"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679311652"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621679311652"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-82"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="hs-special">,</span></span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679310396"><span class="hs-identifier hs-var">i</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679311652"><span class="hs-identifier hs-var">i</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-operator hs-var">+</span></span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(x -&gt; (x, Int))
 -&gt; ParseT ParseErr Identity x -&gt; ParseT ParseErr Identity (x, Int)
@@ -323,7 +323,7 @@ forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 Int -&gt; ParseT err m a -&gt; ParseT err m a
 </span><span class="hs-identifier hs-var">ABE.nth</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679310396"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall (k :: IsObjType).
+</span><a href="#local-6989586621679311652"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall (k :: IsObjType).
  TSType 'Z k x -&gt; ParseT ParseErr Identity x)
 -&gt; TSType_ 'Z x -&gt; ParseT ParseErr Identity x
 forall (p :: Nat) a r.
@@ -332,7 +332,7 @@ forall (p :: Nat) a r.
 TSType 'Z k x -&gt; ParseT ParseErr Identity x
 forall (k :: IsObjType) a. TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var">parseType</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ 'Z x
-</span><a href="#local-6989586621679310398"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679311654"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-83"></span><span>      </span><span class="annot"><span class="annottext">(Array -&gt; Either ParseErr a) -&gt; Parse a
 forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
@@ -340,43 +340,43 @@ forall (m :: * -&gt; *) err a.
 </span><span class="hs-identifier hs-var">ABE.withArray</span></span><span> </span><span class="annot"><span class="annottext">((Array -&gt; Either ParseErr a) -&gt; Parse a)
 -&gt; (Array -&gt; Either ParseErr a) -&gt; Parse a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679310390"><span class="annot"><span class="annottext">xs :: Array
-</span><a href="#local-6989586621679310390"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679311646"><span class="annot"><span class="annottext">xs :: Array
+</span><a href="#local-6989586621679311646"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-84"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Array -&gt; Int
 forall a. Vector a -&gt; Int
 </span><span class="hs-identifier hs-var">V.length</span></span><span> </span><span class="annot"><span class="annottext">Array
-</span><a href="#local-6989586621679310390"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679311646"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679310402"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621679311658"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-85"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">ParseErr -&gt; Either ParseErr a
 forall a b. a -&gt; Either a b
 </span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(ParseErr -&gt; Either ParseErr a) -&gt; ParseErr -&gt; Either ParseErr a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; ParseErr
 </span><a href="Typescript.Json.Types.html#PEExtraTuple"><span class="hs-identifier hs-var">PEExtraTuple</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679310402"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Array -&gt; Int
+</span><a href="#local-6989586621679311658"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Array -&gt; Int
 forall a. Vector a -&gt; Int
 </span><span class="hs-identifier hs-var">V.length</span></span><span> </span><span class="annot"><span class="annottext">Array
-</span><a href="#local-6989586621679310390"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679311646"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-86"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either ParseErr a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679310403"><span class="hs-identifier hs-var">res</span></a></span><span>
-</span><span id="line-87"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-type">TSObject</span></a></span><span> </span><span id="local-6989586621679310385"><span class="annot"><span class="annottext">ts :: TSKeyVal 'Z a
-</span><a href="#local-6989586621679310385"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a -&gt; Parse a
+</span><a href="#local-6989586621679311659"><span class="hs-identifier hs-var">res</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-type">TSObject</span></a></span><span> </span><span id="local-6989586621679311641"><span class="annot"><span class="annottext">ts :: TSKeyVal 'Z a
+</span><a href="#local-6989586621679311641"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a -&gt; Parse a
 TSKeyVal 'Z ~&gt; ParseT ParseErr Identity
-</span><a href="#local-6989586621679310384"><span class="hs-identifier hs-var">parseKeyVal</span></a></span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a
-</span><a href="#local-6989586621679310385"><span class="hs-identifier hs-var">ts</span></a></span><span>
-</span><span id="line-88"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSSingle"><span class="hs-identifier hs-type">TSSingle</span></a></span><span> </span><span id="local-6989586621679310382"><span class="annot"><span class="annottext">ts :: TSType 'Z 'IsObj a
-</span><a href="#local-6989586621679310382"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Parse a
+</span><a href="#local-6989586621679311640"><span class="hs-identifier hs-var">parseKeyVal</span></a></span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a
+</span><a href="#local-6989586621679311641"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSSingle"><span class="hs-identifier hs-type">TSSingle</span></a></span><span> </span><span id="local-6989586621679311638"><span class="annot"><span class="annottext">ts :: TSType 'Z 'IsObj a
+</span><a href="#local-6989586621679311638"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Parse a
 forall (k :: IsObjType) a. TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var">parseType</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a
-</span><a href="#local-6989586621679310382"><span class="hs-identifier hs-var">ts</span></a></span><span>
-</span><span id="line-89"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnion"><span class="hs-identifier hs-type">TSUnion</span></a></span><span> </span><span id="local-6989586621679310380"><span class="annot"><span class="annottext">ts :: TSUnionBranches 'Z a
-</span><a href="#local-6989586621679310380"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-90"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679310379"><span class="annot"><span class="annottext">us :: NonEmpty (Doc ())
-</span><a href="#local-6989586621679310379"><span class="hs-identifier hs-var hs-var">us</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall x. TSType_ 'Z x -&gt; Doc ())
+</span><a href="#local-6989586621679311638"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-89"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnion"><span class="hs-identifier hs-type">TSUnion</span></a></span><span> </span><span id="local-6989586621679311636"><span class="annot"><span class="annottext">ts :: TSUnionBranches 'Z a
+</span><a href="#local-6989586621679311636"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-90"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679311635"><span class="annot"><span class="annottext">us :: NonEmpty (Doc ())
+</span><a href="#local-6989586621679311635"><span class="hs-identifier hs-var hs-var">us</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall x. TSType_ 'Z x -&gt; Doc ())
 -&gt; ComposeT NonEmptyF Coyoneda (TSType_ 'Z) a -&gt; NonEmpty (Doc ())
 forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) b (a :: k).
 (forall m. Semigroup m =&gt; Interpret t (AltConst m)) =&gt;
@@ -393,7 +393,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSUnionBranches 'Z a -&gt; ComposeT NonEmptyF Coyoneda (TSType_ 'Z) a
 forall (f :: * -&gt; *). DecAlt1 f ~&gt; ComposeT NonEmptyF Coyoneda f
 </span><span class="hs-identifier hs-var">decAltNonEmptyF_</span></span><span> </span><span class="annot"><span class="annottext">TSUnionBranches 'Z a
-</span><a href="#local-6989586621679310380"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><a href="#local-6989586621679311636"><span class="hs-identifier hs-var">ts</span></a></span><span>
 </span><span id="line-91"></span><span>      </span><span class="hs-keyword">in</span><span>  </span><span class="annot"><span class="annottext">(Parse a -&gt; Parse a -&gt; Parse a)
 -&gt; Parse a -&gt; NonEmpty (Parse a) -&gt; Parse a
 forall (t :: * -&gt; *) a b.
@@ -409,7 +409,7 @@ forall (m :: * -&gt; *) err a.
 err -&gt; ParseT err m a
 </span><span class="hs-identifier hs-var">ABE.throwCustomError</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NonEmpty (Doc ()) -&gt; ParseErr
 </span><a href="Typescript.Json.Types.html#PENotInUnion"><span class="hs-identifier hs-var">PENotInUnion</span></a></span><span> </span><span class="annot"><span class="annottext">NonEmpty (Doc ())
-</span><a href="#local-6989586621679310379"><span class="hs-identifier hs-var">us</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(NonEmpty (Parse a) -&gt; Parse a) -&gt; NonEmpty (Parse a) -&gt; Parse a
+</span><a href="#local-6989586621679311635"><span class="hs-identifier hs-var">us</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(NonEmpty (Parse a) -&gt; Parse a) -&gt; NonEmpty (Parse a) -&gt; Parse a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-operator hs-var">$</span></span><span>
 </span><span id="line-92"></span><span>            </span><span class="annot"><span class="annottext">NonEmptyF (ParseT ParseErr Identity) a -&gt; NonEmpty (Parse a)
@@ -440,22 +440,22 @@ forall (p :: Nat) a r.
 TSType 'Z k x -&gt; ParseT ParseErr Identity x
 forall (k :: IsObjType) a. TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var">parseType</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TSUnionBranches 'Z a
-</span><a href="#local-6989586621679310380"><span class="hs-identifier hs-var">ts</span></a></span><span>
-</span><span id="line-93"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedType"><span class="hs-identifier hs-type">TSNamedType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679310368"><span class="annot"><span class="annottext">nt :: TSNameable 'Z k as es a
-</span><a href="#local-6989586621679310368"><span class="hs-identifier hs-var">nt</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#%3A%24"><span class="hs-operator hs-type">:$</span></a></span><span> </span><span id="local-6989586621679310366"><span class="annot"><span class="annottext">xs :: NP2 (Arg_ 'Z) as es
-</span><a href="#local-6989586621679310366"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSNameable 'Z k as es a
-</span><a href="#local-6989586621679310368"><span class="hs-identifier hs-var">nt</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-94"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-type">TSNFunc</span></a></span><span> </span><span id="local-6989586621679310364"><span class="annot"><span class="annottext">t :: TSTypeF 'Z k as es a
-</span><a href="#local-6989586621679310364"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; Parse a
+</span><a href="#local-6989586621679311636"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedType"><span class="hs-identifier hs-type">TSNamedType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679311624"><span class="annot"><span class="annottext">nt :: TSNameable 'Z k as es a
+</span><a href="#local-6989586621679311624"><span class="hs-identifier hs-var">nt</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#%3A%24"><span class="hs-operator hs-type">:$</span></a></span><span> </span><span id="local-6989586621679311622"><span class="annot"><span class="annottext">xs :: NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679311622"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSNameable 'Z k as es a
+</span><a href="#local-6989586621679311624"><span class="hs-identifier hs-var">nt</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-94"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-type">TSNFunc</span></a></span><span> </span><span id="local-6989586621679311620"><span class="annot"><span class="annottext">t :: TSTypeF 'Z k as es a
+</span><a href="#local-6989586621679311620"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; Parse a
 forall (k :: IsObjType) a. TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var">parseType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSTypeF 'Z k as es a -&gt; NP2 (Arg_ 'Z) as es -&gt; TSType 'Z k a
 forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
 TSTypeF p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
 </span><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier hs-var">tsApply</span></a></span><span> </span><span class="annot"><span class="annottext">TSTypeF 'Z k as es a
-</span><a href="#local-6989586621679310364"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) as es
-</span><a href="#local-6989586621679310366"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-95"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNBaseType"><span class="hs-identifier hs-type">TSNBaseType</span></a></span><span> </span><span id="local-6989586621679310361"><span class="annot"><span class="annottext">t :: ICoyoneda TSNamedBase a
-</span><a href="#local-6989586621679310361"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TSNamedBase ~&gt; ParseT ParseErr Identity)
+</span><a href="#local-6989586621679311620"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679311622"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNBaseType"><span class="hs-identifier hs-type">TSNBaseType</span></a></span><span> </span><span id="local-6989586621679311617"><span class="annot"><span class="annottext">t :: ICoyoneda TSNamedBase a
+</span><a href="#local-6989586621679311617"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TSNamedBase ~&gt; ParseT ParseErr Identity)
 -&gt; Coyoneda TSNamedBase a -&gt; Parse a
 forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
 Interpret t f =&gt;
@@ -464,9 +464,9 @@ Interpret t f =&gt;
 </span><a href="Typescript.Json.Core.Parse.html#parseNamedPrim"><span class="hs-identifier hs-var">parseNamedPrim</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ICoyoneda TSNamedBase a -&gt; Coyoneda TSNamedBase a
 forall (f :: * -&gt; *). ICoyoneda f ~&gt; Coyoneda f
 </span><a href="Typescript.Json.Types.Combinators.html#icoToCoco"><span class="hs-identifier hs-var">icoToCoco</span></a></span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSNamedBase a
-</span><a href="#local-6989586621679310361"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-96"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-type">TSIntersection</span></a></span><span> </span><span id="local-6989586621679310358"><span class="annot"><span class="annottext">ts :: PreT Ap1 (TSType 'Z 'IsObj) a
-</span><a href="#local-6989586621679310358"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">WrappedApplicative (ParseT ParseErr Identity) a -&gt; Parse a
+</span><a href="#local-6989586621679311617"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-type">TSIntersection</span></a></span><span> </span><span id="local-6989586621679311614"><span class="annot"><span class="annottext">ts :: PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679311614"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">WrappedApplicative (ParseT ParseErr Identity) a -&gt; Parse a
 forall (f :: * -&gt; *) a. WrappedApplicative f a -&gt; f a
 </span><span class="hs-identifier hs-var hs-var">unwrapApplicative</span></span><span> </span><span class="annot"><span class="annottext">(WrappedApplicative (ParseT ParseErr Identity) a -&gt; Parse a)
 -&gt; WrappedApplicative (ParseT ParseErr Identity) a -&gt; Parse a
@@ -489,9 +489,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj x -&gt; ParseT ParseErr Identity x
 forall (k :: IsObjType) a. TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var">parseType</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PreT Ap1 (TSType 'Z 'IsObj) a
-</span><a href="#local-6989586621679310358"><span class="hs-identifier hs-var">ts</span></a></span><span>
-</span><span id="line-97"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTransformType"><span class="hs-identifier hs-type">TSTransformType</span></a></span><span> </span><span id="local-6989586621679310354"><span class="annot"><span class="annottext">tf :: ICoyoneda (TSTransform 'Z k) a
-</span><a href="#local-6989586621679310354"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TSTransform 'Z k ~&gt; ParseT ParseErr Identity)
+</span><a href="#local-6989586621679311614"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTransformType"><span class="hs-identifier hs-type">TSTransformType</span></a></span><span> </span><span id="local-6989586621679311610"><span class="annot"><span class="annottext">tf :: ICoyoneda (TSTransform 'Z k) a
+</span><a href="#local-6989586621679311610"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TSTransform 'Z k ~&gt; ParseT ParseErr Identity)
 -&gt; Coyoneda (TSTransform 'Z k) a -&gt; Parse a
 forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
 Interpret t f =&gt;
@@ -509,8 +509,8 @@ TSTransform p k a -&gt; TSType p k a
 </span><a href="Typescript.Json.Types.html#applyTransform"><span class="hs-identifier hs-var">applyTransform</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ICoyoneda (TSTransform 'Z k) a -&gt; Coyoneda (TSTransform 'Z k) a
 forall (f :: * -&gt; *). ICoyoneda f ~&gt; Coyoneda f
 </span><a href="Typescript.Json.Types.Combinators.html#icoToCoco"><span class="hs-identifier hs-var">icoToCoco</span></a></span><span> </span><span class="annot"><span class="annottext">ICoyoneda (TSTransform 'Z k) a
-</span><a href="#local-6989586621679310354"><span class="hs-identifier hs-var">tf</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-98"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-type">TSPrimType</span></a></span><span> </span><span id="local-6989586621679310349"><span id="local-6989586621679310350"><span id="local-6989586621679310351"><span class="annot"><a href="Typescript.Json.Types.Combinators.html#PS"><span class="hs-identifier hs-type">PS</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parse a) -&gt; (a -&gt; Parse a) -&gt; Either Text a -&gt; Parse a
+</span><a href="#local-6989586621679311610"><span class="hs-identifier hs-var">tf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-type">TSPrimType</span></a></span><span> </span><span id="local-6989586621679311605"><span id="local-6989586621679311606"><span id="local-6989586621679311607"><span class="annot"><a href="Typescript.Json.Types.Combinators.html#PS"><span class="hs-identifier hs-type">PS</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parse a) -&gt; (a -&gt; Parse a) -&gt; Either Text a -&gt; Parse a
 forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
 </span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ParseErr -&gt; Parse a
 forall (m :: * -&gt; *) err a.
@@ -522,31 +522,31 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="Typescript.Json.Types.html#PEPrimitive"><span class="hs-identifier hs-var">PEPrimitive</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSPrim r -&gt; Some TSPrim
 forall k (tag :: k -&gt; *) (a :: k). tag a -&gt; Some tag
 </span><span class="hs-identifier hs-var">Some</span></span><span> </span><span class="annot"><span class="annottext">TSPrim r
-</span><a href="#local-6989586621679310351"><span class="hs-identifier hs-var">psItem</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; Parse a
+</span><a href="#local-6989586621679311607"><span class="hs-identifier hs-var">psItem</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; Parse a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Either Text a -&gt; Parse a) -&gt; (r -&gt; Either Text a) -&gt; r -&gt; Parse a
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">r -&gt; Either Text a
-</span><a href="#local-6989586621679310350"><span class="hs-identifier hs-var">psParser</span></a></span><span>
+</span><a href="#local-6989586621679311606"><span class="hs-identifier hs-var">psParser</span></a></span><span>
 </span><span id="line-99"></span><span>                     </span><span class="annot"><span class="annottext">(r -&gt; Parse a) -&gt; ParseT ParseErr Identity r -&gt; Parse a
 forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
 </span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">TSPrim r -&gt; ParseT ParseErr Identity r
 forall a. TSPrim a -&gt; Parse ParseErr a
 </span><a href="Typescript.Json.Core.Parse.html#parsePrim"><span class="hs-identifier hs-var">parsePrim</span></a></span><span> </span><span class="annot"><span class="annottext">TSPrim r
-</span><a href="#local-6989586621679310351"><span class="hs-identifier hs-var">psItem</span></a></span><span>
-</span><span id="line-100"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-type">TSBaseType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#ICoyoneda"><span class="hs-identifier hs-type">ICoyoneda</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679310338"><span class="annot"><span class="annottext">g :: r -&gt; a
-</span><a href="#local-6989586621679310338"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679310337"><span class="annot"><span class="annottext">x :: TSBase r
-</span><a href="#local-6989586621679310337"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">r -&gt; a
-</span><a href="#local-6989586621679310338"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(r -&gt; a) -&gt; ParseT ParseErr Identity r -&gt; Parse a
+</span><a href="#local-6989586621679311607"><span class="hs-identifier hs-var">psItem</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-type">TSBaseType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#ICoyoneda"><span class="hs-identifier hs-type">ICoyoneda</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679311594"><span class="annot"><span class="annottext">g :: r -&gt; a
+</span><a href="#local-6989586621679311594"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621679311593"><span class="annot"><span class="annottext">x :: TSBase r
+</span><a href="#local-6989586621679311593"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">r -&gt; a
+</span><a href="#local-6989586621679311594"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(r -&gt; a) -&gt; ParseT ParseErr Identity r -&gt; Parse a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">TSBase r -&gt; ParseT ParseErr Identity r
 forall a. TSBase a -&gt; Parse ParseErr a
 </span><a href="Typescript.Json.Core.Parse.html#parseBase"><span class="hs-identifier hs-var">parseBase</span></a></span><span> </span><span class="annot"><span class="annottext">TSBase r
-</span><a href="#local-6989586621679310337"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><a href="#local-6989586621679311593"><span class="hs-identifier hs-var">x</span></a></span><span>
 </span><span id="line-101"></span><span>  </span><span class="hs-keyword">where</span><span>
-</span><span id="line-102"></span><span>    </span><span class="annot"><a href="#local-6989586621679310384"><span class="hs-identifier hs-type">parseKeyVal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSKeyVal"><span class="hs-identifier hs-type">TSKeyVal</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">~&gt;</span></span><span> </span><span class="annot"><a href="Typescript.Json.Core.Parse.html#Parse"><span class="hs-identifier hs-type">Parse</span></a></span><span>
-</span><span id="line-103"></span><span>    </span><span id="local-6989586621679310384"><span class="annot"><span class="annottext">parseKeyVal :: TSKeyVal 'Z x -&gt; Parse x
-</span><a href="#local-6989586621679310384"><span class="hs-identifier hs-var hs-var">parseKeyVal</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ObjMember (TSType_ 'Z) ~&gt; ParseT ParseErr Identity)
+</span><span id="line-102"></span><span>    </span><span class="annot"><a href="#local-6989586621679311640"><span class="hs-identifier hs-type">parseKeyVal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSKeyVal"><span class="hs-identifier hs-type">TSKeyVal</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">~&gt;</span></span><span> </span><span class="annot"><a href="Typescript.Json.Core.Parse.html#Parse"><span class="hs-identifier hs-type">Parse</span></a></span><span>
+</span><span id="line-103"></span><span>    </span><span id="local-6989586621679311640"><span class="annot"><span class="annottext">parseKeyVal :: TSKeyVal 'Z x -&gt; Parse x
+</span><a href="#local-6989586621679311640"><span class="hs-identifier hs-var hs-var">parseKeyVal</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ObjMember (TSType_ 'Z) ~&gt; ParseT ParseErr Identity)
 -&gt; TSKeyVal 'Z ~&gt; ParseT ParseErr Identity
 forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
 Interpret t f =&gt;
@@ -577,8 +577,8 @@ Invariant g =&gt;
 -&gt; (forall x. Mutability -&gt; Text -&gt; f x -&gt; g (Maybe x))
 -&gt; ObjMember f ~&gt; g
 </span><a href="Typescript.Json.Types.html#interpretObjMember"><span class="hs-identifier hs-var">interpretObjMember</span></a></span><span>
-</span><span id="line-105"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679310335"><span class="annot"><span class="annottext">k :: Text
-</span><a href="#local-6989586621679310335"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ParseT ParseErr Identity x
+</span><span id="line-105"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679311591"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679311591"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ParseT ParseErr Identity x
 -&gt; WrappedFunctor (ParseT ParseErr Identity) x
 forall k (f :: k -&gt; *) (a :: k). f a -&gt; WrappedFunctor f a
 </span><span class="hs-identifier hs-var">WrapFunctor</span></span><span> </span><span class="annot"><span class="annottext">(ParseT ParseErr Identity x
@@ -592,7 +592,7 @@ forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 Text -&gt; ParseT err m a -&gt; ParseT err m a
 </span><span class="hs-identifier hs-var">ABE.key</span></span><span>    </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679310335"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(ParseT ParseErr Identity x -&gt; ParseT ParseErr Identity x)
+</span><a href="#local-6989586621679311591"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(ParseT ParseErr Identity x -&gt; ParseT ParseErr Identity x)
 -&gt; (TSType_ 'Z x -&gt; ParseT ParseErr Identity x)
 -&gt; TSType_ 'Z x
 -&gt; ParseT ParseErr Identity x
@@ -606,8 +606,8 @@ forall (p :: Nat) a r.
 TSType 'Z k x -&gt; ParseT ParseErr Identity x
 forall (k :: IsObjType) a. TSType 'Z k a -&gt; Parse a
 </span><a href="Typescript.Json.Core.Parse.html#parseType"><span class="hs-identifier hs-var">parseType</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-106"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679310333"><span class="annot"><span class="annottext">k :: Text
-</span><a href="#local-6989586621679310333"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ParseT ParseErr Identity (Maybe x)
+</span><span id="line-106"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679311589"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679311589"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ParseT ParseErr Identity (Maybe x)
 -&gt; WrappedFunctor (ParseT ParseErr Identity) (Maybe x)
 forall k (f :: k -&gt; *) (a :: k). f a -&gt; WrappedFunctor f a
 </span><span class="hs-identifier hs-var">WrapFunctor</span></span><span> </span><span class="annot"><span class="annottext">(ParseT ParseErr Identity (Maybe x)
@@ -622,7 +622,7 @@ forall (m :: * -&gt; *) err a.
 (Functor m, Monad m) =&gt;
 Text -&gt; ParseT err m a -&gt; ParseT err m (Maybe a)
 </span><span class="hs-identifier hs-var">ABE.keyMay</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679310333"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(ParseT ParseErr Identity x -&gt; ParseT ParseErr Identity (Maybe x))
+</span><a href="#local-6989586621679311589"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(ParseT ParseErr Identity x -&gt; ParseT ParseErr Identity (Maybe x))
 -&gt; (TSType_ 'Z x -&gt; ParseT ParseErr Identity x)
 -&gt; TSType_ 'Z x
 -&gt; ParseT ParseErr Identity (Maybe x)

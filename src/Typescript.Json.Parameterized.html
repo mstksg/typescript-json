@@ -1,0 +1,552 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds                  #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies         #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE EmptyCase                  #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GADTs                      #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures             #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase                 #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings          #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes                 #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards            #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables        #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications           #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators              #-}</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Typescript.Json.Parameterized</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Generics</span></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric"><span class="hs-identifier">tsGeneric</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric1"><span class="hs-identifier">tsGeneric1</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric2"><span class="hs-identifier">tsGeneric2</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric3"><span class="hs-identifier">tsGeneric3</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGenericInterface"><span class="hs-identifier">tsGenericInterface</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied1"><span class="hs-identifier">tsApplied1</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied2"><span class="hs-identifier">tsApplied2</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied3"><span class="hs-identifier">tsApplied3</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied"><span class="hs-identifier">tsApplied</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#tsApply1"><span class="hs-identifier">tsApply1</span></a></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApply2"><span class="hs-identifier">tsApply2</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApply3"><span class="hs-identifier">tsApply3</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier">tsApply</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Combinator</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span>                         </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Type.Nat</span></span><span>                     </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Plus</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.html"><span class="hs-identifier">Typescript.Json.Types</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html"><span class="hs-identifier">Typescript.Json.Types.Combinators</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- | Create a single-argument generic (parameterized) type.</span><span>
+</span><span id="line-39"></span><span class="hs-comment">--</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- For example, we could make a type imitating 'Maybe' in Haskell:</span><span>
+</span><span id="line-41"></span><span class="hs-comment">--</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- mkMaybe :: TSType_ p a -&gt; TSType_ p (Maybe a)</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- mkMaybe = tsUnion $ decide (maybe (Left ()) Right) $</span><span>
+</span><span id="line-45"></span><span class="hs-comment">--     (tsTagged</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-47"></span><span id="local-6989586621679309595"><span id="local-6989586621679309596"><span id="local-6989586621679309597"><span id="local-6989586621679309598"><span id="local-6989586621679309599"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric1"><span class="hs-identifier hs-type">tsGeneric1</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>                     </span><span class="hs-comment">-- ^ Name of the type</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309599"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309598"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309597"><span class="hs-identifier hs-type">e</span></a></span><span>              </span><span class="hs-comment">-- ^ Name of the parameter (used for printing) and what it extends</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679309778"><span class="annot"><a href="#local-6989586621679309778"><span class="hs-identifier hs-type">r</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Sing.html#SNat_"><span class="hs-identifier hs-type">SNat_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309778"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309778"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309599"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309598"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309597"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309778"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309599"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309596"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309595"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>         </span><span class="hs-comment">-- ^ Make a type, given the type parameter</span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309599"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309596"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309598"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309597"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309595"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-52"></span><span id="tsGeneric1"><span class="annot"><span class="annottext">tsGeneric1 :: Text
+-&gt; Param p a e
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; Arg_ (Plus r p) a e -&gt; TSType (Plus r p) k b)
+-&gt; TSNamed p k '[a] '[e] b
+</span><a href="Typescript.Json.Parameterized.html#tsGeneric1"><span class="hs-identifier hs-var hs-var">tsGeneric1</span></a></span></span><span> </span><span id="local-6989586621679309594"><span class="annot"><span class="annottext">n :: Text
+</span><a href="#local-6989586621679309594"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679309593"><span class="annot"><span class="annottext">p :: Param p a e
+</span><a href="#local-6989586621679309593"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679309592"><span class="annot"><span class="annottext">f :: forall (r :: Nat).
+SNat_ r -&gt; Arg_ (Plus r p) a e -&gt; TSType (Plus r p) k b
+</span><a href="#local-6989586621679309592"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+-&gt; NP2 (Param p) '[a] '[e]
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; NP2 (Arg_ (Plus r p)) '[a] '[e] -&gt; TSType (Plus r p) k b)
+-&gt; TSNamed p k '[a] '[e] b
+forall (p :: Nat) (as :: [*]) (es :: [Maybe *]) (k :: IsObjType) b.
+Text
+-&gt; NP2 (Param p) as es
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b)
+-&gt; TSNamed p k as es b
+</span><a href="Typescript.Json.Parameterized.html#tsGeneric"><span class="hs-identifier hs-var">tsGeneric</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309594"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Param p a e
+</span><a href="#local-6989586621679309593"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Param p a e -&gt; NP2 (Param p) '[] '[] -&gt; NP2 (Param p) '[a] '[e]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((forall (r :: Nat).
+  SNat_ r
+  -&gt; NP2 (Arg_ (Plus r p)) '[a] '[e] -&gt; TSType (Plus r p) k b)
+ -&gt; TSNamed p k '[a] '[e] b)
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; NP2 (Arg_ (Plus r p)) '[a] '[e] -&gt; TSType (Plus r p) k b)
+-&gt; TSNamed p k '[a] '[e] b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309589"><span class="annot"><span class="annottext">rs :: SNat_ r
+</span><a href="#local-6989586621679309589"><span class="hs-identifier hs-var">rs</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679309588"><span class="annot"><span class="annottext">t :: Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309588"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-type">Nil2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SNat_ r -&gt; Arg_ (Plus r p) a e -&gt; TSType (Plus r p) k b
+forall (r :: Nat).
+SNat_ r -&gt; Arg_ (Plus r p) a e -&gt; TSType (Plus r p) k b
+</span><a href="#local-6989586621679309592"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">SNat_ r
+</span><a href="#local-6989586621679309589"><span class="hs-identifier hs-var">rs</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ (Plus r p) a e
+Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309588"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span id="local-6989586621679309581"><span id="local-6989586621679309582"><span id="local-6989586621679309583"><span id="local-6989586621679309584"><span id="local-6989586621679309585"><span id="local-6989586621679309586"><span id="local-6989586621679309587"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric2"><span class="hs-identifier hs-type">tsGeneric2</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309587"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309586"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309585"><span class="hs-identifier hs-type">ea</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309587"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309584"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309583"><span class="hs-identifier hs-type">eb</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679309741"><span class="annot"><a href="#local-6989586621679309741"><span class="hs-identifier hs-type">r</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Sing.html#SNat_"><span class="hs-identifier hs-type">SNat_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309741"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309741"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309587"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309586"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309585"><span class="hs-identifier hs-type">ea</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309741"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309587"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309584"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309583"><span class="hs-identifier hs-type">eb</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309741"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309587"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309582"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309581"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309587"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309582"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309586"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309584"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309585"><span class="hs-identifier hs-type">ea</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309583"><span class="hs-identifier hs-type">eb</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309581"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-60"></span><span id="tsGeneric2"><span class="annot"><span class="annottext">tsGeneric2 :: Text
+-&gt; Param p a ea
+-&gt; Param p b eb
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; Arg_ (Plus r p) a ea
+    -&gt; Arg_ (Plus r p) b eb
+    -&gt; TSType (Plus r p) k c)
+-&gt; TSNamed p k '[a, b] '[ea, eb] c
+</span><a href="Typescript.Json.Parameterized.html#tsGeneric2"><span class="hs-identifier hs-var hs-var">tsGeneric2</span></a></span></span><span> </span><span id="local-6989586621679309580"><span class="annot"><span class="annottext">n :: Text
+</span><a href="#local-6989586621679309580"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679309579"><span class="annot"><span class="annottext">p :: Param p a ea
+</span><a href="#local-6989586621679309579"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679309578"><span class="annot"><span class="annottext">q :: Param p b eb
+</span><a href="#local-6989586621679309578"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span id="local-6989586621679309577"><span class="annot"><span class="annottext">f :: forall (r :: Nat).
+SNat_ r
+-&gt; Arg_ (Plus r p) a ea
+-&gt; Arg_ (Plus r p) b eb
+-&gt; TSType (Plus r p) k c
+</span><a href="#local-6989586621679309577"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+-&gt; NP2 (Param p) '[a, b] '[ea, eb]
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; NP2 (Arg_ (Plus r p)) '[a, b] '[ea, eb]
+    -&gt; TSType (Plus r p) k c)
+-&gt; TSNamed p k '[a, b] '[ea, eb] c
+forall (p :: Nat) (as :: [*]) (es :: [Maybe *]) (k :: IsObjType) b.
+Text
+-&gt; NP2 (Param p) as es
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b)
+-&gt; TSNamed p k as es b
+</span><a href="Typescript.Json.Parameterized.html#tsGeneric"><span class="hs-identifier hs-var">tsGeneric</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309580"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Param p a ea
+</span><a href="#local-6989586621679309579"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Param p a ea
+-&gt; NP2 (Param p) '[b] '[eb] -&gt; NP2 (Param p) '[a, b] '[ea, eb]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Param p b eb
+</span><a href="#local-6989586621679309578"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Param p b eb -&gt; NP2 (Param p) '[] '[] -&gt; NP2 (Param p) '[b] '[eb]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((forall (r :: Nat).
+  SNat_ r
+  -&gt; NP2 (Arg_ (Plus r p)) '[a, b] '[ea, eb]
+  -&gt; TSType (Plus r p) k c)
+ -&gt; TSNamed p k '[a, b] '[ea, eb] c)
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; NP2 (Arg_ (Plus r p)) '[a, b] '[ea, eb]
+    -&gt; TSType (Plus r p) k c)
+-&gt; TSNamed p k '[a, b] '[ea, eb] c
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-61"></span><span>            </span><span class="hs-glyph">\</span><span id="local-6989586621679309576"><span class="annot"><span class="annottext">rs :: SNat_ r
+</span><a href="#local-6989586621679309576"><span class="hs-identifier hs-var">rs</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679309575"><span class="annot"><span class="annottext">t :: Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309575"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span id="local-6989586621679309574"><span class="annot"><span class="annottext">u :: Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309574"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-type">Nil2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SNat_ r
+-&gt; Arg_ (Plus r p) a ea
+-&gt; Arg_ (Plus r p) b eb
+-&gt; TSType (Plus r p) k c
+forall (r :: Nat).
+SNat_ r
+-&gt; Arg_ (Plus r p) a ea
+-&gt; Arg_ (Plus r p) b eb
+-&gt; TSType (Plus r p) k c
+</span><a href="#local-6989586621679309577"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">SNat_ r
+</span><a href="#local-6989586621679309576"><span class="hs-identifier hs-var">rs</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ (Plus r p) a ea
+Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309575"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ (Plus r p) b eb
+Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309574"><span class="hs-identifier hs-var">u</span></a></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span id="local-6989586621679309565"><span id="local-6989586621679309566"><span id="local-6989586621679309567"><span id="local-6989586621679309568"><span id="local-6989586621679309569"><span id="local-6989586621679309570"><span id="local-6989586621679309571"><span id="local-6989586621679309572"><span id="local-6989586621679309573"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric3"><span class="hs-identifier hs-type">tsGeneric3</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309572"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309571"><span class="hs-identifier hs-type">ea</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309570"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309569"><span class="hs-identifier hs-type">eb</span></a></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309568"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309567"><span class="hs-identifier hs-type">ec</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679309726"><span class="annot"><a href="#local-6989586621679309726"><span class="hs-identifier hs-type">r</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Sing.html#SNat_"><span class="hs-identifier hs-type">SNat_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309726"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309726"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309572"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309571"><span class="hs-identifier hs-type">ea</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309726"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309570"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309569"><span class="hs-identifier hs-type">eb</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309726"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309568"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309567"><span class="hs-identifier hs-type">ec</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309726"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309566"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309565"><span class="hs-identifier hs-type">d</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309573"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309566"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309572"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309570"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309568"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309571"><span class="hs-identifier hs-type">ea</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309569"><span class="hs-identifier hs-type">eb</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309567"><span class="hs-identifier hs-type">ec</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309565"><span class="hs-identifier hs-type">d</span></a></span></span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-70"></span><span id="tsGeneric3"><span class="annot"><span class="annottext">tsGeneric3 :: Text
+-&gt; Param p a ea
+-&gt; Param p b eb
+-&gt; Param p c ec
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; Arg_ (Plus r p) a ea
+    -&gt; Arg_ (Plus r p) b eb
+    -&gt; Arg_ (Plus r p) c ec
+    -&gt; TSType (Plus r p) k d)
+-&gt; TSNamed p k '[a, b, c] '[ea, eb, ec] d
+</span><a href="Typescript.Json.Parameterized.html#tsGeneric3"><span class="hs-identifier hs-var hs-var">tsGeneric3</span></a></span></span><span> </span><span id="local-6989586621679309564"><span class="annot"><span class="annottext">n :: Text
+</span><a href="#local-6989586621679309564"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679309563"><span class="annot"><span class="annottext">p :: Param p a ea
+</span><a href="#local-6989586621679309563"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679309562"><span class="annot"><span class="annottext">q :: Param p b eb
+</span><a href="#local-6989586621679309562"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span id="local-6989586621679309561"><span class="annot"><span class="annottext">r :: Param p c ec
+</span><a href="#local-6989586621679309561"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679309560"><span class="annot"><span class="annottext">f :: forall (r :: Nat).
+SNat_ r
+-&gt; Arg_ (Plus r p) a ea
+-&gt; Arg_ (Plus r p) b eb
+-&gt; Arg_ (Plus r p) c ec
+-&gt; TSType (Plus r p) k d
+</span><a href="#local-6989586621679309560"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+-&gt; NP2 (Param p) '[a, b, c] '[ea, eb, ec]
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; NP2 (Arg_ (Plus r p)) '[a, b, c] '[ea, eb, ec]
+    -&gt; TSType (Plus r p) k d)
+-&gt; TSNamed p k '[a, b, c] '[ea, eb, ec] d
+forall (p :: Nat) (as :: [*]) (es :: [Maybe *]) (k :: IsObjType) b.
+Text
+-&gt; NP2 (Param p) as es
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b)
+-&gt; TSNamed p k as es b
+</span><a href="Typescript.Json.Parameterized.html#tsGeneric"><span class="hs-identifier hs-var">tsGeneric</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309564"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Param p a ea
+</span><a href="#local-6989586621679309563"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Param p a ea
+-&gt; NP2 (Param p) '[b, c] '[eb, ec]
+-&gt; NP2 (Param p) '[a, b, c] '[ea, eb, ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Param p b eb
+</span><a href="#local-6989586621679309562"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Param p b eb
+-&gt; NP2 (Param p) '[c] '[ec] -&gt; NP2 (Param p) '[b, c] '[eb, ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Param p c ec
+</span><a href="#local-6989586621679309561"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Param p c ec -&gt; NP2 (Param p) '[] '[] -&gt; NP2 (Param p) '[c] '[ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((forall (r :: Nat).
+  SNat_ r
+  -&gt; NP2 (Arg_ (Plus r p)) '[a, b, c] '[ea, eb, ec]
+  -&gt; TSType (Plus r p) k d)
+ -&gt; TSNamed p k '[a, b, c] '[ea, eb, ec] d)
+-&gt; (forall (r :: Nat).
+    SNat_ r
+    -&gt; NP2 (Arg_ (Plus r p)) '[a, b, c] '[ea, eb, ec]
+    -&gt; TSType (Plus r p) k d)
+-&gt; TSNamed p k '[a, b, c] '[ea, eb, ec] d
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-71"></span><span>            </span><span class="hs-glyph">\</span><span id="local-6989586621679309559"><span class="annot"><span class="annottext">rs :: SNat_ r
+</span><a href="#local-6989586621679309559"><span class="hs-identifier hs-var">rs</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679309558"><span class="annot"><span class="annottext">t :: Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309558"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span id="local-6989586621679309557"><span class="annot"><span class="annottext">u :: Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309557"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span id="local-6989586621679309556"><span class="annot"><span class="annottext">v :: Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309556"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-type">Nil2</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">SNat_ r
+-&gt; Arg_ (Plus r p) a ea
+-&gt; Arg_ (Plus r p) b eb
+-&gt; Arg_ (Plus r p) c ec
+-&gt; TSType (Plus r p) k d
+forall (r :: Nat).
+SNat_ r
+-&gt; Arg_ (Plus r p) a ea
+-&gt; Arg_ (Plus r p) b eb
+-&gt; Arg_ (Plus r p) c ec
+-&gt; TSType (Plus r p) k d
+</span><a href="#local-6989586621679309560"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">SNat_ r
+</span><a href="#local-6989586621679309559"><span class="hs-identifier hs-var">rs</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ (Plus r p) a ea
+Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309558"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ (Plus r p) b eb
+Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309557"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ (Plus r p) c ec
+Arg_ (Plus r p) a b
+</span><a href="#local-6989586621679309556"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- | A parameterized type with multiple parameters.</span><span>
+</span><span id="line-74"></span><span id="local-6989586621679309763"><span id="local-6989586621679309764"><span id="local-6989586621679309765"><span id="local-6989586621679309766"><span id="local-6989586621679309767"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGeneric"><span class="hs-identifier hs-type">tsGeneric</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>                 </span><span class="hs-comment">-- ^ Name</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309767"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309766"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309765"><span class="hs-identifier hs-type">es</span></a></span><span>       </span><span class="hs-comment">-- ^ Name of parameters and extends</span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679309769"><span class="annot"><a href="#local-6989586621679309769"><span class="hs-identifier hs-type">r</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Sing.html#SNat_"><span class="hs-identifier hs-type">SNat_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309769"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309769"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309767"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309766"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309765"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309769"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309767"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309764"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309763"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>   </span><span class="hs-comment">-- ^ Type function</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309767"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309764"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309766"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309765"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309763"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-79"></span><span id="tsGeneric"><span class="annot"><span class="annottext">tsGeneric :: Text
+-&gt; NP2 (Param p) as es
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b)
+-&gt; TSNamed p k as es b
+</span><a href="Typescript.Json.Parameterized.html#tsGeneric"><span class="hs-identifier hs-var hs-var">tsGeneric</span></a></span></span><span> </span><span id="local-6989586621679309555"><span class="annot"><span class="annottext">n :: Text
+</span><a href="#local-6989586621679309555"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679309554"><span class="annot"><span class="annottext">ps :: NP2 (Param p) as es
+</span><a href="#local-6989586621679309554"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621679309553"><span class="annot"><span class="annottext">f :: forall (r :: Nat).
+SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b
+</span><a href="#local-6989586621679309553"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSNamed :: forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) a.
+Text -&gt; TSNameable p k as es a -&gt; TSNamed p k as es a
+</span><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type hs-type">TSNamed</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">tsnName :: Text
+</span><a href="Typescript.Json.Types.html#tsnName"><span class="hs-identifier hs-var">tsnName</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309555"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tsnType :: TSNameable p k as es b
+</span><a href="Typescript.Json.Types.html#tsnType"><span class="hs-identifier hs-var">tsnType</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSTypeF p k as es b -&gt; TSNameable p k as es b
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) a.
+TSTypeF p k as es a -&gt; TSNameable p k as es a
+</span><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-var">TSNFunc</span></a></span><span> </span><span class="annot"><span class="annottext">(TSTypeF p k as es b -&gt; TSNameable p k as es b)
+-&gt; TSTypeF p k as es b -&gt; TSNameable p k as es b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">NP2 (Param p) as es
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b)
+-&gt; TSTypeF p k as es b
+forall (p :: Nat) (as :: [*]) (es :: [Maybe *]) (k :: IsObjType) b.
+NP2 (Param p) as es
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b)
+-&gt; TSTypeF p k as es b
+</span><a href="Typescript.Json.Types.html#TSGeneric"><span class="hs-identifier hs-var">TSGeneric</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param p) as es
+</span><a href="#local-6989586621679309554"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">forall (r :: Nat).
+SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSType (Plus r p) k b
+</span><a href="#local-6989586621679309553"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span id="local-6989586621679309542"><span id="local-6989586621679309543"><span id="local-6989586621679309544"><span id="local-6989586621679309545"><span id="local-6989586621679309546"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsGenericInterface"><span class="hs-identifier hs-type">tsGenericInterface</span></a></span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>             </span><span class="hs-comment">-- ^ name</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309546"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309545"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309544"><span class="hs-identifier hs-type">es</span></a></span><span>       </span><span class="hs-comment">-- ^ Name of parameters and extends</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lift</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSAppliedF"><span class="hs-identifier hs-type">TSAppliedF</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309546"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309545"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309544"><span class="hs-identifier hs-type">es</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309543"><span class="hs-identifier hs-type">a</span></a></span><span>   </span><span class="hs-comment">-- ^ if it extends any other object</span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679309686"><span class="annot"><a href="#local-6989586621679309686"><span class="hs-identifier hs-type">r</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Sing.html#SNat_"><span class="hs-identifier hs-type">SNat_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309686"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309686"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309546"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309545"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309544"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSKeyVal"><span class="hs-identifier hs-type">TSKeyVal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Plus</span></span><span> </span><span class="annot"><a href="#local-6989586621679309686"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309546"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309542"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>  </span><span class="hs-comment">-- how to use type variables</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309546"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309545"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309544"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679309543"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309542"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span></span></span><span>
+</span><span id="line-90"></span><span id="tsGenericInterface"><span class="annot"><span class="annottext">tsGenericInterface :: Text
+-&gt; NP2 (Param p) as es
+-&gt; Lift (TSAppliedF p 'IsObj as es) a
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSKeyVal (Plus r p) b)
+-&gt; TSNamed p 'IsObj as es (a, b)
+</span><a href="Typescript.Json.Parameterized.html#tsGenericInterface"><span class="hs-identifier hs-var hs-var">tsGenericInterface</span></a></span></span><span> </span><span id="local-6989586621679309541"><span class="annot"><span class="annottext">n :: Text
+</span><a href="#local-6989586621679309541"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679309540"><span class="annot"><span class="annottext">ps :: NP2 (Param p) as es
+</span><a href="#local-6989586621679309540"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621679309539"><span class="annot"><span class="annottext">e :: Lift (TSAppliedF p 'IsObj as es) a
+</span><a href="#local-6989586621679309539"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span id="local-6989586621679309538"><span class="annot"><span class="annottext">f :: forall (r :: Nat).
+SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSKeyVal (Plus r p) b
+</span><a href="#local-6989586621679309538"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSNamed :: forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) a.
+Text -&gt; TSNameable p k as es a -&gt; TSNamed p k as es a
+</span><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type hs-type">TSNamed</span></a></span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">tsnName :: Text
+</span><a href="Typescript.Json.Types.html#tsnName"><span class="hs-identifier hs-var">tsnName</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309541"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tsnType :: TSNameable p 'IsObj as es (a, b)
+</span><a href="Typescript.Json.Types.html#tsnType"><span class="hs-identifier hs-var">tsnType</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSTypeF p 'IsObj as es (a, b) -&gt; TSNameable p 'IsObj as es (a, b)
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) a.
+TSTypeF p k as es a -&gt; TSNameable p k as es a
+</span><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-var">TSNFunc</span></a></span><span> </span><span class="annot"><span class="annottext">(TSTypeF p 'IsObj as es (a, b) -&gt; TSNameable p 'IsObj as es (a, b))
+-&gt; TSTypeF p 'IsObj as es (a, b)
+-&gt; TSNameable p 'IsObj as es (a, b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">NP2 (Param p) as es
+-&gt; (a -&gt; b -&gt; (a, b))
+-&gt; ((a, b) -&gt; (a, b))
+-&gt; Lift (TSAppliedF p 'IsObj as es) a
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSKeyVal (Plus r p) b)
+-&gt; TSTypeF p 'IsObj as es (a, b)
+forall (p :: Nat) (as :: [*]) (es :: [Maybe *]) a b c.
+NP2 (Param p) as es
+-&gt; (a -&gt; b -&gt; c)
+-&gt; (c -&gt; (a, b))
+-&gt; Lift (TSAppliedF p 'IsObj as es) a
+-&gt; (forall (r :: Nat).
+    SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSKeyVal (Plus r p) b)
+-&gt; TSTypeF p 'IsObj as es c
+</span><a href="Typescript.Json.Types.html#TSGenericInterface"><span class="hs-identifier hs-var">TSGenericInterface</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param p) as es
+</span><a href="#local-6989586621679309540"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(a, b) -&gt; (a, b)
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Lift (TSAppliedF p 'IsObj as es) a
+</span><a href="#local-6989586621679309539"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">forall (r :: Nat).
+SNat_ r -&gt; NP2 (Arg_ (Plus r p)) as es -&gt; TSKeyVal (Plus r p) b
+</span><a href="#local-6989586621679309538"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span id="local-6989586621679309629"><span id="local-6989586621679309630"><span id="local-6989586621679309631"><span id="local-6989586621679309632"><span id="local-6989586621679309633"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied"><span class="hs-identifier hs-type">tsApplied</span></a></span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309633"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309632"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309631"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309630"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309629"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309633"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679309631"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309630"><span class="hs-identifier hs-type">es</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309633"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309632"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309629"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-99"></span><span id="tsApplied"><span class="annot"><span class="annottext">tsApplied :: TSNamed p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Parameterized.html#tsApplied"><span class="hs-identifier hs-var hs-var">tsApplied</span></a></span></span><span> </span><span id="local-6989586621679309535"><span class="annot"><span class="annottext">f :: TSNamed p k as es b
+</span><a href="#local-6989586621679309535"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679309534"><span class="annot"><span class="annottext">x :: NP2 (Arg_ p) as es
+</span><a href="#local-6989586621679309534"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSApplied p k b -&gt; TSType p k b
+forall (p :: Nat) (k :: IsObjType) a.
+TSApplied p k a -&gt; TSType p k a
+</span><a href="Typescript.Json.Types.html#TSNamedType"><span class="hs-identifier hs-var">TSNamedType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSNamed p k as es b
+</span><a href="#local-6989586621679309535"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">TSNamed p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSApplied p k b
+forall (p :: Nat) (k :: IsObjType) a (as :: [*]) (es :: [Maybe *]).
+TSNamed p k as es a -&gt; NP2 (Arg_ p) as es -&gt; TSApplied p k a
+</span><a href="Typescript.Json.Types.html#%3A%24"><span class="hs-operator hs-var">:$</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ p) as es
+</span><a href="#local-6989586621679309534"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span id="local-6989586621679309525"><span id="local-6989586621679309526"><span id="local-6989586621679309527"><span id="local-6989586621679309528"><span id="local-6989586621679309529"><span id="local-6989586621679309530"><span id="local-6989586621679309531"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApply2"><span class="hs-identifier hs-type">tsApply2</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSTypeF"><span class="hs-identifier hs-type">TSTypeF</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309531"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309530"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309529"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679309528"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309527"><span class="hs-identifier hs-type">ea</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679309526"><span class="hs-identifier hs-type">eb</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309525"><span class="hs-identifier hs-type">c</span></a></span><span>      </span><span class="hs-comment">-- ^ type function</span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309531"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309529"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309527"><span class="hs-identifier hs-type">ea</span></a></span><span>         </span><span class="hs-comment">-- ^ thing to apply</span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309531"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309528"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309526"><span class="hs-identifier hs-type">eb</span></a></span><span>         </span><span class="hs-comment">-- ^ thing to apply</span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309531"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309530"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309525"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-106"></span><span id="tsApply2"><span class="annot"><span class="annottext">tsApply2 :: TSTypeF p k '[a, b] '[ea, eb] c
+-&gt; Arg_ p a ea -&gt; Arg_ p b eb -&gt; TSType p k c
+</span><a href="Typescript.Json.Parameterized.html#tsApply2"><span class="hs-identifier hs-var hs-var">tsApply2</span></a></span></span><span> </span><span id="local-6989586621679309524"><span class="annot"><span class="annottext">f :: TSTypeF p k '[a, b] '[ea, eb] c
+</span><a href="#local-6989586621679309524"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679309523"><span class="annot"><span class="annottext">t :: Arg_ p a ea
+</span><a href="#local-6989586621679309523"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679309522"><span class="annot"><span class="annottext">u :: Arg_ p b eb
+</span><a href="#local-6989586621679309522"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSTypeF p k '[a, b] '[ea, eb] c
+-&gt; NP2 (Arg_ p) '[a, b] '[ea, eb] -&gt; TSType p k c
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSTypeF p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier hs-var">tsApply</span></a></span><span> </span><span class="annot"><span class="annottext">TSTypeF p k '[a, b] '[ea, eb] c
+</span><a href="#local-6989586621679309524"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Arg_ p a ea
+</span><a href="#local-6989586621679309523"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p a ea
+-&gt; NP2 (Arg_ p) '[b] '[eb] -&gt; NP2 (Arg_ p) '[a, b] '[ea, eb]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb
+</span><a href="#local-6989586621679309522"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb -&gt; NP2 (Arg_ p) '[] '[] -&gt; NP2 (Arg_ p) '[b] '[eb]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span id="local-6989586621679309513"><span id="local-6989586621679309514"><span id="local-6989586621679309515"><span id="local-6989586621679309516"><span id="local-6989586621679309517"><span id="local-6989586621679309518"><span id="local-6989586621679309519"><span id="local-6989586621679309520"><span id="local-6989586621679309521"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApply3"><span class="hs-identifier hs-type">tsApply3</span></a></span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSTypeF"><span class="hs-identifier hs-type">TSTypeF</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309521"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309520"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309519"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679309518"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679309517"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309516"><span class="hs-identifier hs-type">ea</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679309515"><span class="hs-identifier hs-type">eb</span></a></span><span class="hs-special">,</span><span class="annot"><a href="#local-6989586621679309514"><span class="hs-identifier hs-type">ec</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309513"><span class="hs-identifier hs-type">d</span></a></span><span>      </span><span class="hs-comment">-- ^ type function</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309521"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309519"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309516"><span class="hs-identifier hs-type">ea</span></a></span><span>         </span><span class="hs-comment">-- ^ thing to apply</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309521"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309518"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309515"><span class="hs-identifier hs-type">eb</span></a></span><span>         </span><span class="hs-comment">-- ^ thing to apply</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309521"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309517"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309514"><span class="hs-identifier hs-type">ec</span></a></span><span>         </span><span class="hs-comment">-- ^ thing to apply</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309521"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309520"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309513"><span class="hs-identifier hs-type">d</span></a></span></span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-114"></span><span id="tsApply3"><span class="annot"><span class="annottext">tsApply3 :: TSTypeF p k '[a, b, c] '[ea, eb, ec] d
+-&gt; Arg_ p a ea -&gt; Arg_ p b eb -&gt; Arg_ p c ec -&gt; TSType p k d
+</span><a href="Typescript.Json.Parameterized.html#tsApply3"><span class="hs-identifier hs-var hs-var">tsApply3</span></a></span></span><span> </span><span id="local-6989586621679309512"><span class="annot"><span class="annottext">f :: TSTypeF p k '[a, b, c] '[ea, eb, ec] d
+</span><a href="#local-6989586621679309512"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679309511"><span class="annot"><span class="annottext">t :: Arg_ p a ea
+</span><a href="#local-6989586621679309511"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621679309510"><span class="annot"><span class="annottext">u :: Arg_ p b eb
+</span><a href="#local-6989586621679309510"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span id="local-6989586621679309509"><span class="annot"><span class="annottext">v :: Arg_ p c ec
+</span><a href="#local-6989586621679309509"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSTypeF p k '[a, b, c] '[ea, eb, ec] d
+-&gt; NP2 (Arg_ p) '[a, b, c] '[ea, eb, ec] -&gt; TSType p k d
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSTypeF p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier hs-var">tsApply</span></a></span><span> </span><span class="annot"><span class="annottext">TSTypeF p k '[a, b, c] '[ea, eb, ec] d
+</span><a href="#local-6989586621679309512"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Arg_ p a ea
+</span><a href="#local-6989586621679309511"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p a ea
+-&gt; NP2 (Arg_ p) '[b, c] '[eb, ec]
+-&gt; NP2 (Arg_ p) '[a, b, c] '[ea, eb, ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb
+</span><a href="#local-6989586621679309510"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb
+-&gt; NP2 (Arg_ p) '[c] '[ec] -&gt; NP2 (Arg_ p) '[b, c] '[eb, ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p c ec
+</span><a href="#local-6989586621679309509"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p c ec -&gt; NP2 (Arg_ p) '[] '[] -&gt; NP2 (Arg_ p) '[c] '[ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span id="local-6989586621679309504"><span id="local-6989586621679309505"><span id="local-6989586621679309506"><span id="local-6989586621679309507"><span id="local-6989586621679309508"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied1"><span class="hs-identifier hs-type">tsApplied1</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309508"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309507"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309506"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309505"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309504"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309508"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309506"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309505"><span class="hs-identifier hs-type">e</span></a></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309508"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309507"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309504"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span></span><span>
+</span><span id="line-120"></span><span id="tsApplied1"><span class="annot"><span class="annottext">tsApplied1 :: TSNamed p k '[a] '[e] b -&gt; Arg_ p a e -&gt; TSType p k b
+</span><a href="Typescript.Json.Parameterized.html#tsApplied1"><span class="hs-identifier hs-var hs-var">tsApplied1</span></a></span></span><span> </span><span id="local-6989586621679309503"><span class="annot"><span class="annottext">tf :: TSNamed p k '[a] '[e] b
+</span><a href="#local-6989586621679309503"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span id="local-6989586621679309502"><span class="annot"><span class="annottext">tx :: Arg_ p a e
+</span><a href="#local-6989586621679309502"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSNamed p k '[a] '[e] b -&gt; NP2 (Arg_ p) '[a] '[e] -&gt; TSType p k b
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSNamed p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Parameterized.html#tsApplied"><span class="hs-identifier hs-var">tsApplied</span></a></span><span> </span><span class="annot"><span class="annottext">TSNamed p k '[a] '[e] b
+</span><a href="#local-6989586621679309503"><span class="hs-identifier hs-var">tf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Arg_ p a e
+</span><a href="#local-6989586621679309502"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p a e -&gt; NP2 (Arg_ p) '[] '[] -&gt; NP2 (Arg_ p) '[a] '[e]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span id="local-6989586621679309495"><span id="local-6989586621679309496"><span id="local-6989586621679309497"><span id="local-6989586621679309498"><span id="local-6989586621679309499"><span id="local-6989586621679309500"><span id="local-6989586621679309501"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied2"><span class="hs-identifier hs-type">tsApplied2</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309501"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309500"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309499"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309498"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309497"><span class="hs-identifier hs-type">ea</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309496"><span class="hs-identifier hs-type">eb</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309495"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309501"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309499"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309497"><span class="hs-identifier hs-type">ea</span></a></span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309501"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309498"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309496"><span class="hs-identifier hs-type">eb</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309501"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309500"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309495"><span class="hs-identifier hs-type">c</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-127"></span><span id="tsApplied2"><span class="annot"><span class="annottext">tsApplied2 :: TSNamed p k '[a, b] '[ea, eb] c
+-&gt; Arg_ p a ea -&gt; Arg_ p b eb -&gt; TSType p k c
+</span><a href="Typescript.Json.Parameterized.html#tsApplied2"><span class="hs-identifier hs-var hs-var">tsApplied2</span></a></span></span><span> </span><span id="local-6989586621679309494"><span class="annot"><span class="annottext">tf :: TSNamed p k '[a, b] '[ea, eb] c
+</span><a href="#local-6989586621679309494"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span id="local-6989586621679309493"><span class="annot"><span class="annottext">tx :: Arg_ p a ea
+</span><a href="#local-6989586621679309493"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span id="local-6989586621679309492"><span class="annot"><span class="annottext">ty :: Arg_ p b eb
+</span><a href="#local-6989586621679309492"><span class="hs-identifier hs-var">ty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSNamed p k '[a, b] '[ea, eb] c
+-&gt; NP2 (Arg_ p) '[a, b] '[ea, eb] -&gt; TSType p k c
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSNamed p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Parameterized.html#tsApplied"><span class="hs-identifier hs-var">tsApplied</span></a></span><span> </span><span class="annot"><span class="annottext">TSNamed p k '[a, b] '[ea, eb] c
+</span><a href="#local-6989586621679309494"><span class="hs-identifier hs-var">tf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Arg_ p a ea
+</span><a href="#local-6989586621679309493"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p a ea
+-&gt; NP2 (Arg_ p) '[b] '[eb] -&gt; NP2 (Arg_ p) '[a, b] '[ea, eb]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb
+</span><a href="#local-6989586621679309492"><span class="hs-identifier hs-var">ty</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb -&gt; NP2 (Arg_ p) '[] '[] -&gt; NP2 (Arg_ p) '[b] '[eb]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span id="local-6989586621679309483"><span id="local-6989586621679309484"><span id="local-6989586621679309485"><span id="local-6989586621679309486"><span id="local-6989586621679309487"><span id="local-6989586621679309488"><span id="local-6989586621679309489"><span id="local-6989586621679309490"><span id="local-6989586621679309491"><span class="annot"><a href="Typescript.Json.Parameterized.html#tsApplied3"><span class="hs-identifier hs-type">tsApplied3</span></a></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309491"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309490"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309489"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309488"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309487"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679309486"><span class="hs-identifier hs-type">ea</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309485"><span class="hs-identifier hs-type">eb</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679309484"><span class="hs-identifier hs-type">ec</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309483"><span class="hs-identifier hs-type">d</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309491"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309489"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309486"><span class="hs-identifier hs-type">ea</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309491"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309488"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309485"><span class="hs-identifier hs-type">eb</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309491"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309487"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309484"><span class="hs-identifier hs-type">ec</span></a></span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309491"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309490"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309483"><span class="hs-identifier hs-type">d</span></a></span></span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-135"></span><span id="tsApplied3"><span class="annot"><span class="annottext">tsApplied3 :: TSNamed p k '[a, b, c] '[ea, eb, ec] d
+-&gt; Arg_ p a ea -&gt; Arg_ p b eb -&gt; Arg_ p c ec -&gt; TSType p k d
+</span><a href="Typescript.Json.Parameterized.html#tsApplied3"><span class="hs-identifier hs-var hs-var">tsApplied3</span></a></span></span><span> </span><span id="local-6989586621679309482"><span class="annot"><span class="annottext">tf :: TSNamed p k '[a, b, c] '[ea, eb, ec] d
+</span><a href="#local-6989586621679309482"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span id="local-6989586621679309481"><span class="annot"><span class="annottext">tx :: Arg_ p a ea
+</span><a href="#local-6989586621679309481"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span id="local-6989586621679309480"><span class="annot"><span class="annottext">ty :: Arg_ p b eb
+</span><a href="#local-6989586621679309480"><span class="hs-identifier hs-var">ty</span></a></span></span><span> </span><span id="local-6989586621679309479"><span class="annot"><span class="annottext">tz :: Arg_ p c ec
+</span><a href="#local-6989586621679309479"><span class="hs-identifier hs-var">tz</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSNamed p k '[a, b, c] '[ea, eb, ec] d
+-&gt; NP2 (Arg_ p) '[a, b, c] '[ea, eb, ec] -&gt; TSType p k d
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSNamed p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Parameterized.html#tsApplied"><span class="hs-identifier hs-var">tsApplied</span></a></span><span> </span><span class="annot"><span class="annottext">TSNamed p k '[a, b, c] '[ea, eb, ec] d
+</span><a href="#local-6989586621679309482"><span class="hs-identifier hs-var">tf</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Arg_ p a ea
+</span><a href="#local-6989586621679309481"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p a ea
+-&gt; NP2 (Arg_ p) '[b, c] '[eb, ec]
+-&gt; NP2 (Arg_ p) '[a, b, c] '[ea, eb, ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb
+</span><a href="#local-6989586621679309480"><span class="hs-identifier hs-var">ty</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p b eb
+-&gt; NP2 (Arg_ p) '[c] '[ec] -&gt; NP2 (Arg_ p) '[b, c] '[eb, ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p c ec
+</span><a href="#local-6989586621679309479"><span class="hs-identifier hs-var">tz</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ p c ec -&gt; NP2 (Arg_ p) '[] '[] -&gt; NP2 (Arg_ p) '[c] '[ec]
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ p) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span></pre></body></html>

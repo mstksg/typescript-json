@@ -1,0 +1,1212 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="%24con2tag_DKJh9ZT4Qkj78c6MU2VBJP"></span><span class="hs-pragma">{-# LANGUAGE DataKinds                  #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies         #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE EmptyCase                  #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GADTs                      #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures             #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase                 #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings          #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes                 #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards            #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables        #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications           #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators              #-}</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Typescript.Json.Union</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Unions</span></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><a href="Typescript.Json.Union.html#tsUnion"><span class="hs-identifier">tsUnion</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#tsUnions"><span class="hs-identifier">tsUnions</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-comment">-- ** Tagged</span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier">tagVal</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#taggedObject"><span class="hs-identifier">taggedObject</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#taggedValue"><span class="hs-identifier">taggedValue</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#taggedNullary"><span class="hs-identifier">taggedNullary</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier">TaggedBranches</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier">Branch</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier">TaggedValueOpts</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#taggedBranch"><span class="hs-identifier">taggedBranch</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#mergeTB"><span class="hs-identifier">mergeTB</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#emptyTaggedBranch"><span class="hs-identifier">emptyTaggedBranch</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#tsTaggedUnion"><span class="hs-identifier">tsTaggedUnion</span></a></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#tsTaggedUnions"><span class="hs-identifier">tsTaggedUnions</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Misc</span></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#tsMaybe"><span class="hs-identifier">tsMaybe</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Default.Class</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Apply</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Combinator</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Contravariant</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Invariant</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Invariant.DecAlt</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.SOP</span></span><span>                             </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NP</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NS</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">I</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span>                            </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Collection.html"><span class="hs-identifier">Typescript.Json.Collection</span></a></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Primitive.html"><span class="hs-identifier">Typescript.Json.Primitive</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.html"><span class="hs-identifier">Typescript.Json.Types</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative.Lift</span></span><span>             </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Lift</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Set</span></span><span>                             </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- | Build up a union type from a 'unionBranch'.</span><span>
+</span><span id="line-48"></span><span id="local-6989586621679313139"><span id="local-6989586621679313140"><span class="annot"><a href="Typescript.Json.Union.html#tsUnion"><span class="hs-identifier hs-type">tsUnion</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnionBranches"><span class="hs-identifier hs-type">TSUnionBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313140"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313139"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313140"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313139"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-51"></span><span id="tsUnion"><span class="annot"><span class="annottext">tsUnion :: TSUnionBranches p a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsUnion"><span class="hs-identifier hs-var hs-var">tsUnion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSUnionBranches p a -&gt; TSType p 'NotObj a
+forall (p :: Nat) a. TSUnionBranches p a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Types.html#TSUnion"><span class="hs-identifier hs-var">TSUnion</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- TODO: this is all wrong</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- | A convenient way to combine multiple unions using 'NP' and 'NS'.</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- Takes a function to &quot;break&quot; the final type into each branch ('NS') and a tuple</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- ('NP') to handle each branch.</span><span>
+</span><span id="line-58"></span><span class="hs-comment">--</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- data MyType = MTA Int | MTB Bool | MTC String | MTD Double</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- subtypes :: NP (TSUnionBranches p) '[Int, Bool, String, Double]</span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- subtypes = 'tsBranchUnions' (TSType_ 'tsBoundedInteger')</span><span>
+</span><span id="line-64"></span><span class="hs-comment">--         ':*' tsBranchUnions (TSType_ 'tsBoolean')</span><span>
+</span><span id="line-65"></span><span class="hs-comment">--         :* tsBranchUnions (TSType_ 'tsString')</span><span>
+</span><span id="line-66"></span><span class="hs-comment">--         :* tsBranchUnions (TSType_ 'tsDouble')</span><span>
+</span><span id="line-67"></span><span class="hs-comment">--         :* 'Nil'</span><span>
+</span><span id="line-68"></span><span class="hs-comment">--</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- myType :: TSType p 'NotObj MyType</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- myType = tsUnions splitMyType embedMyType subtypes</span><span>
+</span><span id="line-71"></span><span class="hs-comment">--   where</span><span>
+</span><span id="line-72"></span><span class="hs-comment">--     splitMyType = \case</span><span>
+</span><span id="line-73"></span><span class="hs-comment">--       MTA i -&gt; Z (I i)</span><span>
+</span><span id="line-74"></span><span class="hs-comment">--       MTB b -&gt; S (Z (I b))</span><span>
+</span><span id="line-75"></span><span class="hs-comment">--       MTC s -&gt; S (S (S (I s)))</span><span>
+</span><span id="line-76"></span><span class="hs-comment">--       MTA d -&gt; S (S (S (S (I d))))</span><span>
+</span><span id="line-77"></span><span class="hs-comment">--     embedMyType =</span><span>
+</span><span id="line-78"></span><span class="hs-comment">--          'Op' MTA</span><span>
+</span><span id="line-79"></span><span class="hs-comment">--       :* Op MTB</span><span>
+</span><span id="line-80"></span><span class="hs-comment">--       :* Op MTC</span><span>
+</span><span id="line-81"></span><span class="hs-comment">--       :* Op MTD</span><span>
+</span><span id="line-82"></span><span class="hs-comment">--       :* Nil</span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-84"></span><span id="local-6989586621679313246"><span id="local-6989586621679313247"><span id="local-6989586621679313248"><span id="local-6989586621679313249"><span class="annot"><a href="Typescript.Json.Union.html#tsBranchUnions"><span class="hs-identifier hs-type">tsBranchUnions</span></a></span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313249"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NS</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">I</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313248"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313247"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="annot"><a href="#local-6989586621679313249"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313248"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313247"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSUnionBranches"><span class="hs-identifier hs-type">TSUnionBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313246"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313248"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313247"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313246"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313249"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-89"></span><span id="tsBranchUnions"><span class="annot"><span class="annottext">tsBranchUnions :: (a -&gt; NS I (b : bs))
+-&gt; NP (Op a) (b : bs)
+-&gt; NP (TSUnionBranches p) (b : bs)
+-&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsBranchUnions"><span class="hs-identifier hs-var hs-var">tsBranchUnions</span></a></span></span><span> </span><span id="local-6989586621679313136"><span class="annot"><span class="annottext">f :: a -&gt; NS I (b : bs)
+</span><a href="#local-6989586621679313136"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679313135"><span class="annot"><span class="annottext">g :: NP (Op a) (b : bs)
+</span><a href="#local-6989586621679313135"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSUnionBranches p a -&gt; TSType p 'NotObj a
+forall (p :: Nat) a. TSUnionBranches p a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsUnion"><span class="hs-identifier hs-var">tsUnion</span></a></span><span>
+</span><span id="line-90"></span><span>                   </span><span class="annot"><span class="annottext">(TSUnionBranches p a -&gt; TSType p 'NotObj a)
+-&gt; (NP (TSUnionBranches p) (b : bs) -&gt; TSUnionBranches p a)
+-&gt; NP (TSUnionBranches p) (b : bs)
+-&gt; TSType p 'NotObj a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(NS I (b : bs) -&gt; a)
+-&gt; (a -&gt; NS I (b : bs))
+-&gt; DecAlt1 (TSType_ p) (NS I (b : bs))
+-&gt; TSUnionBranches p a
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NP (Op a) (b : bs) -&gt; NS I (b : bs) -&gt; a
+forall a (as :: [*]). NP (Op a) as -&gt; NS I as -&gt; a
+</span><a href="Typescript.Json.Union.html#unHandlers"><span class="hs-identifier hs-var">unHandlers</span></a></span><span> </span><span class="annot"><span class="annottext">NP (Op a) (b : bs)
+</span><a href="#local-6989586621679313135"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; NS I (b : bs)
+</span><a href="#local-6989586621679313136"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-91"></span><span>                   </span><span class="annot"><span class="annottext">(DecAlt1 (TSType_ p) (NS I (b : bs)) -&gt; TSUnionBranches p a)
+-&gt; (NP (TSUnionBranches p) (b : bs)
+    -&gt; DecAlt1 (TSType_ p) (NS I (b : bs)))
+-&gt; NP (TSUnionBranches p) (b : bs)
+-&gt; TSUnionBranches p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NP (TSUnionBranches p) (b : bs)
+-&gt; DecAlt1 (TSType_ p) (NS I (b : bs))
+forall (f :: * -&gt; *) a (as :: [*]).
+Invariant f =&gt;
+NP (DecAlt1 f) (a : as) -&gt; DecAlt1 f (NS I (a : as))
+</span><span class="hs-identifier hs-var">concatDecAlt1</span></span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span id="local-6989586621679313127"><span id="local-6989586621679313128"><span id="local-6989586621679313129"><span id="local-6989586621679313130"><span class="annot"><a href="Typescript.Json.Union.html#tsUnions"><span class="hs-identifier hs-type">tsUnions</span></a></span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313130"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NS</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">I</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313129"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313128"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="annot"><a href="#local-6989586621679313130"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313129"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313128"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313127"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313129"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313128"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313127"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313130"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-98"></span><span id="tsUnions"><span class="annot"><span class="annottext">tsUnions :: (a -&gt; NS I (b : bs))
+-&gt; NP (Op a) (b : bs)
+-&gt; NP (TSType_ p) (b : bs)
+-&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsUnions"><span class="hs-identifier hs-var hs-var">tsUnions</span></a></span></span><span> </span><span id="local-6989586621679313126"><span class="annot"><span class="annottext">f :: a -&gt; NS I (b : bs)
+</span><a href="#local-6989586621679313126"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679313125"><span class="annot"><span class="annottext">g :: NP (Op a) (b : bs)
+</span><a href="#local-6989586621679313125"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSUnionBranches p a -&gt; TSType p 'NotObj a
+forall (p :: Nat) a. TSUnionBranches p a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsUnion"><span class="hs-identifier hs-var">tsUnion</span></a></span><span>
+</span><span id="line-99"></span><span>             </span><span class="annot"><span class="annottext">(TSUnionBranches p a -&gt; TSType p 'NotObj a)
+-&gt; (NP (TSType_ p) (b : bs) -&gt; TSUnionBranches p a)
+-&gt; NP (TSType_ p) (b : bs)
+-&gt; TSType p 'NotObj a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(NS I (b : bs) -&gt; a)
+-&gt; (a -&gt; NS I (b : bs))
+-&gt; DecAlt1 (TSType_ p) (NS I (b : bs))
+-&gt; TSUnionBranches p a
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NP (Op a) (b : bs) -&gt; NS I (b : bs) -&gt; a
+forall a (as :: [*]). NP (Op a) as -&gt; NS I as -&gt; a
+</span><a href="Typescript.Json.Union.html#unHandlers"><span class="hs-identifier hs-var">unHandlers</span></a></span><span> </span><span class="annot"><span class="annottext">NP (Op a) (b : bs)
+</span><a href="#local-6989586621679313125"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; NS I (b : bs)
+</span><a href="#local-6989586621679313126"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-100"></span><span>             </span><span class="annot"><span class="annottext">(DecAlt1 (TSType_ p) (NS I (b : bs)) -&gt; TSUnionBranches p a)
+-&gt; (NP (TSType_ p) (b : bs) -&gt; DecAlt1 (TSType_ p) (NS I (b : bs)))
+-&gt; NP (TSType_ p) (b : bs)
+-&gt; TSUnionBranches p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NP (DecAlt1 (TSType_ p)) (b : bs)
+-&gt; DecAlt1 (TSType_ p) (NS I (b : bs))
+forall (f :: * -&gt; *) a (as :: [*]).
+Invariant f =&gt;
+NP (DecAlt1 f) (a : as) -&gt; DecAlt1 f (NS I (a : as))
+</span><span class="hs-identifier hs-var">concatDecAlt1</span></span><span>
+</span><span id="line-101"></span><span>             </span><span class="annot"><span class="annottext">(NP (DecAlt1 (TSType_ p)) (b : bs)
+ -&gt; DecAlt1 (TSType_ p) (NS I (b : bs)))
+-&gt; (NP (TSType_ p) (b : bs) -&gt; NP (DecAlt1 (TSType_ p)) (b : bs))
+-&gt; NP (TSType_ p) (b : bs)
+-&gt; DecAlt1 (TSType_ p) (NS I (b : bs))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(TSType_ p ~&gt; DecAlt1 (TSType_ p))
+-&gt; NP (TSType_ p) ~&gt; NP (DecAlt1 (TSType_ p))
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="annot"><span class="annottext">TSType_ p ~&gt; DecAlt1 (TSType_ p)
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span id="local-6989586621679313319"><span id="local-6989586621679313320"><span class="annot"><a href="Typescript.Json.Union.html#unHandlers"><span class="hs-identifier hs-type">unHandlers</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="annot"><a href="#local-6989586621679313320"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679313319"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NS</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">I</span></span><span> </span><span class="annot"><a href="#local-6989586621679313319"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679313320"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-104"></span><span id="unHandlers"><span class="annot"><span class="annottext">unHandlers :: NP (Op a) as -&gt; NS I as -&gt; a
+</span><a href="Typescript.Json.Union.html#unHandlers"><span class="hs-identifier hs-var hs-var">unHandlers</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-105"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Nil</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span> </span><span class="hs-special">{</span><span class="hs-special">}</span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span id="local-6989586621679313120"><span class="annot"><span class="annottext">f :: x -&gt; a
+</span><a href="#local-6989586621679313120"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*</span></span><span> </span><span id="local-6989586621679313118"><span class="annot"><span class="annottext">xs :: NP (Op a) xs
+</span><a href="#local-6989586621679313118"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-107"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">I</span></span><span> </span><span id="local-6989586621679313115"><span class="annot"><span class="annottext">x :: x
+</span><a href="#local-6989586621679313115"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">x -&gt; a
+</span><a href="#local-6989586621679313120"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">x
+x
+</span><a href="#local-6989586621679313115"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-108"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">S</span></span><span> </span><span id="local-6989586621679313113"><span class="annot"><span class="annottext">hs :: NS I xs
+</span><a href="#local-6989586621679313113"><span class="hs-identifier hs-var">hs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NP (Op a) xs -&gt; NS I xs -&gt; a
+forall a (as :: [*]). NP (Op a) as -&gt; NS I as -&gt; a
+</span><a href="Typescript.Json.Union.html#unHandlers"><span class="hs-identifier hs-var">unHandlers</span></a></span><span> </span><span class="annot"><span class="annottext">NP (Op a) xs
+</span><a href="#local-6989586621679313118"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="annot"><span class="annottext">NS I xs
+NS I xs
+</span><a href="#local-6989586621679313113"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-keyword">data</span><span> </span><span id="Branch"><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-var">Branch</span></a></span></span><span> </span><span id="local-6989586621679313284"><span class="annot"><a href="#local-6989586621679313284"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679313283"><span class="annot"><a href="#local-6989586621679313283"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Branch"><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-var">Branch</span></a></span></span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="branchTag"><span class="annot"><span class="annottext">Branch p a -&gt; Text
+</span><a href="Typescript.Json.Union.html#branchTag"><span class="hs-identifier hs-var hs-var">branchTag</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="branchType"><span class="annot"><span class="annottext">Branch p a -&gt; Lift (TSType_ p) a
+</span><a href="Typescript.Json.Union.html#branchType"><span class="hs-identifier hs-var hs-var">branchType</span></a></span></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lift</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313284"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679313283"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span id="local-6989586621679313109"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Invariant</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-type">Branch</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313109"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-116"></span><span>    </span><span id="local-6989586621679313106"><span class="annot"><span class="annottext">invmap :: (a -&gt; b) -&gt; (b -&gt; a) -&gt; Branch p a -&gt; Branch p b
+</span><a href="#local-6989586621679313106"><span class="hs-identifier hs-var hs-var hs-var hs-var">invmap</span></a></span></span><span> </span><span id="local-6989586621679313105"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621679313105"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679313104"><span class="annot"><span class="annottext">g :: b -&gt; a
+</span><a href="#local-6989586621679313104"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-type">Branch</span></a></span><span> </span><span id="local-6989586621679313103"><span class="annot"><span class="annottext">a :: Text
+</span><a href="#local-6989586621679313103"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679313102"><span class="annot"><span class="annottext">b :: Lift (TSType_ p) a
+</span><a href="#local-6989586621679313102"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Lift (TSType_ p) b -&gt; Branch p b
+forall (p :: Nat) a. Text -&gt; Lift (TSType_ p) a -&gt; Branch p a
+</span><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-var">Branch</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679313103"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (b -&gt; a) -&gt; Lift (TSType_ p) a -&gt; Lift (TSType_ p) b
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621679313105"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; a
+</span><a href="#local-6989586621679313104"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">Lift (TSType_ p) a
+</span><a href="#local-6989586621679313102"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- | A high-level data type describing the common pattern of a &quot;tagged&quot;</span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- union (sum types in Haskell), where each branch comes in the form of an</span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- object with a &quot;tag&quot; property with a string literal singleton, and the</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- rest of the object is the contents.  We would store an @Either Int Bool@ as, say,</span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- @{ tag: &quot;Left&quot;, contents: number } | { tag: &quot;Right&quot;, contents: boolean }@.</span><span>
+</span><span id="line-123"></span><span class="hs-comment">--</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- Meant to be constructed using 'taggedBranch' and other 'Decide'</span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- combinators.</span><span>
+</span><span id="line-126"></span><span class="hs-keyword">newtype</span><span> </span><span id="TaggedBranches"><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-var">TaggedBranches</span></a></span></span><span> </span><span id="local-6989586621679313272"><span class="annot"><a href="#local-6989586621679313272"><span class="hs-identifier hs-type">p</span></a></span></span><span> </span><span id="local-6989586621679313271"><span class="annot"><a href="#local-6989586621679313271"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TaggedBranches"><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-var">TaggedBranches</span></a></span></span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="getTaggedBranches"><span class="annot"><span class="annottext">TaggedBranches p a -&gt; DecAlt1 (Branch p) a
+</span><a href="Typescript.Json.Union.html#getTaggedBranches"><span class="hs-identifier hs-var hs-var">getTaggedBranches</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DecAlt1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-type">Branch</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313272"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679313271"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679313098"><span class="annot"><span class="annottext">(a -&gt; b) -&gt; (b -&gt; a) -&gt; TaggedBranches p a -&gt; TaggedBranches p b
+(forall a b.
+ (a -&gt; b) -&gt; (b -&gt; a) -&gt; TaggedBranches p a -&gt; TaggedBranches p b)
+-&gt; Invariant (TaggedBranches p)
+forall a b.
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; TaggedBranches p a -&gt; TaggedBranches p b
+forall (p :: Nat) a b.
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; TaggedBranches p a -&gt; TaggedBranches p b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b) -&gt; Invariant f
+invmap :: (a -&gt; b) -&gt; (b -&gt; a) -&gt; TaggedBranches p a -&gt; TaggedBranches p b
+$cinvmap :: forall (p :: Nat) a b.
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; TaggedBranches p a -&gt; TaggedBranches p b
+</span><a href="#local-6989586621679313098"><span class="hs-identifier hs-var hs-var hs-var hs-var">Invariant</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span id="local-6989586621679313094"><span id="local-6989586621679313095"><span id="local-6989586621679313096"><span id="local-6989586621679313097"><span class="annot"><a href="Typescript.Json.Union.html#mergeTB"><span class="hs-identifier hs-type">mergeTB</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313097"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="#local-6989586621679313096"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313095"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313096"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679313097"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313095"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679313097"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313094"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313096"><span class="hs-identifier hs-type">b</span></a></span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313094"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313095"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313094"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313097"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-137"></span><span id="mergeTB"><span class="annot"><span class="annottext">mergeTB :: (a -&gt; Either b c)
+-&gt; (b -&gt; a)
+-&gt; (c -&gt; a)
+-&gt; TaggedBranches p b
+-&gt; TaggedBranches p c
+-&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#mergeTB"><span class="hs-identifier hs-var hs-var">mergeTB</span></a></span></span><span> </span><span id="local-6989586621679313093"><span class="annot"><span class="annottext">f :: a -&gt; Either b c
+</span><a href="#local-6989586621679313093"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679313092"><span class="annot"><span class="annottext">ga :: b -&gt; a
+</span><a href="#local-6989586621679313092"><span class="hs-identifier hs-var">ga</span></a></span></span><span> </span><span id="local-6989586621679313091"><span class="annot"><span class="annottext">gb :: c -&gt; a
+</span><a href="#local-6989586621679313091"><span class="hs-identifier hs-var">gb</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span id="local-6989586621679313090"><span class="annot"><span class="annottext">x :: DecAlt1 (Branch p) b
+</span><a href="#local-6989586621679313090"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span id="local-6989586621679313089"><span class="annot"><span class="annottext">y :: DecAlt1 (Branch p) c
+</span><a href="#local-6989586621679313089"><span class="hs-identifier hs-var">y</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DecAlt1 (Branch p) a -&gt; TaggedBranches p a
+forall (p :: Nat) a. DecAlt1 (Branch p) a -&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-var">TaggedBranches</span></a></span><span> </span><span class="annot"><span class="annottext">(DecAlt1 (Branch p) a -&gt; TaggedBranches p a)
+-&gt; DecAlt1 (Branch p) a -&gt; TaggedBranches p a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-138"></span><span>    </span><span class="annot"><span class="annottext">(a -&gt; Either b c)
+-&gt; (b -&gt; a)
+-&gt; (c -&gt; a)
+-&gt; DecAlt1 (Branch p) b
+-&gt; DecAlt1 (Branch p) c
+-&gt; DecAlt1 (Branch p) a
+forall (f :: * -&gt; *) a b c.
+Invariant f =&gt;
+(a -&gt; Either b c)
+-&gt; (b -&gt; a)
+-&gt; (c -&gt; a)
+-&gt; DecAlt1 f b
+-&gt; DecAlt1 f c
+-&gt; DecAlt1 f a
+</span><span class="hs-identifier hs-var">swerve1</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either b c
+</span><a href="#local-6989586621679313093"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">b -&gt; a
+</span><a href="#local-6989586621679313092"><span class="hs-identifier hs-var">ga</span></a></span><span> </span><span class="annot"><span class="annottext">c -&gt; a
+</span><a href="#local-6989586621679313091"><span class="hs-identifier hs-var">gb</span></a></span><span> </span><span class="annot"><span class="annottext">DecAlt1 (Branch p) b
+</span><a href="#local-6989586621679313090"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">DecAlt1 (Branch p) c
+</span><a href="#local-6989586621679313089"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-139"></span><span>
+</span><span id="line-140"></span><span class="hs-comment">-- | Create a singleton 'TaggedBranches', to be combined with 'Decide'</span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- combinators with others.  Can also be used with 'tsUnions' if you want</span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- to combine a large number.</span><span>
+</span><span id="line-143"></span><span id="local-6989586621679313154"><span id="local-6989586621679313155"><span class="annot"><a href="Typescript.Json.Union.html#taggedBranch"><span class="hs-identifier hs-type">taggedBranch</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>             </span><span class="hs-comment">-- ^ Tag value</span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313155"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313154"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-146"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313155"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313154"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-147"></span><span id="taggedBranch"><span class="annot"><span class="annottext">taggedBranch :: Text -&gt; TSType_ p a -&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#taggedBranch"><span class="hs-identifier hs-var hs-var">taggedBranch</span></a></span></span><span> </span><span id="local-6989586621679313087"><span class="annot"><span class="annottext">v :: Text
+</span><a href="#local-6989586621679313087"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DecAlt1 (Branch p) a -&gt; TaggedBranches p a
+forall (p :: Nat) a. DecAlt1 (Branch p) a -&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-var">TaggedBranches</span></a></span><span> </span><span class="annot"><span class="annottext">(DecAlt1 (Branch p) a -&gt; TaggedBranches p a)
+-&gt; (TSType_ p a -&gt; DecAlt1 (Branch p) a)
+-&gt; TSType_ p a
+-&gt; TaggedBranches p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Branch p a -&gt; DecAlt1 (Branch p) a
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">(Branch p a -&gt; DecAlt1 (Branch p) a)
+-&gt; (TSType_ p a -&gt; Branch p a)
+-&gt; TSType_ p a
+-&gt; DecAlt1 (Branch p) a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Lift (TSType_ p) a -&gt; Branch p a
+forall (p :: Nat) a. Text -&gt; Lift (TSType_ p) a -&gt; Branch p a
+</span><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-var">Branch</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679313087"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">(Lift (TSType_ p) a -&gt; Branch p a)
+-&gt; (TSType_ p a -&gt; Lift (TSType_ p) a) -&gt; TSType_ p a -&gt; Branch p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType_ p a -&gt; Lift (TSType_ p) a
+forall (f :: * -&gt; *) a. f a -&gt; Lift f a
+</span><span class="hs-identifier hs-var">Lift.Other</span></span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span id="local-6989586621679313156"><span id="local-6989586621679313157"><span class="annot"><a href="Typescript.Json.Union.html#emptyTaggedBranch"><span class="hs-identifier hs-type">emptyTaggedBranch</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>             </span><span class="hs-comment">-- ^ Tag value</span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679313157"><span class="hs-identifier hs-type">a</span></a></span><span>                </span><span class="hs-comment">-- ^ Pure &quot;singleton&quot;/literal rep value (ignored, just use ())</span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313156"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313157"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-153"></span><span id="emptyTaggedBranch"><span class="annot"><span class="annottext">emptyTaggedBranch :: Text -&gt; a -&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#emptyTaggedBranch"><span class="hs-identifier hs-var hs-var">emptyTaggedBranch</span></a></span></span><span> </span><span id="local-6989586621679313085"><span class="annot"><span class="annottext">v :: Text
+</span><a href="#local-6989586621679313085"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DecAlt1 (Branch p) a -&gt; TaggedBranches p a
+forall (p :: Nat) a. DecAlt1 (Branch p) a -&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-var">TaggedBranches</span></a></span><span> </span><span class="annot"><span class="annottext">(DecAlt1 (Branch p) a -&gt; TaggedBranches p a)
+-&gt; (a -&gt; DecAlt1 (Branch p) a) -&gt; a -&gt; TaggedBranches p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Branch p a -&gt; DecAlt1 (Branch p) a
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *).
+Inject t =&gt;
+f ~&gt; t f
+</span><span class="hs-identifier hs-var">inject</span></span><span> </span><span class="annot"><span class="annottext">(Branch p a -&gt; DecAlt1 (Branch p) a)
+-&gt; (a -&gt; Branch p a) -&gt; a -&gt; DecAlt1 (Branch p) a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Lift (TSType_ p) a -&gt; Branch p a
+forall (p :: Nat) a. Text -&gt; Lift (TSType_ p) a -&gt; Branch p a
+</span><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-var">Branch</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679313085"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">(Lift (TSType_ p) a -&gt; Branch p a)
+-&gt; (a -&gt; Lift (TSType_ p) a) -&gt; a -&gt; Branch p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Lift (TSType_ p) a
+forall (f :: * -&gt; *) a. a -&gt; Lift f a
+</span><span class="hs-identifier hs-var">Lift.Pure</span></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span id="local-6989586621679313082"><span id="local-6989586621679313083"><span class="annot"><a href="Typescript.Json.Union.html#tsTaggedUnion"><span class="hs-identifier hs-type">tsTaggedUnion</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-type">TaggedValueOpts</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313083"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313082"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313083"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313082"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-159"></span><span id="tsTaggedUnion"><span class="annot"><span class="annottext">tsTaggedUnion :: TaggedValueOpts -&gt; TaggedBranches p a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsTaggedUnion"><span class="hs-identifier hs-var hs-var">tsTaggedUnion</span></a></span></span><span> </span><span id="local-6989586621679313081"><span class="annot"><span class="annottext">tvo :: TaggedValueOpts
+</span><a href="#local-6989586621679313081"><span class="hs-identifier hs-var">tvo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TSUnionBranches p a -&gt; TSType p 'NotObj a
+forall (p :: Nat) a. TSUnionBranches p a -&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsUnion"><span class="hs-identifier hs-var">tsUnion</span></a></span><span> </span><span class="annot"><span class="annottext">(TSUnionBranches p a -&gt; TSType p 'NotObj a)
+-&gt; (TaggedBranches p a -&gt; TSUnionBranches p a)
+-&gt; TaggedBranches p a
+-&gt; TSType p 'NotObj a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts -&gt; TaggedBranches p a -&gt; TSUnionBranches p a
+forall (p :: Nat) a.
+TaggedValueOpts -&gt; TaggedBranches p a -&gt; TSUnionBranches p a
+</span><a href="Typescript.Json.Union.html#runTaggedBranches"><span class="hs-identifier hs-var">runTaggedBranches</span></a></span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+</span><a href="#local-6989586621679313081"><span class="hs-identifier hs-var">tvo</span></a></span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span id="local-6989586621679313172"><span id="local-6989586621679313173"><span id="local-6989586621679313174"><span id="local-6989586621679313175"><span class="annot"><a href="Typescript.Json.Union.html#tsTaggedUnions"><span class="hs-identifier hs-type">tsTaggedUnions</span></a></span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-type">TaggedValueOpts</span></a></span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313175"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NS</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">I</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313174"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313173"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="annot"><a href="#local-6989586621679313175"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313174"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313173"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313172"><span class="hs-identifier hs-type">p</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679313174"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679313173"><span class="hs-identifier hs-type">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313172"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313175"><span class="hs-identifier hs-type">a</span></a></span></span></span></span></span><span>
+</span><span id="line-167"></span><span id="tsTaggedUnions"><span class="annot"><span class="annottext">tsTaggedUnions :: TaggedValueOpts
+-&gt; (a -&gt; NS I (b : bs))
+-&gt; NP (Op a) (b : bs)
+-&gt; NP (TaggedBranches p) (b : bs)
+-&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsTaggedUnions"><span class="hs-identifier hs-var hs-var">tsTaggedUnions</span></a></span></span><span> </span><span id="local-6989586621679313079"><span class="annot"><span class="annottext">tvo :: TaggedValueOpts
+</span><a href="#local-6989586621679313079"><span class="hs-identifier hs-var">tvo</span></a></span></span><span> </span><span id="local-6989586621679313078"><span class="annot"><span class="annottext">f :: a -&gt; NS I (b : bs)
+</span><a href="#local-6989586621679313078"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621679313077"><span class="annot"><span class="annottext">g :: NP (Op a) (b : bs)
+</span><a href="#local-6989586621679313077"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; NS I (b : bs))
+-&gt; NP (Op a) (b : bs)
+-&gt; NP (TSUnionBranches p) (b : bs)
+-&gt; TSType p 'NotObj a
+forall a b (bs :: [*]) (p :: Nat).
+(a -&gt; NS I (b : bs))
+-&gt; NP (Op a) (b : bs)
+-&gt; NP (TSUnionBranches p) (b : bs)
+-&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsBranchUnions"><span class="hs-identifier hs-var">tsBranchUnions</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; NS I (b : bs)
+</span><a href="#local-6989586621679313078"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">NP (Op a) (b : bs)
+</span><a href="#local-6989586621679313077"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">(NP (TSUnionBranches p) (b : bs) -&gt; TSType p 'NotObj a)
+-&gt; (NP (TaggedBranches p) (b : bs)
+    -&gt; NP (TSUnionBranches p) (b : bs))
+-&gt; NP (TaggedBranches p) (b : bs)
+-&gt; TSType p 'NotObj a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(TaggedBranches p ~&gt; TSUnionBranches p)
+-&gt; NP (TaggedBranches p) ~&gt; NP (TSUnionBranches p)
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TaggedValueOpts -&gt; TaggedBranches p x -&gt; TSUnionBranches p x
+forall (p :: Nat) a.
+TaggedValueOpts -&gt; TaggedBranches p a -&gt; TSUnionBranches p a
+</span><a href="Typescript.Json.Union.html#runTaggedBranches"><span class="hs-identifier hs-var">runTaggedBranches</span></a></span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+</span><a href="#local-6989586621679313079"><span class="hs-identifier hs-var">tvo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span id="local-6989586621679313254"><span id="local-6989586621679313255"><span class="annot"><a href="Typescript.Json.Union.html#runTaggedBranches"><span class="hs-identifier hs-type">runTaggedBranches</span></a></span><span>
+</span><span id="line-170"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-type">TaggedValueOpts</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedBranches"><span class="hs-identifier hs-type">TaggedBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313255"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313254"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnionBranches"><span class="hs-identifier hs-type">TSUnionBranches</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313255"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313254"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-173"></span><span id="runTaggedBranches"><span class="annot"><span class="annottext">runTaggedBranches :: TaggedValueOpts -&gt; TaggedBranches p a -&gt; TSUnionBranches p a
+</span><a href="Typescript.Json.Union.html#runTaggedBranches"><span class="hs-identifier hs-var hs-var">runTaggedBranches</span></a></span></span><span> </span><span id="local-6989586621679313076"><span class="annot"><span class="annottext">tvo :: TaggedValueOpts
+</span><a href="#local-6989586621679313076"><span class="hs-identifier hs-var">tvo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Branch p ~&gt; TSType_ p)
+-&gt; DecAlt1 (Branch p) ~&gt; DecAlt1 (TSType_ p)
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TaggedValueOpts -&gt; Branch p x -&gt; TSType_ p x
+forall (p :: Nat) a. TaggedValueOpts -&gt; Branch p a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Union.html#runBranch"><span class="hs-identifier hs-var">runBranch</span></a></span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+</span><a href="#local-6989586621679313076"><span class="hs-identifier hs-var">tvo</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(DecAlt1 (Branch p) a -&gt; TSUnionBranches p a)
+-&gt; (TaggedBranches p a -&gt; DecAlt1 (Branch p) a)
+-&gt; TaggedBranches p a
+-&gt; TSUnionBranches p a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TaggedBranches p a -&gt; DecAlt1 (Branch p) a
+forall (p :: Nat) a. TaggedBranches p a -&gt; DecAlt1 (Branch p) a
+</span><a href="Typescript.Json.Union.html#getTaggedBranches"><span class="hs-identifier hs-var hs-var">getTaggedBranches</span></a></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span id="local-6989586621679313240"><span id="local-6989586621679313241"><span class="annot"><a href="Typescript.Json.Union.html#runBranch"><span class="hs-identifier hs-type">runBranch</span></a></span><span>
+</span><span id="line-176"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-type">TaggedValueOpts</span></a></span><span>
+</span><span id="line-177"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-type">Branch</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313241"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313240"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-178"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313241"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313240"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-179"></span><span id="runBranch"><span class="annot"><span class="annottext">runBranch :: TaggedValueOpts -&gt; Branch p a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Union.html#runBranch"><span class="hs-identifier hs-var hs-var">runBranch</span></a></span></span><span> </span><span id="local-6989586621679313074"><span class="annot"><span class="annottext">tvo :: TaggedValueOpts
+</span><a href="#local-6989586621679313074"><span class="hs-identifier hs-var">tvo</span></a></span></span><span> </span><span id="local-6989586621679313072"><span id="local-6989586621679313073"><span class="annot"><a href="Typescript.Json.Union.html#Branch"><span class="hs-identifier hs-type">Branch</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Lift (TSType_ p) a
+</span><a href="#local-6989586621679313072"><span class="hs-identifier hs-var">branchType</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-180"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Lift.Pure</span></span><span>  </span><span id="local-6989586621679313071"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621679313071"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts -&gt; Text -&gt; a -&gt; TSType_ p a
+forall a (p :: Nat). TaggedValueOpts -&gt; Text -&gt; a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Union.html#taggedNullary"><span class="hs-identifier hs-var">taggedNullary</span></a></span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+</span><a href="#local-6989586621679313074"><span class="hs-identifier hs-var">tvo</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679313073"><span class="hs-identifier hs-var">branchTag</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679313071"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-181"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Lift.Other</span></span><span> </span><span id="local-6989586621679313070"><span class="annot"><span class="annottext">t :: TSType_ p a
+</span><a href="#local-6989586621679313070"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType p 'IsObj a -&gt; TSType_ p a
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType p 'IsObj a -&gt; TSType_ p a)
+-&gt; TSType p 'IsObj a -&gt; TSType_ p a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts -&gt; Text -&gt; TSType_ p a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a.
+TaggedValueOpts -&gt; Text -&gt; TSType_ p a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Union.html#taggedValue"><span class="hs-identifier hs-var">taggedValue</span></a></span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+</span><a href="#local-6989586621679313074"><span class="hs-identifier hs-var">tvo</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679313073"><span class="hs-identifier hs-var">branchTag</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ p a
+</span><a href="#local-6989586621679313070"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span class="hs-keyword">data</span><span> </span><span id="TaggedValueOpts"><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-var">TaggedValueOpts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-184"></span><span>    </span><span id="TVOTagAndContents"><span class="annot"><a href="Typescript.Json.Union.html#TVOTagAndContents"><span class="hs-identifier hs-var">TVOTagAndContents</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TagAndContents"><span class="hs-identifier hs-type">TagAndContents</span></a></span><span>
+</span><span id="line-185"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="TVOTagIsKey"><span class="annot"><a href="Typescript.Json.Union.html#TVOTagIsKey"><span class="hs-identifier hs-var">TVOTagIsKey</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TagIsKey"><span class="hs-identifier hs-type">TagIsKey</span></a></span><span>
+</span><span id="line-186"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679313061"><span id="local-6989586621679313063"><span id="local-6989586621679313065"><span class="annot"><span class="annottext">Int -&gt; TaggedValueOpts -&gt; ShowS
+[TaggedValueOpts] -&gt; ShowS
+TaggedValueOpts -&gt; String
+(Int -&gt; TaggedValueOpts -&gt; ShowS)
+-&gt; (TaggedValueOpts -&gt; String)
+-&gt; ([TaggedValueOpts] -&gt; ShowS)
+-&gt; Show TaggedValueOpts
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TaggedValueOpts] -&gt; ShowS
+$cshowList :: [TaggedValueOpts] -&gt; ShowS
+show :: TaggedValueOpts -&gt; String
+$cshow :: TaggedValueOpts -&gt; String
+showsPrec :: Int -&gt; TaggedValueOpts -&gt; ShowS
+$cshowsPrec :: Int -&gt; TaggedValueOpts -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679313056"><span id="local-6989586621679313058"><span class="annot"><span class="annottext">TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+(TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool)
+-&gt; (TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool)
+-&gt; Eq TaggedValueOpts
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+$c/= :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+== :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+$c== :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679313040"><span id="local-6989586621679313042"><span id="local-6989586621679313044"><span id="local-6989586621679313046"><span id="local-6989586621679313048"><span id="local-6989586621679313050"><span id="local-6989586621679313052"><span class="annot"><span class="annottext">Eq TaggedValueOpts
+Eq TaggedValueOpts =&gt;
+(TaggedValueOpts -&gt; TaggedValueOpts -&gt; Ordering)
+-&gt; (TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool)
+-&gt; (TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool)
+-&gt; (TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool)
+-&gt; (TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool)
+-&gt; (TaggedValueOpts -&gt; TaggedValueOpts -&gt; TaggedValueOpts)
+-&gt; (TaggedValueOpts -&gt; TaggedValueOpts -&gt; TaggedValueOpts)
+-&gt; Ord TaggedValueOpts
+TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+TaggedValueOpts -&gt; TaggedValueOpts -&gt; Ordering
+TaggedValueOpts -&gt; TaggedValueOpts -&gt; TaggedValueOpts
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; TaggedValueOpts
+$cmin :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; TaggedValueOpts
+max :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; TaggedValueOpts
+$cmax :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; TaggedValueOpts
+&gt;= :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+$c&gt;= :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+&gt; :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+$c&gt; :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+&lt;= :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+$c&lt;= :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+&lt; :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+$c&lt; :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Bool
+compare :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Ordering
+$ccompare :: TaggedValueOpts -&gt; TaggedValueOpts -&gt; Ordering
+$cp1Ord :: Eq TaggedValueOpts
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-187"></span><span>
+</span><span id="line-188"></span><span class="hs-keyword">data</span><span> </span><span id="TagAndContents"><span class="annot"><a href="Typescript.Json.Union.html#TagAndContents"><span class="hs-identifier hs-var">TagAndContents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TagAndContents"><span class="annot"><a href="Typescript.Json.Union.html#TagAndContents"><span class="hs-identifier hs-var">TagAndContents</span></a></span></span><span>
+</span><span id="line-189"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="tacMergeTagValue"><span class="annot"><span class="annottext">TagAndContents -&gt; Bool
+</span><a href="Typescript.Json.Union.html#tacMergeTagValue"><span class="hs-identifier hs-var hs-var">tacMergeTagValue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>  </span><span class="hs-comment">-- ^ if possible, flatten the object under contents</span><span>
+</span><span id="line-190"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="tacTagKey"><span class="annot"><span class="annottext">TagAndContents -&gt; Text
+</span><a href="Typescript.Json.Union.html#tacTagKey"><span class="hs-identifier hs-var hs-var">tacTagKey</span></a></span></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="tacContentsKey"><span class="annot"><span class="annottext">TagAndContents -&gt; Text
+</span><a href="Typescript.Json.Union.html#tacContentsKey"><span class="hs-identifier hs-var hs-var">tacContentsKey</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="tacTagReadOnly"><span class="annot"><span class="annottext">TagAndContents -&gt; Mutability
+</span><a href="Typescript.Json.Union.html#tacTagReadOnly"><span class="hs-identifier hs-var hs-var">tacTagReadOnly</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Mutability"><span class="hs-identifier hs-type">Mutability</span></a></span><span>
+</span><span id="line-193"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="tacContentsReadOnly"><span class="annot"><span class="annottext">TagAndContents -&gt; Mutability
+</span><a href="Typescript.Json.Union.html#tacContentsReadOnly"><span class="hs-identifier hs-var hs-var">tacContentsReadOnly</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Mutability"><span class="hs-identifier hs-type">Mutability</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-195"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679313027"><span id="local-6989586621679313029"><span id="local-6989586621679313031"><span class="annot"><span class="annottext">Int -&gt; TagAndContents -&gt; ShowS
+[TagAndContents] -&gt; ShowS
+TagAndContents -&gt; String
+(Int -&gt; TagAndContents -&gt; ShowS)
+-&gt; (TagAndContents -&gt; String)
+-&gt; ([TagAndContents] -&gt; ShowS)
+-&gt; Show TagAndContents
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TagAndContents] -&gt; ShowS
+$cshowList :: [TagAndContents] -&gt; ShowS
+show :: TagAndContents -&gt; String
+$cshow :: TagAndContents -&gt; String
+showsPrec :: Int -&gt; TagAndContents -&gt; ShowS
+$cshowsPrec :: Int -&gt; TagAndContents -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679313023"><span id="local-6989586621679313025"><span class="annot"><span class="annottext">TagAndContents -&gt; TagAndContents -&gt; Bool
+(TagAndContents -&gt; TagAndContents -&gt; Bool)
+-&gt; (TagAndContents -&gt; TagAndContents -&gt; Bool) -&gt; Eq TagAndContents
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TagAndContents -&gt; TagAndContents -&gt; Bool
+$c/= :: TagAndContents -&gt; TagAndContents -&gt; Bool
+== :: TagAndContents -&gt; TagAndContents -&gt; Bool
+$c== :: TagAndContents -&gt; TagAndContents -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679313008"><span id="local-6989586621679313010"><span id="local-6989586621679313012"><span id="local-6989586621679313014"><span id="local-6989586621679313016"><span id="local-6989586621679313018"><span id="local-6989586621679313020"><span class="annot"><span class="annottext">Eq TagAndContents
+Eq TagAndContents =&gt;
+(TagAndContents -&gt; TagAndContents -&gt; Ordering)
+-&gt; (TagAndContents -&gt; TagAndContents -&gt; Bool)
+-&gt; (TagAndContents -&gt; TagAndContents -&gt; Bool)
+-&gt; (TagAndContents -&gt; TagAndContents -&gt; Bool)
+-&gt; (TagAndContents -&gt; TagAndContents -&gt; Bool)
+-&gt; (TagAndContents -&gt; TagAndContents -&gt; TagAndContents)
+-&gt; (TagAndContents -&gt; TagAndContents -&gt; TagAndContents)
+-&gt; Ord TagAndContents
+TagAndContents -&gt; TagAndContents -&gt; Bool
+TagAndContents -&gt; TagAndContents -&gt; Ordering
+TagAndContents -&gt; TagAndContents -&gt; TagAndContents
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: TagAndContents -&gt; TagAndContents -&gt; TagAndContents
+$cmin :: TagAndContents -&gt; TagAndContents -&gt; TagAndContents
+max :: TagAndContents -&gt; TagAndContents -&gt; TagAndContents
+$cmax :: TagAndContents -&gt; TagAndContents -&gt; TagAndContents
+&gt;= :: TagAndContents -&gt; TagAndContents -&gt; Bool
+$c&gt;= :: TagAndContents -&gt; TagAndContents -&gt; Bool
+&gt; :: TagAndContents -&gt; TagAndContents -&gt; Bool
+$c&gt; :: TagAndContents -&gt; TagAndContents -&gt; Bool
+&lt;= :: TagAndContents -&gt; TagAndContents -&gt; Bool
+$c&lt;= :: TagAndContents -&gt; TagAndContents -&gt; Bool
+&lt; :: TagAndContents -&gt; TagAndContents -&gt; Bool
+$c&lt; :: TagAndContents -&gt; TagAndContents -&gt; Bool
+compare :: TagAndContents -&gt; TagAndContents -&gt; Ordering
+$ccompare :: TagAndContents -&gt; TagAndContents -&gt; Ordering
+$cp1Ord :: Eq TagAndContents
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span><span class="hs-keyword">data</span><span> </span><span id="TagIsKey"><span class="annot"><a href="Typescript.Json.Union.html#TagIsKey"><span class="hs-identifier hs-var">TagIsKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TagIsKey"><span class="annot"><a href="Typescript.Json.Union.html#TagIsKey"><span class="hs-identifier hs-var">TagIsKey</span></a></span></span><span>
+</span><span id="line-198"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="tikNullaryIsString"><span class="annot"><span class="annottext">TagIsKey -&gt; Bool
+</span><a href="Typescript.Json.Union.html#tikNullaryIsString"><span class="hs-identifier hs-var hs-var">tikNullaryIsString</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>  </span><span class="hs-comment">-- ^ nullary constructors are just string literals. if False, they are { tag: null }.</span><span>
+</span><span id="line-199"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="tikReadOnly"><span class="annot"><span class="annottext">TagIsKey -&gt; Mutability
+</span><a href="Typescript.Json.Union.html#tikReadOnly"><span class="hs-identifier hs-var hs-var">tikReadOnly</span></a></span></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Mutability"><span class="hs-identifier hs-type">Mutability</span></a></span><span>
+</span><span id="line-200"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-201"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679312999"><span id="local-6989586621679313001"><span id="local-6989586621679313003"><span class="annot"><span class="annottext">Int -&gt; TagIsKey -&gt; ShowS
+[TagIsKey] -&gt; ShowS
+TagIsKey -&gt; String
+(Int -&gt; TagIsKey -&gt; ShowS)
+-&gt; (TagIsKey -&gt; String) -&gt; ([TagIsKey] -&gt; ShowS) -&gt; Show TagIsKey
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TagIsKey] -&gt; ShowS
+$cshowList :: [TagIsKey] -&gt; ShowS
+show :: TagIsKey -&gt; String
+$cshow :: TagIsKey -&gt; String
+showsPrec :: Int -&gt; TagIsKey -&gt; ShowS
+$cshowsPrec :: Int -&gt; TagIsKey -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679312995"><span id="local-6989586621679312997"><span class="annot"><span class="annottext">TagIsKey -&gt; TagIsKey -&gt; Bool
+(TagIsKey -&gt; TagIsKey -&gt; Bool)
+-&gt; (TagIsKey -&gt; TagIsKey -&gt; Bool) -&gt; Eq TagIsKey
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TagIsKey -&gt; TagIsKey -&gt; Bool
+$c/= :: TagIsKey -&gt; TagIsKey -&gt; Bool
+== :: TagIsKey -&gt; TagIsKey -&gt; Bool
+$c== :: TagIsKey -&gt; TagIsKey -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679312980"><span id="local-6989586621679312982"><span id="local-6989586621679312984"><span id="local-6989586621679312986"><span id="local-6989586621679312988"><span id="local-6989586621679312990"><span id="local-6989586621679312992"><span class="annot"><span class="annottext">Eq TagIsKey
+Eq TagIsKey =&gt;
+(TagIsKey -&gt; TagIsKey -&gt; Ordering)
+-&gt; (TagIsKey -&gt; TagIsKey -&gt; Bool)
+-&gt; (TagIsKey -&gt; TagIsKey -&gt; Bool)
+-&gt; (TagIsKey -&gt; TagIsKey -&gt; Bool)
+-&gt; (TagIsKey -&gt; TagIsKey -&gt; Bool)
+-&gt; (TagIsKey -&gt; TagIsKey -&gt; TagIsKey)
+-&gt; (TagIsKey -&gt; TagIsKey -&gt; TagIsKey)
+-&gt; Ord TagIsKey
+TagIsKey -&gt; TagIsKey -&gt; Bool
+TagIsKey -&gt; TagIsKey -&gt; Ordering
+TagIsKey -&gt; TagIsKey -&gt; TagIsKey
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: TagIsKey -&gt; TagIsKey -&gt; TagIsKey
+$cmin :: TagIsKey -&gt; TagIsKey -&gt; TagIsKey
+max :: TagIsKey -&gt; TagIsKey -&gt; TagIsKey
+$cmax :: TagIsKey -&gt; TagIsKey -&gt; TagIsKey
+&gt;= :: TagIsKey -&gt; TagIsKey -&gt; Bool
+$c&gt;= :: TagIsKey -&gt; TagIsKey -&gt; Bool
+&gt; :: TagIsKey -&gt; TagIsKey -&gt; Bool
+$c&gt; :: TagIsKey -&gt; TagIsKey -&gt; Bool
+&lt;= :: TagIsKey -&gt; TagIsKey -&gt; Bool
+$c&lt;= :: TagIsKey -&gt; TagIsKey -&gt; Bool
+&lt; :: TagIsKey -&gt; TagIsKey -&gt; Bool
+$c&lt; :: TagIsKey -&gt; TagIsKey -&gt; Bool
+compare :: TagIsKey -&gt; TagIsKey -&gt; Ordering
+$ccompare :: TagIsKey -&gt; TagIsKey -&gt; Ordering
+$cp1Ord :: Eq TagIsKey
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-202"></span><span>
+</span><span id="line-203"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Default</span></span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TagAndContents"><span class="hs-identifier hs-type">TagAndContents</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-204"></span><span>    </span><span id="local-6989586621679312977"><span class="annot"><span class="annottext">def :: TagAndContents
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">def</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TagAndContents :: Bool -&gt; Text -&gt; Text -&gt; Mutability -&gt; Mutability -&gt; TagAndContents
+</span><a href="Typescript.Json.Union.html#TagAndContents"><span class="hs-identifier hs-type hs-type">TagAndContents</span></a></span><span>
+</span><span id="line-205"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">tacMergeTagValue :: Bool
+</span><a href="Typescript.Json.Union.html#tacMergeTagValue"><span class="hs-identifier hs-var">tacMergeTagValue</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-206"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tacTagKey :: Text
+</span><a href="Typescript.Json.Union.html#tacTagKey"><span class="hs-identifier hs-var">tacTagKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;tag&quot;</span></span><span>
+</span><span id="line-207"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tacContentsKey :: Text
+</span><a href="Typescript.Json.Union.html#tacContentsKey"><span class="hs-identifier hs-var">tacContentsKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;contents&quot;</span></span><span>
+</span><span id="line-208"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tacTagReadOnly :: Mutability
+</span><a href="Typescript.Json.Union.html#tacTagReadOnly"><span class="hs-identifier hs-var">tacTagReadOnly</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="Typescript.Json.Types.html#ReadOnly"><span class="hs-identifier hs-var">ReadOnly</span></a></span><span>
+</span><span id="line-209"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tacContentsReadOnly :: Mutability
+</span><a href="Typescript.Json.Union.html#tacContentsReadOnly"><span class="hs-identifier hs-var">tacContentsReadOnly</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="Typescript.Json.Types.html#Mutable"><span class="hs-identifier hs-var">Mutable</span></a></span><span>
+</span><span id="line-210"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-211"></span><span>
+</span><span id="line-212"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Default</span></span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TagIsKey"><span class="hs-identifier hs-type">TagIsKey</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-213"></span><span>    </span><span id="local-6989586621679312971"><span class="annot"><span class="annottext">def :: TagIsKey
+</span><a href="#local-6989586621679312971"><span class="hs-identifier hs-var hs-var hs-var hs-var">def</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TagIsKey :: Bool -&gt; Mutability -&gt; TagIsKey
+</span><a href="Typescript.Json.Union.html#TagIsKey"><span class="hs-identifier hs-type hs-type">TagIsKey</span></a></span><span>
+</span><span id="line-214"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">tikNullaryIsString :: Bool
+</span><a href="Typescript.Json.Union.html#tikNullaryIsString"><span class="hs-identifier hs-var">tikNullaryIsString</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-215"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tikReadOnly :: Mutability
+</span><a href="Typescript.Json.Union.html#tikReadOnly"><span class="hs-identifier hs-var">tikReadOnly</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="Typescript.Json.Types.html#ReadOnly"><span class="hs-identifier hs-var">ReadOnly</span></a></span><span>
+</span><span id="line-216"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-217"></span><span>
+</span><span id="line-218"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Default</span></span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-type">TaggedValueOpts</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-219"></span><span>    </span><span id="local-6989586621679312968"><span class="annot"><span class="annottext">def :: TaggedValueOpts
+</span><a href="#local-6989586621679312968"><span class="hs-identifier hs-var hs-var hs-var hs-var">def</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TagAndContents -&gt; TaggedValueOpts
+</span><a href="Typescript.Json.Union.html#TVOTagAndContents"><span class="hs-identifier hs-var">TVOTagAndContents</span></a></span><span> </span><span class="annot"><span class="annottext">TagAndContents
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span>
+</span><span id="line-220"></span><span>
+</span><span id="line-221"></span><span class="hs-comment">-- | A utility for a simple situation of a &quot;tag&quot; key-value pair, where the</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- property value is just a string literal singleton.  Often used to</span><span>
+</span><span id="line-223"></span><span class="hs-comment">-- simulate discriminated unions in typescript.</span><span>
+</span><span id="line-224"></span><span class="hs-comment">--</span><span>
+</span><span id="line-225"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-226"></span><span class="hs-comment">-- ppType . TSType_ . tsObject $</span><span>
+</span><span id="line-227"></span><span class="hs-comment">--   tagVal &quot;tag&quot; &quot;something&quot;</span><span>
+</span><span id="line-228"></span><span class="hs-comment">-- -- =&gt; { tag: &quot;sometning&quot; }</span><span>
+</span><span id="line-229"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-230"></span><span class="hs-comment">--</span><span>
+</span><span id="line-231"></span><span class="hs-comment">-- You can combine this with other properties:</span><span>
+</span><span id="line-232"></span><span class="hs-comment">--</span><span>
+</span><span id="line-233"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-234"></span><span class="hs-comment">-- 'ppType' . 'TSType_' . 'tsObject' $</span><span>
+</span><span id="line-235"></span><span class="hs-comment">--      'tagVal' &quot;tag&quot; &quot;something&quot;</span><span>
+</span><span id="line-236"></span><span class="hs-comment">--   *&gt; 'keyVal' True &quot;contents&quot; id 'tsBoolean'</span><span>
+</span><span id="line-237"></span><span class="hs-comment">-- -- =&gt; { tag: &quot;someting&quot;, contents: boolean }</span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-239"></span><span class="hs-comment">--</span><span>
+</span><span id="line-240"></span><span class="hs-comment">-- See also 'taggedObject', which uses an intersection instead of joining</span><span>
+</span><span id="line-241"></span><span class="hs-comment">-- the keys directly.</span><span>
+</span><span id="line-242"></span><span id="local-6989586621679313198"><span id="local-6989586621679313199"><span class="annot"><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier hs-type">tagVal</span></a></span><span>
+</span><span id="line-243"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Mutability"><span class="hs-identifier hs-type">Mutability</span></a></span><span>   </span><span class="hs-comment">-- ^ readonly</span><span>
+</span><span id="line-244"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>         </span><span class="hs-comment">-- ^ tag key</span><span>
+</span><span id="line-245"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>         </span><span class="hs-comment">-- ^ tag value</span><span>
+</span><span id="line-246"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Collection.html#ObjectProps"><span class="hs-identifier hs-type">ObjectProps</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313199"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313198"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-247"></span><span id="tagVal"><span class="annot"><span class="annottext">tagVal :: Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+</span><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier hs-var hs-var">tagVal</span></a></span></span><span> </span><span id="local-6989586621679312967"><span class="annot"><span class="annottext">ro :: Mutability
+</span><a href="#local-6989586621679312967"><span class="hs-identifier hs-var">ro</span></a></span></span><span> </span><span id="local-6989586621679312966"><span class="annot"><span class="annottext">tag :: Text
+</span><a href="#local-6989586621679312966"><span class="hs-identifier hs-var">tag</span></a></span></span><span> </span><span id="local-6989586621679312965"><span class="annot"><span class="annottext">val :: Text
+</span><a href="#local-6989586621679312965"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+-&gt; (a -&gt; ())
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p ()
+-&gt; ObjectProps p a ()
+forall a b (p :: Nat).
+Bool
+-&gt; (a -&gt; b)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p b
+-&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var">keyVal</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; a -&gt; ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312967"><span class="hs-identifier hs-var">ro</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312966"><span class="hs-identifier hs-var">tag</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType_ p () -&gt; ObjectProps p a ())
+-&gt; TSType_ p () -&gt; ObjectProps p a ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj () -&gt; TSType_ p ()
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TSType p 'NotObj ()
+forall (p :: Nat). Text -&gt; TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsStringLit"><span class="hs-identifier hs-var">tsStringLit</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312965"><span class="hs-identifier hs-var">val</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-248"></span><span>
+</span><span id="line-249"></span><span class="hs-comment">-- | A utility for a simple situation of a &quot;tag&quot; key-value pair intersected</span><span>
+</span><span id="line-250"></span><span class="hs-comment">-- with an object type.  Often used to simulate discriminated unions in</span><span>
+</span><span id="line-251"></span><span class="hs-comment">-- typescript.</span><span>
+</span><span id="line-252"></span><span class="hs-comment">--</span><span>
+</span><span id="line-253"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-254"></span><span class="hs-comment">-- 'ppType' . 'TSType_' $</span><span>
+</span><span id="line-255"></span><span class="hs-comment">--      'taggedObject' &quot;tag&quot; &quot;something&quot; $</span><span>
+</span><span id="line-256"></span><span class="hs-comment">--          'tsObject' $</span><span>
+</span><span id="line-257"></span><span class="hs-comment">--            (,) &lt;$&gt; 'keyVal' True &quot;name&quot; fst (TSType_ 'tsText')</span><span>
+</span><span id="line-258"></span><span class="hs-comment">--                &lt;*&gt; 'keyVal' True &quot;age&quot; snd (TSType_ 'tsBoundedInteger')</span><span>
+</span><span id="line-259"></span><span class="hs-comment">-- -- =&gt; { tag: &quot;something&quot; } &amp; { name: string, age: number }</span><span>
+</span><span id="line-260"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-261"></span><span class="hs-comment">--</span><span>
+</span><span id="line-262"></span><span class="hs-comment">-- See also 'taggedObject', which uses an intersection instead of joining</span><span>
+</span><span id="line-263"></span><span class="hs-comment">-- the keys directly.</span><span>
+</span><span id="line-264"></span><span id="local-6989586621679313181"><span id="local-6989586621679313182"><span class="annot"><a href="Typescript.Json.Union.html#taggedObject"><span class="hs-identifier hs-type">taggedObject</span></a></span><span>
+</span><span id="line-265"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Mutability"><span class="hs-identifier hs-type">Mutability</span></a></span><span>           </span><span class="hs-comment">-- ^ readonly</span><span>
+</span><span id="line-266"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>                 </span><span class="hs-comment">-- ^ tag key</span><span>
+</span><span id="line-267"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>                 </span><span class="hs-comment">-- ^ tag value</span><span>
+</span><span id="line-268"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313182"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313181"><span class="hs-identifier hs-type">a</span></a></span><span>    </span><span class="hs-comment">-- ^ contents (object)</span><span>
+</span><span id="line-269"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313182"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313181"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-270"></span><span id="taggedObject"><span class="annot"><span class="annottext">taggedObject :: Mutability
+-&gt; Text -&gt; Text -&gt; TSType p 'IsObj a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Union.html#taggedObject"><span class="hs-identifier hs-var hs-var">taggedObject</span></a></span></span><span> </span><span id="local-6989586621679312961"><span class="annot"><span class="annottext">ro :: Mutability
+</span><a href="#local-6989586621679312961"><span class="hs-identifier hs-var">ro</span></a></span></span><span> </span><span id="local-6989586621679312960"><span class="annot"><span class="annottext">tag :: Text
+</span><a href="#local-6989586621679312960"><span class="hs-identifier hs-var">tag</span></a></span></span><span> </span><span id="local-6989586621679312959"><span class="annot"><span class="annottext">val :: Text
+</span><a href="#local-6989586621679312959"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span id="local-6989586621679312958"><span class="annot"><span class="annottext">obj :: TSType p 'IsObj a
+</span><a href="#local-6989586621679312958"><span class="hs-identifier hs-var">obj</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IntersectVals p a a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a. IntersectVals p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsIntersection"><span class="hs-identifier hs-var">tsIntersection</span></a></span><span> </span><span class="annot"><span class="annottext">(IntersectVals p a a -&gt; TSType p 'IsObj a)
+-&gt; IntersectVals p a a -&gt; TSType p 'IsObj a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-271"></span><span>       </span><span class="annot"><span class="annottext">(a -&gt; ()) -&gt; TSType p 'IsObj () -&gt; IntersectVals p a ()
+forall a b (p :: Nat).
+(a -&gt; b) -&gt; TSType p 'IsObj b -&gt; IntersectVals p a b
+</span><a href="Typescript.Json.Collection.html#intersectVal"><span class="hs-identifier hs-var">intersectVal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; a -&gt; ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ObjectProps p () () -&gt; TSType p 'IsObj ()
+forall (p :: Nat) a. ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var">tsObject</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p () ()
+forall (p :: Nat) a.
+Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+</span><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier hs-var">tagVal</span></a></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312961"><span class="hs-identifier hs-var">ro</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312960"><span class="hs-identifier hs-var">tag</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312959"><span class="hs-identifier hs-var">val</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-272"></span><span>    </span><span class="annot"><span class="annottext">IntersectVals p a () -&gt; IntersectVals p a a -&gt; IntersectVals p a a
+forall (f :: * -&gt; *) a b. Apply f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">.&gt;</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; a) -&gt; TSType p 'IsObj a -&gt; IntersectVals p a a
+forall a b (p :: Nat).
+(a -&gt; b) -&gt; TSType p 'IsObj b -&gt; IntersectVals p a b
+</span><a href="Typescript.Json.Collection.html#intersectVal"><span class="hs-identifier hs-var">intersectVal</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>         </span><span class="annot"><span class="annottext">TSType p 'IsObj a
+</span><a href="#local-6989586621679312958"><span class="hs-identifier hs-var">obj</span></a></span><span>
+</span><span id="line-273"></span><span>
+</span><span id="line-274"></span><span class="hs-comment">-- | High-level utility to wrap a 'TSType_' with a &quot;tag&quot;.</span><span>
+</span><span id="line-275"></span><span class="hs-comment">--</span><span>
+</span><span id="line-276"></span><span class="hs-comment">-- Assuming both flags are set to 'True':</span><span>
+</span><span id="line-277"></span><span class="hs-comment">--</span><span>
+</span><span id="line-278"></span><span class="hs-comment">-- 1. If the contents type is an object, this will be @{ tagkey: tagvalue } &amp; contents@ (the same behavior as 'taggedObject').</span><span>
+</span><span id="line-279"></span><span class="hs-comment">-- 2. If the contents type is a nullable value, this well be @{ tagkey: tagvalue, contentskey?: contents}@</span><span>
+</span><span id="line-280"></span><span class="hs-comment">-- 3. Otherwise, this well be @{ tagkey: tagvalue, contentskey: contents}@</span><span>
+</span><span id="line-281"></span><span class="hs-comment">--</span><span>
+</span><span id="line-282"></span><span class="hs-comment">-- If the first argument is 'False', will avoid case (1).  If the second argument</span><span>
+</span><span id="line-283"></span><span class="hs-comment">-- is 'False', will avoid case (2).</span><span>
+</span><span id="line-284"></span><span class="hs-comment">--</span><span>
+</span><span id="line-285"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-286"></span><span class="hs-comment">-- case1 :: TSType_ p (Text, Int)</span><span>
+</span><span id="line-287"></span><span class="hs-comment">-- case1 = 'TSType_' . 'tsObject' $</span><span>
+</span><span id="line-288"></span><span class="hs-comment">--   (,) \&lt;$\&gt; 'keyVal' True &quot;name&quot; fst (TSType_ 'tsText')</span><span>
+</span><span id="line-289"></span><span class="hs-comment">--       \&lt;*\&gt; 'keyVal' True &quot;age&quot; snd (TSType_ 'tsBoundedInteger')</span><span>
+</span><span id="line-290"></span><span class="hs-comment">--</span><span>
+</span><span id="line-291"></span><span class="hs-comment">-- case2 :: TSType_ p (Maybe Int)</span><span>
+</span><span id="line-292"></span><span class="hs-comment">-- case2 = 'TSType_' $ 'tsNullable' ('TSType_' 'tsBoundedInteger')</span><span>
+</span><span id="line-293"></span><span class="hs-comment">--</span><span>
+</span><span id="line-294"></span><span class="hs-comment">-- case3 :: TSType_ p String</span><span>
+</span><span id="line-295"></span><span class="hs-comment">-- case3 = 'TSType_' 'tsString'</span><span>
+</span><span id="line-296"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-297"></span><span class="hs-comment">--</span><span>
+</span><span id="line-298"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-299"></span><span class="hs-comment">-- 'ppType' . 'TSType_' $ 'taggedValue' True True &quot;tag&quot; &quot;something&quot; &quot;contents&quot; case1</span><span>
+</span><span id="line-300"></span><span class="hs-comment">-- -- =&gt; { tag: &quot;something&quot; } &amp; { name: string, age: number }</span><span>
+</span><span id="line-301"></span><span class="hs-comment">--</span><span>
+</span><span id="line-302"></span><span class="hs-comment">-- 'ppType' . 'TSType_' $ 'taggedValue' True True &quot;tag&quot; &quot;something&quot; &quot;contents&quot; case2</span><span>
+</span><span id="line-303"></span><span class="hs-comment">-- -- =&gt; { tag: &quot;something&quot;, contents?: number }</span><span>
+</span><span id="line-304"></span><span class="hs-comment">--</span><span>
+</span><span id="line-305"></span><span class="hs-comment">-- 'ppType' . 'TSType_' $ 'taggedValue' True True &quot;tag&quot; &quot;something&quot; &quot;contents&quot; case3</span><span>
+</span><span id="line-306"></span><span class="hs-comment">-- -- =&gt; { tag: &quot;something&quot;, contents: string }</span><span>
+</span><span id="line-307"></span><span class="hs-comment">-- @</span><span>
+</span><span id="line-308"></span><span id="local-6989586621679313229"><span id="local-6989586621679313230"><span class="annot"><a href="Typescript.Json.Union.html#taggedValue"><span class="hs-identifier hs-type">taggedValue</span></a></span><span>
+</span><span id="line-309"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-type">TaggedValueOpts</span></a></span><span>
+</span><span id="line-310"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>            </span><span class="hs-comment">-- ^ tag value</span><span>
+</span><span id="line-311"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313230"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313229"><span class="hs-identifier hs-type">a</span></a></span><span>     </span><span class="hs-comment">-- ^ contents type</span><span>
+</span><span id="line-312"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313230"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313229"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-313"></span><span id="taggedValue"><span class="annot"><span class="annottext">taggedValue :: TaggedValueOpts -&gt; Text -&gt; TSType_ p a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Union.html#taggedValue"><span class="hs-identifier hs-var hs-var">taggedValue</span></a></span></span><span> </span><span id="local-6989586621679312952"><span class="annot"><span class="annottext">tvo :: TaggedValueOpts
+</span><a href="#local-6989586621679312952"><span class="hs-identifier hs-var">tvo</span></a></span></span><span> </span><span id="local-6989586621679312951"><span class="annot"><span class="annottext">tagValue :: Text
+</span><a href="#local-6989586621679312951"><span class="hs-identifier hs-var">tagValue</span></a></span></span><span> </span><span id="local-6989586621679312950"><span class="annot"><span class="annottext">t :: TSType_ p a
+</span><a href="#local-6989586621679312950"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+</span><a href="#local-6989586621679312952"><span class="hs-identifier hs-var">tvo</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-314"></span><span>    </span><span class="annot"><a href="Typescript.Json.Union.html#TVOTagAndContents"><span class="hs-identifier hs-type">TVOTagAndContents</span></a></span><span> </span><span id="local-6989586621679312945"><span id="local-6989586621679312946"><span id="local-6989586621679312947"><span id="local-6989586621679312948"><span id="local-6989586621679312949"><span class="annot"><a href="Typescript.Json.Union.html#TagAndContents"><span class="hs-identifier hs-type">TagAndContents</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span></span></span></span><span>
+</span><span id="line-315"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679312949"><span class="hs-identifier hs-var">tacMergeTagValue</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSType_ p a -&gt; (:+:) (TSType p 'NotObj) (TSType p 'IsObj) a
+forall (p :: Nat).
+TSType_ p ~&gt; (TSType p 'NotObj :+: TSType p 'IsObj)
+</span><a href="Typescript.Json.Types.html#decideTSType_"><span class="hs-identifier hs-var">decideTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ p a
+</span><a href="#local-6989586621679312950"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-316"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">L1</span></span><span> </span><span id="local-6989586621679312942"><span class="annot"><span class="annottext">x :: TSType p 'NotObj a
+</span><a href="#local-6989586621679312942"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ObjectProps p a a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a. ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var">tsObject</span></a></span><span> </span><span class="annot"><span class="annottext">(ObjectProps p a a -&gt; TSType p 'IsObj a)
+-&gt; ObjectProps p a a -&gt; TSType p 'IsObj a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+forall (p :: Nat) a.
+Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+</span><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier hs-var">tagVal</span></a></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312946"><span class="hs-identifier hs-var">tacTagReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312948"><span class="hs-identifier hs-var">tacTagKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312951"><span class="hs-identifier hs-var">tagValue</span></a></span><span>
+</span><span id="line-317"></span><span>                          </span><span class="annot"><span class="annottext">ObjectProps p a () -&gt; ObjectProps p a a -&gt; ObjectProps p a a
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+-&gt; (a -&gt; a)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p a
+-&gt; ObjectProps p a a
+forall a b (p :: Nat).
+Bool
+-&gt; (a -&gt; b)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p b
+-&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var">keyVal</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312945"><span class="hs-identifier hs-var">tacContentsReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312947"><span class="hs-identifier hs-var">tacContentsKey</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType p 'NotObj a -&gt; TSType_ p a
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj a
+</span><a href="#local-6989586621679312942"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-318"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">R1</span></span><span> </span><span id="local-6989586621679312940"><span class="annot"><span class="annottext">y :: TSType p 'IsObj a
+</span><a href="#local-6989586621679312940"><span class="hs-identifier hs-var">y</span></a></span></span><span>
+</span><span id="line-319"></span><span>            </span><span class="hs-comment">-- TODO: if the tag key is a key in the obj, then dont do it</span><span>
+</span><span id="line-320"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312948"><span class="hs-identifier hs-var">tacTagKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Set Text -&gt; Bool
+forall a. Ord a =&gt; a -&gt; Set a -&gt; Bool
+</span><span class="hs-operator hs-var">`S.member`</span></span><span> </span><span class="annot"><span class="annottext">TSType p 'IsObj a -&gt; Set Text
+forall (p :: Nat) a. TSType p 'IsObj a -&gt; Set Text
+</span><a href="Typescript.Json.Types.html#isObjKeys"><span class="hs-identifier hs-var">isObjKeys</span></a></span><span> </span><span class="annot"><span class="annottext">TSType p 'IsObj a
+</span><a href="#local-6989586621679312940"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-321"></span><span>                </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ObjectProps p a a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a. ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var">tsObject</span></a></span><span> </span><span class="annot"><span class="annottext">(ObjectProps p a a -&gt; TSType p 'IsObj a)
+-&gt; ObjectProps p a a -&gt; TSType p 'IsObj a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+forall (p :: Nat) a.
+Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+</span><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier hs-var">tagVal</span></a></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312946"><span class="hs-identifier hs-var">tacTagReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312948"><span class="hs-identifier hs-var">tacTagKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312951"><span class="hs-identifier hs-var">tagValue</span></a></span><span>
+</span><span id="line-322"></span><span>                           </span><span class="annot"><span class="annottext">ObjectProps p a () -&gt; ObjectProps p a a -&gt; ObjectProps p a a
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+-&gt; (a -&gt; a)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p a
+-&gt; ObjectProps p a a
+forall a b (p :: Nat).
+Bool
+-&gt; (a -&gt; b)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p b
+-&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var">keyVal</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312945"><span class="hs-identifier hs-var">tacContentsReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312947"><span class="hs-identifier hs-var">tacContentsKey</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ p a
+</span><a href="#local-6989586621679312950"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-323"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Mutability
+-&gt; Text -&gt; Text -&gt; TSType p 'IsObj a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a.
+Mutability
+-&gt; Text -&gt; Text -&gt; TSType p 'IsObj a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Union.html#taggedObject"><span class="hs-identifier hs-var">taggedObject</span></a></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312946"><span class="hs-identifier hs-var">tacTagReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312948"><span class="hs-identifier hs-var">tacTagKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312951"><span class="hs-identifier hs-var">tagValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType p 'IsObj a
+</span><a href="#local-6989586621679312940"><span class="hs-identifier hs-var">y</span></a></span><span>
+</span><span id="line-324"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ObjectProps p a a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a. ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var">tsObject</span></a></span><span> </span><span class="annot"><span class="annottext">(ObjectProps p a a -&gt; TSType p 'IsObj a)
+-&gt; ObjectProps p a a -&gt; TSType p 'IsObj a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-325"></span><span>             </span><span class="annot"><span class="annottext">Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+forall (p :: Nat) a.
+Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+</span><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier hs-var">tagVal</span></a></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312946"><span class="hs-identifier hs-var">tacTagReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312948"><span class="hs-identifier hs-var">tacTagKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312951"><span class="hs-identifier hs-var">tagValue</span></a></span><span>
+</span><span id="line-326"></span><span>          </span><span class="annot"><span class="annottext">ObjectProps p a () -&gt; ObjectProps p a a -&gt; ObjectProps p a a
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+-&gt; (a -&gt; a)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p a
+-&gt; ObjectProps p a a
+forall a b (p :: Nat).
+Bool
+-&gt; (a -&gt; b)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p b
+-&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var">keyVal</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312945"><span class="hs-identifier hs-var">tacContentsReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312947"><span class="hs-identifier hs-var">tacContentsKey</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ p a
+</span><a href="#local-6989586621679312950"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-327"></span><span>    </span><span class="annot"><a href="Typescript.Json.Union.html#TVOTagIsKey"><span class="hs-identifier hs-type">TVOTagIsKey</span></a></span><span> </span><span id="local-6989586621679312936"><span id="local-6989586621679312937"><span class="annot"><a href="Typescript.Json.Union.html#TagIsKey"><span class="hs-identifier hs-type">TagIsKey</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ObjectProps p a a -&gt; TSType p 'IsObj a
+forall (p :: Nat) a. ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var">tsObject</span></a></span><span> </span><span class="annot"><span class="annottext">(ObjectProps p a a -&gt; TSType p 'IsObj a)
+-&gt; ObjectProps p a a -&gt; TSType p 'IsObj a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bool
+-&gt; (a -&gt; a)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p a
+-&gt; ObjectProps p a a
+forall a b (p :: Nat).
+Bool
+-&gt; (a -&gt; b)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p b
+-&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var">keyVal</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312936"><span class="hs-identifier hs-var">tikReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312951"><span class="hs-identifier hs-var">tagValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ p a
+</span><a href="#local-6989586621679312950"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-328"></span><span>
+</span><span id="line-329"></span><span id="local-6989586621679313236"><span id="local-6989586621679313237"><span class="annot"><a href="Typescript.Json.Union.html#taggedNullary"><span class="hs-identifier hs-type">taggedNullary</span></a></span><span>
+</span><span id="line-330"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Union.html#TaggedValueOpts"><span class="hs-identifier hs-type">TaggedValueOpts</span></a></span><span>
+</span><span id="line-331"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-332"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679313237"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-333"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313236"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679313237"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-334"></span><span id="taggedNullary"><span class="annot"><span class="annottext">taggedNullary :: TaggedValueOpts -&gt; Text -&gt; a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Union.html#taggedNullary"><span class="hs-identifier hs-var hs-var">taggedNullary</span></a></span></span><span> </span><span id="local-6989586621679312935"><span class="annot"><span class="annottext">tvo :: TaggedValueOpts
+</span><a href="#local-6989586621679312935"><span class="hs-identifier hs-var">tvo</span></a></span></span><span> </span><span id="local-6989586621679312934"><span class="annot"><span class="annottext">tagValue :: Text
+</span><a href="#local-6989586621679312934"><span class="hs-identifier hs-var">tagValue</span></a></span></span><span> </span><span id="local-6989586621679312933"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621679312933"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(() -&gt; a) -&gt; (a -&gt; ()) -&gt; TSType_ p () -&gt; TSType_ p a
+forall (f :: * -&gt; *) a b.
+Invariant f =&gt;
+(a -&gt; b) -&gt; (b -&gt; a) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">invmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; () -&gt; a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679312933"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; a -&gt; ()
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TSType_ p () -&gt; TSType_ p a) -&gt; TSType_ p () -&gt; TSType_ p a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+</span><a href="#local-6989586621679312935"><span class="hs-identifier hs-var">tvo</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-335"></span><span>    </span><span class="annot"><a href="Typescript.Json.Union.html#TVOTagAndContents"><span class="hs-identifier hs-type">TVOTagAndContents</span></a></span><span> </span><span id="local-6989586621679312928"><span id="local-6989586621679312929"><span id="local-6989586621679312930"><span id="local-6989586621679312931"><span id="local-6989586621679312932"><span class="annot"><a href="Typescript.Json.Union.html#TagAndContents"><span class="hs-identifier hs-type">TagAndContents</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span></span></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-336"></span><span>        </span><span class="annot"><span class="annottext">TSType p 'IsObj () -&gt; TSType_ p ()
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType p 'IsObj () -&gt; TSType_ p ())
+-&gt; TSType p 'IsObj () -&gt; TSType_ p ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ObjectProps p () () -&gt; TSType p 'IsObj ()
+forall (p :: Nat) a. ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var">tsObject</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p () ()
+forall (p :: Nat) a.
+Mutability -&gt; Text -&gt; Text -&gt; ObjectProps p a ()
+</span><a href="Typescript.Json.Union.html#tagVal"><span class="hs-identifier hs-var">tagVal</span></a></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312929"><span class="hs-identifier hs-var">tacTagReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312931"><span class="hs-identifier hs-var">tacTagKey</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312934"><span class="hs-identifier hs-var">tagValue</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-337"></span><span>    </span><span class="annot"><a href="Typescript.Json.Union.html#TVOTagIsKey"><span class="hs-identifier hs-type">TVOTagIsKey</span></a></span><span> </span><span id="local-6989586621679312926"><span id="local-6989586621679312927"><span class="annot"><a href="Typescript.Json.Union.html#TagIsKey"><span class="hs-identifier hs-type">TagIsKey</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span><span>
+</span><span id="line-338"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679312927"><span class="hs-identifier hs-var">tikNullaryIsString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj () -&gt; TSType_ p ()
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType p 'NotObj () -&gt; TSType_ p ())
+-&gt; TSType p 'NotObj () -&gt; TSType_ p ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; TSType p 'NotObj ()
+forall (p :: Nat). Text -&gt; TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsStringLit"><span class="hs-identifier hs-var">tsStringLit</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312934"><span class="hs-identifier hs-var">tagValue</span></a></span><span>
+</span><span id="line-339"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType p 'IsObj () -&gt; TSType_ p ()
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType p 'IsObj () -&gt; TSType_ p ())
+-&gt; TSType p 'IsObj () -&gt; TSType_ p ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ObjectProps p () () -&gt; TSType p 'IsObj ()
+forall (p :: Nat) a. ObjectProps p a a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Collection.html#tsObject"><span class="hs-identifier hs-var">tsObject</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+-&gt; (() -&gt; ())
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p ()
+-&gt; ObjectProps p () ()
+forall a b (p :: Nat).
+Bool
+-&gt; (a -&gt; b)
+-&gt; Mutability
+-&gt; Text
+-&gt; TSType_ p b
+-&gt; ObjectProps p a b
+</span><a href="Typescript.Json.Collection.html#keyVal"><span class="hs-identifier hs-var">keyVal</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; ()
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Mutability
+</span><a href="#local-6989586621679312926"><span class="hs-identifier hs-var">tikReadOnly</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312934"><span class="hs-identifier hs-var">tagValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType p 'NotObj () -&gt; TSType_ p ()
+forall (p :: Nat) a (k :: IsObjType). TSType p k a -&gt; TSType_ p a
+</span><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-var">TSType_</span></a></span><span> </span><span class="annot"><span class="annottext">TSType p 'NotObj ()
+forall (p :: Nat). TSType p 'NotObj ()
+</span><a href="Typescript.Json.Primitive.html#tsNull"><span class="hs-identifier hs-var">tsNull</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-340"></span><span>
+</span><span id="line-341"></span><span id="local-6989586621679312923"><span id="local-6989586621679312924"><span class="annot"><a href="Typescript.Json.Union.html#tsMaybe"><span class="hs-identifier hs-type">tsMaybe</span></a></span><span>
+</span><span id="line-342"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>         </span><span class="hs-comment">-- ^ the &quot;nothing&quot; constructor</span><span>
+</span><span id="line-343"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>         </span><span class="hs-comment">-- ^ the &quot;just&quot; field</span><span>
+</span><span id="line-344"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679312924"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679312923"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-345"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679312924"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#NotObj"><span class="hs-identifier hs-type">NotObj</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621679312923"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-346"></span><span id="tsMaybe"><span class="annot"><span class="annottext">tsMaybe :: Text -&gt; Text -&gt; TSType_ p a -&gt; TSType p 'NotObj (Maybe a)
+</span><a href="Typescript.Json.Union.html#tsMaybe"><span class="hs-identifier hs-var hs-var">tsMaybe</span></a></span></span><span> </span><span id="local-6989586621679312922"><span class="annot"><span class="annottext">n :: Text
+</span><a href="#local-6989586621679312922"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621679312921"><span class="annot"><span class="annottext">j :: Text
+</span><a href="#local-6989586621679312921"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span id="local-6989586621679312920"><span class="annot"><span class="annottext">t :: TSType_ p a
+</span><a href="#local-6989586621679312920"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TaggedValueOpts
+-&gt; (Maybe a -&gt; NS I '[(), a])
+-&gt; NP (Op (Maybe a)) '[(), a]
+-&gt; NP (TaggedBranches p) '[(), a]
+-&gt; TSType p 'NotObj (Maybe a)
+forall a b (bs :: [*]) (p :: Nat).
+TaggedValueOpts
+-&gt; (a -&gt; NS I (b : bs))
+-&gt; NP (Op a) (b : bs)
+-&gt; NP (TaggedBranches p) (b : bs)
+-&gt; TSType p 'NotObj a
+</span><a href="Typescript.Json.Union.html#tsTaggedUnions"><span class="hs-identifier hs-var">tsTaggedUnions</span></a></span><span>
+</span><span id="line-347"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TagIsKey -&gt; TaggedValueOpts
+</span><a href="Typescript.Json.Union.html#TVOTagIsKey"><span class="hs-identifier hs-var">TVOTagIsKey</span></a></span><span> </span><span class="annot"><span class="annottext">TagIsKey
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span class="hs-special">)</span><span>
+</span><span id="line-348"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">I () -&gt; NS I '[(), a]
+forall k (a :: k -&gt; *) (x :: k) (xs :: [k]). a x -&gt; NS a (x : xs)
+</span><span class="hs-identifier hs-var">Z</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">() -&gt; I ()
+forall a. a -&gt; I a
+</span><span class="hs-identifier hs-var">I</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679312919"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621679312919"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NS I '[a] -&gt; NS I '[(), a]
+forall k (a :: k -&gt; *) (xs :: [k]) (x :: k).
+NS a xs -&gt; NS a (x : xs)
+</span><span class="hs-identifier hs-var">S</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">I a -&gt; NS I '[a]
+forall k (a :: k -&gt; *) (x :: k) (xs :: [k]). a x -&gt; NS a (x : xs)
+</span><span class="hs-identifier hs-var">Z</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; I a
+forall a. a -&gt; I a
+</span><span class="hs-identifier hs-var">I</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679312919"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-349"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(() -&gt; Maybe a) -&gt; Op (Maybe a) ()
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe a -&gt; () -&gt; Maybe a
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Op (Maybe a) ()
+-&gt; NP (Op (Maybe a)) '[a] -&gt; NP (Op (Maybe a)) '[(), a]
+forall k (a :: k -&gt; *) (x :: k) (xs :: [k]).
+a x -&gt; NP a xs -&gt; NP a (x : xs)
+</span><span class="hs-operator hs-var">:*</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Maybe a) -&gt; Op (Maybe a) a
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Op (Maybe a) a -&gt; NP (Op (Maybe a)) '[] -&gt; NP (Op (Maybe a)) '[a]
+forall k (a :: k -&gt; *) (x :: k) (xs :: [k]).
+a x -&gt; NP a xs -&gt; NP a (x : xs)
+</span><span class="hs-operator hs-var">:*</span></span><span> </span><span class="annot"><span class="annottext">NP (Op (Maybe a)) '[]
+forall k (a :: k -&gt; *). NP a '[]
+</span><span class="hs-identifier hs-var">Nil</span></span><span class="hs-special">)</span><span>
+</span><span id="line-350"></span><span>    </span><span class="hs-special">(</span><span>  </span><span class="annot"><span class="annottext">Text -&gt; () -&gt; TaggedBranches p ()
+forall a (p :: Nat). Text -&gt; a -&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#emptyTaggedBranch"><span class="hs-identifier hs-var">emptyTaggedBranch</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312922"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-351"></span><span>    </span><span class="annot"><span class="annottext">TaggedBranches p ()
+-&gt; NP (TaggedBranches p) '[a] -&gt; NP (TaggedBranches p) '[(), a]
+forall k (a :: k -&gt; *) (x :: k) (xs :: [k]).
+a x -&gt; NP a xs -&gt; NP a (x : xs)
+</span><span class="hs-operator hs-var">:*</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; TSType_ p a -&gt; TaggedBranches p a
+forall (p :: Nat) a. Text -&gt; TSType_ p a -&gt; TaggedBranches p a
+</span><a href="Typescript.Json.Union.html#taggedBranch"><span class="hs-identifier hs-var">taggedBranch</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679312921"><span class="hs-identifier hs-var">j</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ p a
+</span><a href="#local-6989586621679312920"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-352"></span><span>    </span><span class="annot"><span class="annottext">TaggedBranches p a
+-&gt; NP (TaggedBranches p) '[] -&gt; NP (TaggedBranches p) '[a]
+forall k (a :: k -&gt; *) (x :: k) (xs :: [k]).
+a x -&gt; NP a xs -&gt; NP a (x : xs)
+</span><span class="hs-operator hs-var">:*</span></span><span> </span><span class="annot"><span class="annottext">NP (TaggedBranches p) '[]
+forall k (a :: k -&gt; *). NP a '[]
+</span><span class="hs-identifier hs-var">Nil</span></span><span>
+</span><span id="line-353"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-354"></span><span>
+</span><span id="line-355"></span><span>
+</span><span id="line-356"></span></pre></body></html>
