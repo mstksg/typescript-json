@@ -76,7 +76,9 @@ module Typescript.Json (
   , tsFinEnum, tsFinIntEnum
   -- * Printing
   , ppType
+  , ppType_
   , ppNamed
+  , ppNamed_
   , typeExports'
   , typeExports
   , typeExports_
@@ -153,9 +155,9 @@ import qualified GHC.Exts                          as Exts
 --
 -- myTypeProps :: 'ObjectProps' p MyType MyType
 -- myTypeProps = MyType
---   <$> 'keyVal' True mta "mta" ('TSType_' 'tsBoundedInteger')
---   <*> keyVal True mtb "mtb" (TSType_ 'tsBoolean')
---   <*> 'keyValMay' mtc "mtc" (TSType_ 'tsString')
+--   \<$\> 'keyVal' True mta "mta" ('TSType_' 'tsBoundedInteger')
+--   \<*\> keyVal True mtb "mtb" (TSType_ 'tsBoolean')
+--   \<*\> 'keyValMay' mtc "mtc" (TSType_ 'tsString')
 --
 -- myType :: TSType p 'IsObj MyType
 -- myType = tsObject myTypeProps
@@ -243,9 +245,9 @@ tsObject = TSObject . PreT . getObjectProps
 --
 -- myTypeVals :: 'TupleVals' p MyType MyType
 -- myTypeVals = MyType
---   <$> 'tupleVal' mta (TSType_ 'tsBoundedInteger')
---   <*> tupleVal mtb (TSType_ 'tsBoolean')
---   <*> tupleVal mtc (TSType_ 'tsString')
+--   \<$\> 'tupleVal' mta (TSType_ 'tsBoundedInteger')
+--   \<*\> tupleVal mtb (TSType_ 'tsBoolean')
+--   \<*\> tupleVal mtc (TSType_ 'tsString')
 --
 -- myType :: TSType p 'NotObj MyType
 -- myType = tsTuple myTypeVals
@@ -298,49 +300,13 @@ stripObjectVals = TupleVals
     go (ILan f g (TSType_ x)) = TSType_ . invmap f g $ mkNullable x
 
 
--- | A type aggregating branches in a union type.  Meant to
--- be assembled using 'unionBranch' and combined using its 'Decide'
--- instance.  To finally turn one into a 'TSType', use 'tsUnion'.
---
--- In a @'UnionBranches' p a b@, the @a@ represents the overall aggregate
--- type, and the @b@ represents the type of the part that this
--- 'UnionBranches'
--- is describing.
---
--- @
--- data MyType = MTA Int | MTB Bool
---
--- myTypeBranches :: UnionBranches p MyType MyType
--- myTypeBranches = 'decide' (\case MTA i -> Left i; MTB b -> Right b)
---     ('unionBranch' MTA (TSType_ 'tsBoundedInteger'))
---     ('unionBranch' MTB (TSType_ 'tsBoolean'))
---
--- myType :: TSType p 'NotObj MyType
--- myType = tsUnion myTypeBranches
--- @
---
--- @
--- ppType myType
--- -- => number | boolean
--- @
---
--- In the above, @tupleVal mta tsBoundedInteger@ has the type
--- @UnionBranches p MyType Int@, showing that it refers to the @Int@ field
--- of the @MyType@.  The trick to using this is to assemble 'UnionBranches'
--- together using Decide combinators until the @a@ and @b@ "match",
--- and the 'UnionBranches' describes the entire value.  Then you can use
--- 'tsUnion'.
---
--- Note that 'Decide' combinators can be a bit tedious to use if you have
--- a large number of branches.  'tsUnions' is an alternative to decide
--- combinators that uses heterogeneous lists, which can potentially make
--- things cleaner.
-
 -- | Build up a union type from a 'unionBranch'.
 tsUnion
     :: TSUnionBranches p a
     -> TSType p 'NotObj a
 tsUnion = TSUnion
+
+-- TODO: this is all wrong
 
 -- | A convenient way to combine multiple unions using 'NP' and 'NS'.
 -- Takes a function to "break" the final type into each branch ('NS') and a tuple
@@ -349,25 +315,28 @@ tsUnion = TSUnion
 -- @
 -- data MyType = MTA Int | MTB Bool | MTC String | MTD Double
 --
--- subtypes :: NP (Dec (Post MyType (TSType_ p)) '[Int, Bool, String, Double]
--- subtypes = 'unionBranch' MTA (TSType_ 'tsBoundedInteger')
---         ':*' unionBranch MTB (TSType_ 'tsBoolean')
---         :* unionBranch MTC (TSType_ 'tsString')
---         :* unionBranch MTD (TSType_ 'tsDouble')
+-- subtypes :: NP (TSUnionBranches p) '[Int, Bool, String, Double]
+-- subtypes = 'tsBranchUnions' (TSType_ 'tsBoundedInteger')
+--         ':*' tsBranchUnions (TSType_ 'tsBoolean')
+--         :* tsBranchUnions (TSType_ 'tsString')
+--         :* tsBranchUnions (TSType_ 'tsDouble')
 --         :* 'Nil'
 --
 -- myType :: TSType p 'NotObj MyType
--- myType = tsUnions splitMyType subtypes
+-- myType = tsUnions splitMyType embedMyType subtypes
 --   where
 --     splitMyType = \case
 --       MTA i -> Z (I i)
 --       MTB b -> S (Z (I b))
 --       MTC s -> S (S (S (I s)))
 --       MTA d -> S (S (S (S (I d))))
+--     embedMyType =
+--          'Op' MTA
+--       :* Op MTB
+--       :* Op MTC
+--       :* Op MTD
+--       :* Nil
 -- @
---
--- This is essentially a wrapper over repeated 'decide's and 'tsUnion', but
--- can be cleaner than peeling of 'Either's.
 tsBranchUnions
     :: (a -> NS I (b ': bs))
     -> NP (Op a) (b ': bs)
@@ -572,8 +541,8 @@ taggedObject ro tag val obj = tsIntersection $
 -- @
 -- case1 :: TSType_ p (Text, Int)
 -- case1 = 'TSType_' . 'tsObject' $
---   (,) <$> 'keyVal' True "name" fst (TSType_ 'tsText')
---       <*> 'keyVal' True "age" snd (TSType_ 'tsBoundedInteger')
+--   (,) \<$\> 'keyVal' True "name" fst (TSType_ 'tsText')
+--       \<*\> 'keyVal' True "age" snd (TSType_ 'tsBoundedInteger')
 --
 -- case2 :: TSType_ p (Maybe Int)
 -- case2 = 'TSType_' $ 'tsNullable' ('TSType_' 'tsBoundedInteger')
@@ -642,9 +611,9 @@ taggedNullary tvo tagValue x = invmap (const x) (const ()) $ case tvo of
 --
 -- myType :: TSType p 'IsObj MyType
 -- myType = tsObject $ MyType
---   <$> 'keyVal' True mta "mta" ('TSType_' 'tsBoundedInteger')
---   <*> keyVal True mtb "mtb" (TSType_ 'tsBoolean')
---   <*> 'keyValMay' mtc "mtc" (TSType_ 'tsString')
+--   \<$\> 'keyVal' True mta "mta" ('TSType_' 'tsBoundedInteger')
+--   \<*\> keyVal True mtb "mtb" (TSType_ 'tsBoolean')
+--   \<*\> 'keyValMay' mtc "mtc" (TSType_ 'tsString')
 --
 -- -- { tag: "something" }
 -- tagType :: TSType p 'IsObj ()

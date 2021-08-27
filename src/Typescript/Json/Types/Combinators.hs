@@ -10,6 +10,18 @@
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE TypeOperators             #-}
 
+-- |
+-- Module      : Typescript.Json.Types.Combinators
+-- Copyright   : (c) Justin Le 2021
+-- License     : BSD3
+--
+-- Maintainer  : justin@jle.im
+-- Stability   : experimental
+-- Portability : non-portable
+--
+-- Invariant "Functor combinators" (a la "Data.Functor.Combinator") used
+-- for type definitions.
+--
 module Typescript.Json.Types.Combinators (
     PS(..)
   , ILan(..)
@@ -41,6 +53,10 @@ import           Data.Some                           (Some(..))
 import           Data.Text                           (Text)
 import qualified Data.Functor.Contravariant.Coyoneda as CC
 
+-- | Give @f@ an 'Invariant' instance, except the post-map can be partial.
+-- PS stands for parser-and-serializer: With a @'PS' f a@, you can
+-- serialize an @a@ using it (total), or you can parse an @a@ out of it
+-- (partial, with a 'Text' error).
 data PS f a = forall r. PS
     { psItem       :: f r
     , psParser     :: r -> Either Text a
@@ -56,8 +72,21 @@ instance HFunctor PS where
 instance Inject PS where
     inject x = PS x Right id
 
+-- | If @h a@ is some sort of witness on @a@, then @ILan g h a@ essentially
+-- turns it into a witness on @g a@.
+--
+-- It's used twice in the library: with @[]@, it turns @F a@,
+-- a serializer/parser on @a@, into @ILan [] F [a]@, a serializer/parser on 
+-- @[a]@, a list of them.  It also does the same thing with @Maybe@, for
+-- optional parsers.
+--
+-- For all of the functions here, it's generally more understandable when
+-- you substitute a specific functor in for @g@.
+--
+-- Construct using 'ilan', usually.
 data ILan g h a = forall x. ILan (g x -> a) (a -> g x) (h x)
 
+-- | Given a witness @h a@, turn it into a witness @h (g a)@ using 'ILan'.
 ilan :: h a -> ILan g h (g a)
 ilan x = ILan id id x
 
@@ -73,6 +102,19 @@ instance HTraversable (ILan g) where
 instance HTraversable1 (ILan g) where
     htraverse1 f (ILan g h x) = ILan g h <$> f x
 
+-- | Interpret 'ILan' into any invariant context, within its "lifted"
+-- witness.
+--
+-- For example, for @'ILan' []@, its type is:
+--
+-- @
+-- (forall x. h x -> f [x])
+--   -> ILan g h a
+--   -> f a
+-- @
+--
+-- If you can interpret @h x@ into a list of @x@ in some context, then it
+-- interprets out the @a@.
 interpretILan
     :: Invariant f
     => (forall x. h x -> f (g x))
@@ -80,6 +122,7 @@ interpretILan
     -> f a
 interpretILan f (ILan g h x) = invmap g h (f x)
 
+-- | Interpret 'ILan', but requiring only a 'Functor' context.
 interpretCoILan
     :: Functor f
     => (forall x. h x -> f (g x))
@@ -87,6 +130,7 @@ interpretCoILan
     -> f a
 interpretCoILan f = unwrapFunctor . interpretILan (WrapFunctor . f)
 
+-- | Interpret 'ILan', but requiring only a 'Contravariant' context.
 interpretContraILan
     :: Contravariant f
     => (forall x. h x -> f (g x))
@@ -94,6 +138,8 @@ interpretContraILan
     -> f a
 interpretContraILan f = unwrapContravariant . interpretILan (WrapContravariant . f)
 
+-- | Invariant Coyoneda: the "free invariant functor".  Gives any @f@ and
+-- 'Invariant' instance.
 data ICoyoneda f a = forall r. ICoyoneda (a -> r) (r -> a) (f r)
 
 instance Invariant (ICoyoneda f) where
@@ -111,9 +157,13 @@ instance Inject ICoyoneda where
 instance Invariant f => Interpret ICoyoneda f where
     interpret f (ICoyoneda g h x) = invmap h g $ f x
 
+-- | Strip out the covariant aspect of an invariant coyoneda to leave the
+-- contravariant part.
 icoToContraco :: ICoyoneda f ~> CC.Coyoneda f
 icoToContraco (ICoyoneda f _ x) = CC.Coyoneda f x
 
+-- | Strip out the contravariant aspect of an invariant coyoneda to leave the
+-- covariant part.
 icoToCoco :: ICoyoneda f ~> Coyoneda f
 icoToCoco (ICoyoneda _ g x) = Coyoneda g x
 

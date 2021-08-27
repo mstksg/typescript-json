@@ -10,9 +10,11 @@
 
 module Typescript.Json.Core.Print (
     ppType
+  , ppType_
   , ppEnumLit
   , ppNamedBase
   , ppNamed
+  , ppNamed_
   , ppNamed'
   , typeExports_
   , typeExports
@@ -97,6 +99,11 @@ ppNamedBase n = \case
           ]
       ]
 
+ppType_
+    :: TSType_ 'Z a
+    -> PP.Doc x
+ppType_ = withTSType_ ppType
+
 ppType
     :: TSType 'Z k a
     -> PP.Doc x
@@ -158,6 +165,11 @@ ppStringManip = \case
     TSLowercase -> "Lowercase"
     TSCapitalize -> "Capitalize"
     TSUncapitalize -> "Uncapitalize"
+
+ppNamed_
+    :: TSNamed_ 'Z as es a
+    -> PP.Doc x
+ppNamed_ = withTSNamed_ ppNamed
 
 ppNamed
     :: TSNamed 'Z k as es a

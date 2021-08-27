@@ -32,41 +32,6 @@
 {-# LANGUAGE ViewPatterns               #-}
 
 module Typescript.Json.Core (
-    -- TSPrim(..)
-  -- , TSNamedPrim(..)
-  -- , EnumLit(..)
-  -- , TSType(..)
-  -- , TSType_(..)
-  -- , TSNamed(..)
-  -- , TSNamed_(..)
-  -- , withTSNamed_
-  -- , TSNameable(..)
-  -- , ObjMember(..)
-  -- , TSKeyVal
-  -- , onTSType_
-  -- , decideTSType_
-  -- , mapTSType_
-  -- , withTSType_
-  -- , IsObjType(..)
-  -- , SIsObjType(..)
-  -- , tsObjType
-  -- , tsShift
-  -- , SNat_(..)
-  -- -- * Generics
-  -- , TSTypeF(..)
-  -- , TSTypeF_(..)
-  -- , TSApplied(..)
-  -- , TSAppliedF(..)
-  -- , mapTSTypeF_
-  -- , withTSTypeF_
-  -- , tsApply
-  -- , tsApply1
-  -- , tsApplyVar
-  -- * utility func
-  -- , interpretObjMember
-  -- , reAssign
-  -- , isAssignable
-  -- , eqTSPrim
     mkArg, mkArgs
   , unsafeMkArg, unsafeMkArgs
   ) where
@@ -78,7 +43,6 @@ import           Data.Type.Nat
 import           Typescript.Json.Core.Assign
 import           Typescript.Json.Types
 import           Typescript.Json.Types.Combinators
--- import           Typescript.Json.Types.SNat
 
 mkArg :: Param 'Z a e -> TSType 'Z k a -> Maybe (Arg_ 'Z a e)
 mkArg Param{..} t = Arg_ . Arg t <$> htraverse (withTSType_ (reAssign t)) paramExtends
