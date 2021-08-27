@@ -1,0 +1,784 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds       #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE EmptyCase       #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE GADTs           #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase      #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators   #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Typescript.Json.Core.Encode</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-comment">-- * to value</span></span><span>
+</span><span id="line-10"></span><span>    </span><span class="annot"><a href="Typescript.Json.Core.Encode.html#enumLitToValue"><span class="hs-identifier">enumLitToValue</span></a></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.Encode.html#primToValue"><span class="hs-identifier">primToValue</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier">typeToValue</span></a></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.Encode.html#encodeEnumLit"><span class="hs-identifier">encodeEnumLit</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.Encode.html#primToEncoding"><span class="hs-identifier">primToEncoding</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier">typeToEncoding</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Combinator</span></span><span> </span><span class="hs-keyword">hiding</span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Comp</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Contravariant</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Invariant.DecAlt</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.HFunctor.Route</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Type.Nat</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Void</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.html"><span class="hs-identifier">Typescript.Json.Types</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html"><span class="hs-identifier">Typescript.Json.Types.Combinators</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>                        </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">A</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Encoding</span></span><span>               </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">AE</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Types</span></span><span>                  </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">A</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vec.Lazy</span></span><span>                     </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Vec</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span>                       </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="annot"><a href="Typescript.Json.Core.Encode.html#encodeEnumLit"><span class="hs-identifier hs-type">encodeEnumLit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#EnumLit"><span class="hs-identifier hs-type">EnumLit</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Encoding</span></span><span>
+</span><span id="line-35"></span><span id="encodeEnumLit"><span class="annot"><span class="annottext">encodeEnumLit :: EnumLit -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#encodeEnumLit"><span class="hs-identifier hs-var hs-var">encodeEnumLit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-36"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELString"><span class="hs-identifier hs-type">ELString</span></a></span><span> </span><span id="local-6989586621679309454"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621679309454"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Encoding
+forall a. Text -&gt; Encoding' a
+</span><span class="hs-identifier hs-var">AE.text</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309454"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELNumber"><span class="hs-identifier hs-type">ELNumber</span></a></span><span> </span><span id="local-6989586621679309451"><span class="annot"><span class="annottext">n :: Scientific
+</span><a href="#local-6989586621679309451"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.scientific</span></span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679309451"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span id="local-6989586621679309496"><span class="annot"><a href="Typescript.Json.Core.Encode.html#primToEncoding"><span class="hs-identifier hs-type">primToEncoding</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrim"><span class="hs-identifier hs-type">TSPrim</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309496"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309496"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Encoding</span></span></span><span>
+</span><span id="line-40"></span><span id="primToEncoding"><span class="annot"><span class="annottext">primToEncoding :: TSPrim a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#primToEncoding"><span class="hs-identifier hs-var hs-var">primToEncoding</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNumber"><span class="hs-identifier hs-type">TSNumber</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+Scientific -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.scientific</span></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-comment">-- hm...</span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBigInt"><span class="hs-identifier hs-type">TSBigInt</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+Integer -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.integer</span></span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSString"><span class="hs-identifier hs-type">TSString</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+forall a. Text -&gt; Encoding' a
+</span><span class="hs-identifier hs-var">AE.text</span></span><span>
+</span><span id="line-45"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnknown"><span class="hs-identifier hs-type">TSUnknown</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+Value -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.value</span></span><span>
+</span><span id="line-46"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSAny"><span class="hs-identifier hs-type">TSAny</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+Value -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.value</span></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span id="local-6989586621679309494"><span class="annot"><a href="Typescript.Json.Core.Encode.html#baseToEncoding"><span class="hs-identifier hs-type">baseToEncoding</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSBase"><span class="hs-identifier hs-type">TSBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309494"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309494"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Encoding</span></span></span><span>
+</span><span id="line-49"></span><span id="baseToEncoding"><span class="annot"><span class="annottext">baseToEncoding :: TSBase a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#baseToEncoding"><span class="hs-identifier hs-var hs-var">baseToEncoding</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBoolean"><span class="hs-identifier hs-type">TSBoolean</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+Bool -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.bool</span></span><span>
+</span><span id="line-51"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSStringLit"><span class="hs-identifier hs-type">TSStringLit</span></a></span><span> </span><span id="local-6989586621679309438"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621679309438"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Encoding
+forall a. Text -&gt; Encoding' a
+</span><span class="hs-identifier hs-var">AE.text</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309438"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNumericLit"><span class="hs-identifier hs-type">TSNumericLit</span></a></span><span> </span><span id="local-6989586621679309436"><span class="annot"><span class="annottext">n :: Scientific
+</span><a href="#local-6989586621679309436"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.scientific</span></span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679309436"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-comment">-- hm...</span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBigIntLit"><span class="hs-identifier hs-type">TSBigIntLit</span></a></span><span> </span><span id="local-6989586621679309434"><span class="annot"><span class="annottext">n :: Integer
+</span><a href="#local-6989586621679309434"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.integer</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679309434"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-comment">-- hm...</span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSVoid"><span class="hs-identifier hs-type">TSVoid</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Encoding
+</span><span class="hs-identifier hs-var">AE.null_</span></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUndefined"><span class="hs-identifier hs-type">TSUndefined</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Encoding
+</span><span class="hs-identifier hs-var">AE.null_</span></span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNull"><span class="hs-identifier hs-type">TSNull</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Encoding
+</span><span class="hs-identifier hs-var">AE.null_</span></span><span>
+</span><span id="line-59"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNever"><span class="hs-identifier hs-type">TSNever</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Encoding
+forall a. Void -&gt; a
+</span><span class="hs-identifier hs-var">absurd</span></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span id="local-6989586621679309500"><span class="annot"><a href="Typescript.Json.Core.Encode.html#namedBaseToEncoding"><span class="hs-identifier hs-type">namedBaseToEncoding</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedBase"><span class="hs-identifier hs-type">TSNamedBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309500"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309500"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Encoding</span></span></span><span>
+</span><span id="line-62"></span><span id="namedBaseToEncoding"><span class="annot"><span class="annottext">namedBaseToEncoding :: TSNamedBase a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#namedBaseToEncoding"><span class="hs-identifier hs-var hs-var">namedBaseToEncoding</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-63"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSEnum"><span class="hs-identifier hs-type">TSEnum</span></a></span><span> </span><span id="local-6989586621679309425"><span class="annot"><span class="annottext">e :: Vec n (Text, EnumLit)
+</span><a href="#local-6989586621679309425"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309424"><span class="annot"><span class="annottext">i :: a
+</span><a href="#local-6989586621679309424"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EnumLit -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#encodeEnumLit"><span class="hs-identifier hs-var">encodeEnumLit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Text, EnumLit) -&gt; EnumLit
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vec n (Text, EnumLit)
+</span><a href="#local-6989586621679309425"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Vec n (Text, EnumLit) -&gt; Fin n -&gt; (Text, EnumLit)
+forall (n :: Nat) a. Vec n a -&gt; Fin n -&gt; a
+</span><span class="hs-operator hs-var">Vec.!</span></span><span> </span><span class="annot"><span class="annottext">a
+Fin n
+</span><a href="#local-6989586621679309424"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621679309422"><span class="annot"><a href="Typescript.Json.Core.Encode.html#objTypeToEncoding"><span class="hs-identifier hs-type">objTypeToEncoding</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309422"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Series</span></span><span> </span><span class="annot"><a href="#local-6989586621679309422"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-66"></span><span id="objTypeToEncoding"><span class="annot"><span class="annottext">objTypeToEncoding :: TSType 'Z 'IsObj a -&gt; Op Series a
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToEncoding"><span class="hs-identifier hs-var hs-var">objTypeToEncoding</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-type">TSObject</span></a></span><span>       </span><span id="local-6989586621679309419"><span class="annot"><span class="annottext">ts :: TSKeyVal 'Z a
+</span><a href="#local-6989586621679309419"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a -&gt; Op Series a
+TSKeyVal 'Z ~&gt; Op Series
+</span><a href="#local-6989586621679309418"><span class="hs-identifier hs-var">keyValToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a
+</span><a href="#local-6989586621679309419"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-type">TSIntersection</span></a></span><span> </span><span id="local-6989586621679309416"><span class="annot"><span class="annottext">ts :: PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309416"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TSType 'Z 'IsObj ~&gt; Op Series)
+-&gt; PreT Ap1 (TSType 'Z 'IsObj) a -&gt; Op Series a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (g :: * -&gt; *) (f :: * -&gt; *).
+(forall m. Monoid m =&gt; Interpret t (AltConst m), Divisible g) =&gt;
+(f ~&gt; g) -&gt; PreT t f ~&gt; g
+</span><span class="hs-identifier hs-var">preDivisibleT</span></span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj ~&gt; Op Series
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToEncoding"><span class="hs-identifier hs-var">objTypeToEncoding</span></a></span><span> </span><span class="annot"><span class="annottext">PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309416"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedType"><span class="hs-identifier hs-type">TSNamedType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309412"><span class="annot"><span class="annottext">nt :: TSNameable 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309412"><span class="hs-identifier hs-var">nt</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#%3A%24"><span class="hs-operator hs-type">:$</span></a></span><span> </span><span id="local-6989586621679309410"><span class="annot"><span class="annottext">xs :: NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309410"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSNameable 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309412"><span class="hs-identifier hs-var">nt</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-70"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-type">TSNFunc</span></a></span><span> </span><span id="local-6989586621679309408"><span class="annot"><span class="annottext">f :: TSTypeF 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309408"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Op Series a
+TSType 'Z 'IsObj ~&gt; Op Series
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToEncoding"><span class="hs-identifier hs-var">objTypeToEncoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSTypeF 'Z 'IsObj as es a
+-&gt; NP2 (Arg_ 'Z) as es -&gt; TSType 'Z 'IsObj a
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSTypeF p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier hs-var">tsApply</span></a></span><span> </span><span class="annot"><span class="annottext">TSTypeF 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309408"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309410"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTransformType"><span class="hs-identifier hs-type">TSTransformType</span></a></span><span> </span><span id="local-6989586621679309405"><span class="annot"><span class="annottext">tf :: ICoyoneda (TSTransform 'Z 'IsObj) a
+</span><a href="#local-6989586621679309405"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TSTransform 'Z 'IsObj ~&gt; Op Series)
+-&gt; Coyoneda (TSTransform 'Z 'IsObj) ~&gt; Op Series
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+Interpret t f =&gt;
+(g ~&gt; f) -&gt; t g ~&gt; f
+</span><span class="hs-identifier hs-var">interpret</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z 'IsObj x -&gt; Op Series x
+TSType 'Z 'IsObj ~&gt; Op Series
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToEncoding"><span class="hs-identifier hs-var">objTypeToEncoding</span></a></span><span> </span><span class="annot"><span class="annottext">(TSType 'Z 'IsObj x -&gt; Op Series x)
+-&gt; (TSTransform 'Z 'IsObj x -&gt; TSType 'Z 'IsObj x)
+-&gt; TSTransform 'Z 'IsObj x
+-&gt; Op Series x
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSTransform 'Z 'IsObj x -&gt; TSType 'Z 'IsObj x
+forall (p :: Nat) (k :: IsObjType) a.
+TSTransform p k a -&gt; TSType p k a
+</span><a href="Typescript.Json.Types.html#applyTransform"><span class="hs-identifier hs-var">applyTransform</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Coyoneda (TSTransform 'Z 'IsObj) a -&gt; Op Series a)
+-&gt; Coyoneda (TSTransform 'Z 'IsObj) a -&gt; Op Series a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ICoyoneda (TSTransform 'Z 'IsObj) a
+-&gt; Coyoneda (TSTransform 'Z 'IsObj) a
+forall (f :: * -&gt; *). ICoyoneda f ~&gt; Coyoneda f
+</span><a href="Typescript.Json.Types.Combinators.html#icoToContraco"><span class="hs-identifier hs-var">icoToContraco</span></a></span><span> </span><span class="annot"><span class="annottext">ICoyoneda (TSTransform 'Z 'IsObj) a
+</span><a href="#local-6989586621679309405"><span class="hs-identifier hs-var">tf</span></a></span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><a href="#local-6989586621679309418"><span class="hs-identifier hs-type">keyValToValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSKeyVal"><span class="hs-identifier hs-type">TSKeyVal</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">~&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Series</span></span><span>
+</span><span id="line-74"></span><span>    </span><span id="local-6989586621679309418"><span class="annot"><span class="annottext">keyValToValue :: TSKeyVal 'Z x -&gt; Op Series x
+</span><a href="#local-6989586621679309418"><span class="hs-identifier hs-var hs-var">keyValToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ObjMember (TSType_ 'Z) ~&gt; Op Series) -&gt; TSKeyVal 'Z ~&gt; Op Series
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (g :: * -&gt; *) (f :: * -&gt; *).
+(forall m. Monoid m =&gt; Interpret t (AltConst m), Divisible g) =&gt;
+(f ~&gt; g) -&gt; PreT t f ~&gt; g
+</span><span class="hs-identifier hs-var">preDivisibleT</span></span><span>
+</span><span id="line-75"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">(Mutability -&gt; Text -&gt; TSType_ 'Z ~&gt; Op Series)
+-&gt; (forall x.
+    Mutability -&gt; Text -&gt; TSType_ 'Z x -&gt; Op Series (Maybe x))
+-&gt; ObjMember (TSType_ 'Z) ~&gt; Op Series
+forall (g :: * -&gt; *) (f :: * -&gt; *).
+Invariant g =&gt;
+(Mutability -&gt; Text -&gt; f ~&gt; g)
+-&gt; (forall x. Mutability -&gt; Text -&gt; f x -&gt; g (Maybe x))
+-&gt; ObjMember f ~&gt; g
+</span><a href="Typescript.Json.Types.html#interpretObjMember"><span class="hs-identifier hs-var">interpretObjMember</span></a></span><span>
+</span><span id="line-76"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309399"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679309399"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679309398"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
+</span><a href="#local-6989586621679309398"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(x -&gt; Series) -&gt; Op Series x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span>           </span><span class="annot"><span class="annottext">((x -&gt; Series) -&gt; Op Series x) -&gt; (x -&gt; Series) -&gt; Op Series x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309396"><span class="annot"><span class="annottext">x :: x
+</span><a href="#local-6989586621679309396"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309399"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Series
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">A..=</span></span><span> </span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Value
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ 'Z x
+</span><a href="#local-6989586621679309398"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679309396"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309393"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679309393"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679309392"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
+</span><a href="#local-6989586621679309392"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Maybe x -&gt; Series) -&gt; Op Series (Maybe x)
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((Maybe x -&gt; Series) -&gt; Op Series (Maybe x))
+-&gt; ((x -&gt; Series) -&gt; Maybe x -&gt; Series)
+-&gt; (x -&gt; Series)
+-&gt; Op Series (Maybe x)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(x -&gt; Series) -&gt; Maybe x -&gt; Series
+forall (t :: * -&gt; *) m a.
+(Foldable t, Monoid m) =&gt;
+(a -&gt; m) -&gt; t a -&gt; m
+</span><span class="hs-identifier hs-var">foldMap</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; Series) -&gt; Op Series (Maybe x))
+-&gt; (x -&gt; Series) -&gt; Op Series (Maybe x)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309390"><span class="annot"><span class="annottext">x :: x
+</span><a href="#local-6989586621679309390"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309393"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Series
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">A..=</span></span><span> </span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Value
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ 'Z x
+</span><a href="#local-6989586621679309392"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679309390"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span id="local-6989586621679309514"><span id="local-6989586621679309515"><span class="annot"><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-type">typeToEncoding</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679309515"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309514"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309514"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Encoding</span></span></span></span><span>
+</span><span id="line-81"></span><span id="typeToEncoding"><span class="annot"><span class="annottext">typeToEncoding :: TSType 'Z k a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-var hs-var">typeToEncoding</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-82"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSArray"><span class="hs-identifier hs-type">TSArray</span></a></span><span> </span><span id="local-6989586621679309388"><span class="annot"><span class="annottext">ts :: ILan [] (TSType 'Z k) a
+</span><a href="#local-6989586621679309388"><span class="hs-identifier hs-var">ts</span></a></span></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Encoding -&gt; Encoding) -&gt; [Encoding] -&gt; Encoding
+forall a. (a -&gt; Encoding) -&gt; [a] -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.list</span></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-83"></span><span>                       </span><span class="annot"><span class="annottext">([Encoding] -&gt; Encoding) -&gt; (a -&gt; [Encoding]) -&gt; a -&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op [Encoding] a -&gt; a -&gt; [Encoding]
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. TSType 'Z k x -&gt; Op [Encoding] [x])
+-&gt; ILan [] (TSType 'Z k) a -&gt; Op [Encoding] a
+forall k (f :: * -&gt; *) (h :: k -&gt; *) (g :: k -&gt; *) a.
+Invariant f =&gt;
+(forall (x :: k). h x -&gt; f (g x)) -&gt; ILan g h a -&gt; f a
+</span><a href="Typescript.Json.Types.Combinators.html#interpretILan"><span class="hs-identifier hs-var">interpretILan</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679309383"><span class="annot"><span class="annottext">t :: TSType 'Z k x
+</span><a href="#local-6989586621679309383"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">([x] -&gt; [Encoding]) -&gt; Op [Encoding] [x]
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">(x -&gt; Encoding) -&gt; [x] -&gt; [Encoding]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z k x -&gt; x -&gt; Encoding
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-var">typeToEncoding</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k x
+</span><a href="#local-6989586621679309383"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ILan [] (TSType 'Z k) a
+</span><a href="#local-6989586621679309388"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTuple"><span class="hs-identifier hs-type">TSTuple</span></a></span><span> </span><span id="local-6989586621679309381"><span class="annot"><span class="annottext">ts :: PreT Ap (TSType_ 'Z) a
+</span><a href="#local-6989586621679309381"><span class="hs-identifier hs-var">ts</span></a></span></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Encoding -&gt; Encoding) -&gt; [Encoding] -&gt; Encoding
+forall a. (a -&gt; Encoding) -&gt; [a] -&gt; Encoding
+</span><span class="hs-identifier hs-var">AE.list</span></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-85"></span><span>                       </span><span class="annot"><span class="annottext">([Encoding] -&gt; Encoding) -&gt; (a -&gt; [Encoding]) -&gt; a -&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op [Encoding] a -&gt; a -&gt; [Encoding]
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TSType_ 'Z ~&gt; Op [Encoding])
+-&gt; PreT Ap (TSType_ 'Z) a -&gt; Op [Encoding] a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (g :: * -&gt; *) (f :: * -&gt; *).
+(forall m. Monoid m =&gt; Interpret t (AltConst m), Divisible g) =&gt;
+(f ~&gt; g) -&gt; PreT t f ~&gt; g
+</span><span class="hs-identifier hs-var">preDivisibleT</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679309380"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
+</span><a href="#local-6989586621679309380"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(x -&gt; [Encoding]) -&gt; Op [Encoding] x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; [Encoding]) -&gt; Op [Encoding] x)
+-&gt; (x -&gt; [Encoding]) -&gt; Op [Encoding] x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309379"><span class="annot"><span class="annottext">x :: x
+</span><a href="#local-6989586621679309379"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Encoding)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Encoding
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Encoding
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-var">typeToEncoding</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ 'Z x
+</span><a href="#local-6989586621679309380"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679309379"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PreT Ap (TSType_ 'Z) a
+</span><a href="#local-6989586621679309381"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-type">TSObject</span></a></span><span>    </span><span id="local-6989586621679309378"><span class="annot"><span class="annottext">ts :: TSKeyVal 'Z a
+</span><a href="#local-6989586621679309378"><span class="hs-identifier hs-var">ts</span></a></span></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Series -&gt; Encoding
+</span><span class="hs-identifier hs-var">A.pairs</span></span><span> </span><span class="annot"><span class="annottext">(Series -&gt; Encoding) -&gt; (a -&gt; Series) -&gt; a -&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op Series a -&gt; a -&gt; Series
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Op Series a
+TSType 'Z 'IsObj ~&gt; Op Series
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToEncoding"><span class="hs-identifier hs-var">objTypeToEncoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSKeyVal 'Z a -&gt; TSType 'Z 'IsObj a
+forall (p :: Nat) a. TSKeyVal p a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-var">TSObject</span></a></span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a
+</span><a href="#local-6989586621679309378"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSSingle"><span class="hs-identifier hs-type">TSSingle</span></a></span><span> </span><span id="local-6989586621679309375"><span class="annot"><span class="annottext">ts :: TSType 'Z 'IsObj a
+</span><a href="#local-6989586621679309375"><span class="hs-identifier hs-var">ts</span></a></span></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; a -&gt; Encoding
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-var">typeToEncoding</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a
+</span><a href="#local-6989586621679309375"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnion"><span class="hs-identifier hs-type">TSUnion</span></a></span><span> </span><span id="local-6989586621679309373"><span class="annot"><span class="annottext">ts :: TSUnionBranches 'Z a
+</span><a href="#local-6989586621679309373"><span class="hs-identifier hs-var">ts</span></a></span></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Op Encoding a -&gt; a -&gt; Encoding
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="annot"><span class="annottext">(Op Encoding a -&gt; a -&gt; Encoding) -&gt; Op Encoding a -&gt; a -&gt; Encoding
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(TSType_ 'Z ~&gt; Op Encoding)
+-&gt; TSUnionBranches 'Z a -&gt; Op Encoding a
+forall (f :: * -&gt; *) (g :: * -&gt; *).
+Decide g =&gt;
+(f ~&gt; g) -&gt; DecAlt1 f ~&gt; g
+</span><span class="hs-identifier hs-var">runContraDecAlt1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(x -&gt; Encoding) -&gt; Op Encoding x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; Encoding) -&gt; Op Encoding x)
+-&gt; (TSType_ 'Z x -&gt; x -&gt; Encoding) -&gt; TSType_ 'Z x -&gt; Op Encoding x
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Encoding)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Encoding
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Encoding
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-var">typeToEncoding</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TSUnionBranches 'Z a
+</span><a href="#local-6989586621679309373"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-89"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedType"><span class="hs-identifier hs-type">TSNamedType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309371"><span class="annot"><span class="annottext">nt :: TSNameable 'Z k as es a
+</span><a href="#local-6989586621679309371"><span class="hs-identifier hs-var">nt</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#%3A%24"><span class="hs-operator hs-type">:$</span></a></span><span> </span><span id="local-6989586621679309370"><span class="annot"><span class="annottext">xs :: NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309370"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSNameable 'Z k as es a
+</span><a href="#local-6989586621679309371"><span class="hs-identifier hs-var">nt</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-90"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-type">TSNFunc</span></a></span><span> </span><span id="local-6989586621679309369"><span class="annot"><span class="annottext">f :: TSTypeF 'Z k as es a
+</span><a href="#local-6989586621679309369"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; a -&gt; Encoding
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-var">typeToEncoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSTypeF 'Z k as es a -&gt; NP2 (Arg_ 'Z) as es -&gt; TSType 'Z k a
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSTypeF p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier hs-var">tsApply</span></a></span><span> </span><span class="annot"><span class="annottext">TSTypeF 'Z k as es a
+</span><a href="#local-6989586621679309369"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309370"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNBaseType"><span class="hs-identifier hs-type">TSNBaseType</span></a></span><span> </span><span id="local-6989586621679309367"><span class="annot"><span class="annottext">t :: ICoyoneda TSNamedBase a
+</span><a href="#local-6989586621679309367"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Op Encoding a -&gt; a -&gt; Encoding
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="annot"><span class="annottext">(Op Encoding a -&gt; a -&gt; Encoding) -&gt; Op Encoding a -&gt; a -&gt; Encoding
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(TSNamedBase ~&gt; Op Encoding)
+-&gt; ICoyoneda TSNamedBase a -&gt; Op Encoding a
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+Interpret t f =&gt;
+(g ~&gt; f) -&gt; t g ~&gt; f
+</span><span class="hs-identifier hs-var">interpret</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(x -&gt; Encoding) -&gt; Op Encoding x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; Encoding) -&gt; Op Encoding x)
+-&gt; (TSNamedBase x -&gt; x -&gt; Encoding)
+-&gt; TSNamedBase x
+-&gt; Op Encoding x
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSNamedBase x -&gt; x -&gt; Encoding
+forall a. TSNamedBase a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#namedBaseToEncoding"><span class="hs-identifier hs-var">namedBaseToEncoding</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSNamedBase a
+</span><a href="#local-6989586621679309367"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-92"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-type">TSIntersection</span></a></span><span> </span><span id="local-6989586621679309366"><span class="annot"><span class="annottext">ts :: PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309366"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Series -&gt; Encoding
+</span><span class="hs-identifier hs-var">A.pairs</span></span><span> </span><span class="annot"><span class="annottext">(Series -&gt; Encoding) -&gt; (a -&gt; Series) -&gt; a -&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op Series a -&gt; a -&gt; Series
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Op Series a
+TSType 'Z 'IsObj ~&gt; Op Series
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToEncoding"><span class="hs-identifier hs-var">objTypeToEncoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PreT Ap1 (TSType 'Z 'IsObj) a -&gt; TSType 'Z 'IsObj a
+forall (p :: Nat) a.
+PreT Ap1 (TSType p 'IsObj) a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-var">TSIntersection</span></a></span><span> </span><span class="annot"><span class="annottext">PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309366"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTransformType"><span class="hs-identifier hs-type">TSTransformType</span></a></span><span> </span><span id="local-6989586621679309365"><span class="annot"><span class="annottext">tf :: ICoyoneda (TSTransform 'Z k) a
+</span><a href="#local-6989586621679309365"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; a -&gt; Encoding
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#typeToEncoding"><span class="hs-identifier hs-var">typeToEncoding</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TSTransform 'Z k ~&gt; TSType 'Z k)
+-&gt; ICoyoneda (TSTransform 'Z k) a -&gt; TSType 'Z k a
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+Interpret t f =&gt;
+(g ~&gt; f) -&gt; t g ~&gt; f
+</span><span class="hs-identifier hs-var">interpret</span></span><span> </span><span class="annot"><span class="annottext">TSTransform 'Z k ~&gt; TSType 'Z k
+forall (p :: Nat) (k :: IsObjType) a.
+TSTransform p k a -&gt; TSType p k a
+</span><a href="Typescript.Json.Types.html#applyTransform"><span class="hs-identifier hs-var">applyTransform</span></a></span><span> </span><span class="annot"><span class="annottext">ICoyoneda (TSTransform 'Z k) a
+</span><a href="#local-6989586621679309365"><span class="hs-identifier hs-var">tf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-type">TSPrimType</span></a></span><span> </span><span id="local-6989586621679309361"><span id="local-6989586621679309362"><span id="local-6989586621679309363"><span class="annot"><a href="Typescript.Json.Types.Combinators.html#PS"><span class="hs-identifier hs-type">PS</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSPrim r -&gt; r -&gt; Encoding
+forall a. TSPrim a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#primToEncoding"><span class="hs-identifier hs-var">primToEncoding</span></a></span><span> </span><span class="annot"><span class="annottext">TSPrim r
+</span><a href="#local-6989586621679309363"><span class="hs-identifier hs-var">psItem</span></a></span><span> </span><span class="annot"><span class="annottext">(r -&gt; Encoding) -&gt; (a -&gt; r) -&gt; a -&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679309361"><span class="hs-identifier hs-var">psSerializer</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-type">TSBaseType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#ICoyoneda"><span class="hs-identifier hs-type">ICoyoneda</span></a></span><span> </span><span id="local-6989586621679309354"><span class="annot"><span class="annottext">f :: a -&gt; r
+</span><a href="#local-6989586621679309354"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309353"><span class="annot"><span class="annottext">x :: TSBase r
+</span><a href="#local-6989586621679309353"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSBase r -&gt; r -&gt; Encoding
+forall a. TSBase a -&gt; a -&gt; Encoding
+</span><a href="Typescript.Json.Core.Encode.html#baseToEncoding"><span class="hs-identifier hs-var">baseToEncoding</span></a></span><span> </span><span class="annot"><span class="annottext">TSBase r
+</span><a href="#local-6989586621679309353"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">(r -&gt; Encoding) -&gt; (a -&gt; r) -&gt; a -&gt; Encoding
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679309354"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="annot"><a href="Typescript.Json.Core.Encode.html#enumLitToValue"><span class="hs-identifier hs-type">enumLitToValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#EnumLit"><span class="hs-identifier hs-type">EnumLit</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Value</span></span><span>
+</span><span id="line-98"></span><span id="enumLitToValue"><span class="annot"><span class="annottext">enumLitToValue :: EnumLit -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#enumLitToValue"><span class="hs-identifier hs-var hs-var">enumLitToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELString"><span class="hs-identifier hs-type">ELString</span></a></span><span> </span><span id="local-6989586621679309352"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621679309352"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
+</span><span class="hs-identifier hs-var">A.String</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309352"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#ELNumber"><span class="hs-identifier hs-type">ELNumber</span></a></span><span> </span><span id="local-6989586621679309350"><span class="annot"><span class="annottext">n :: Scientific
+</span><a href="#local-6989586621679309350"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Value
+</span><span class="hs-identifier hs-var">A.Number</span></span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679309350"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span id="local-6989586621679309465"><span class="annot"><a href="Typescript.Json.Core.Encode.html#primToValue"><span class="hs-identifier hs-type">primToValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrim"><span class="hs-identifier hs-type">TSPrim</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309465"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309465"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Value</span></span></span><span>
+</span><span id="line-103"></span><span id="primToValue"><span class="annot"><span class="annottext">primToValue :: TSPrim a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#primToValue"><span class="hs-identifier hs-var hs-var">primToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-104"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNumber"><span class="hs-identifier hs-type">TSNumber</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Value
+Scientific -&gt; Value
+</span><span class="hs-identifier hs-var">A.Number</span></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-comment">-- hm...</span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBigInt"><span class="hs-identifier hs-type">TSBigInt</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Value
+</span><span class="hs-identifier hs-var">A.Number</span></span><span> </span><span class="annot"><span class="annottext">(Scientific -&gt; Value) -&gt; (a -&gt; Scientific) -&gt; a -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Scientific
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span>
+</span><span id="line-107"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSString"><span class="hs-identifier hs-type">TSString</span></a></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Value
+Text -&gt; Value
+</span><span class="hs-identifier hs-var">A.String</span></span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnknown"><span class="hs-identifier hs-type">TSUnknown</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Value
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSAny"><span class="hs-identifier hs-type">TSAny</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Value
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span id="local-6989586621679309463"><span class="annot"><a href="Typescript.Json.Core.Encode.html#baseToValue"><span class="hs-identifier hs-type">baseToValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSBase"><span class="hs-identifier hs-type">TSBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309463"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309463"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Value</span></span></span><span>
+</span><span id="line-112"></span><span id="baseToValue"><span class="annot"><span class="annottext">baseToValue :: TSBase a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#baseToValue"><span class="hs-identifier hs-var hs-var">baseToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBoolean"><span class="hs-identifier hs-type">TSBoolean</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Value
+Bool -&gt; Value
+</span><span class="hs-identifier hs-var">A.Bool</span></span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSStringLit"><span class="hs-identifier hs-type">TSStringLit</span></a></span><span> </span><span id="local-6989586621679309346"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621679309346"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
+</span><span class="hs-identifier hs-var">A.String</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309346"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNumericLit"><span class="hs-identifier hs-type">TSNumericLit</span></a></span><span> </span><span id="local-6989586621679309345"><span class="annot"><span class="annottext">n :: Scientific
+</span><a href="#local-6989586621679309345"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Value
+</span><span class="hs-identifier hs-var">A.Number</span></span><span> </span><span class="annot"><span class="annottext">Scientific
+</span><a href="#local-6989586621679309345"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-comment">-- hm...</span><span>
+</span><span id="line-117"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBigIntLit"><span class="hs-identifier hs-type">TSBigIntLit</span></a></span><span> </span><span id="local-6989586621679309344"><span class="annot"><span class="annottext">n :: Integer
+</span><a href="#local-6989586621679309344"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Scientific -&gt; Value
+</span><span class="hs-identifier hs-var">A.Number</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Scientific
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679309344"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-comment">-- hm...</span><span>
+</span><span id="line-119"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSVoid"><span class="hs-identifier hs-type">TSVoid</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Value
+</span><span class="hs-identifier hs-var">A.Null</span></span><span>
+</span><span id="line-120"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUndefined"><span class="hs-identifier hs-type">TSUndefined</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Value
+</span><span class="hs-identifier hs-var">A.Null</span></span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNull"><span class="hs-identifier hs-type">TSNull</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Value
+</span><span class="hs-identifier hs-var">A.Null</span></span><span>
+</span><span id="line-122"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNever"><span class="hs-identifier hs-type">TSNever</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; Value
+forall a. Void -&gt; a
+</span><span class="hs-identifier hs-var">absurd</span></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span id="local-6989586621679309467"><span class="annot"><a href="Typescript.Json.Core.Encode.html#namedBaseToValue"><span class="hs-identifier hs-type">namedBaseToValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedBase"><span class="hs-identifier hs-type">TSNamedBase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309467"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309467"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Value</span></span></span><span>
+</span><span id="line-125"></span><span id="namedBaseToValue"><span class="annot"><span class="annottext">namedBaseToValue :: TSNamedBase a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#namedBaseToValue"><span class="hs-identifier hs-var hs-var">namedBaseToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-126"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSEnum"><span class="hs-identifier hs-type">TSEnum</span></a></span><span> </span><span id="local-6989586621679309341"><span class="annot"><span class="annottext">e :: Vec n (Text, EnumLit)
+</span><a href="#local-6989586621679309341"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309340"><span class="annot"><span class="annottext">i :: a
+</span><a href="#local-6989586621679309340"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EnumLit -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#enumLitToValue"><span class="hs-identifier hs-var">enumLitToValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Text, EnumLit) -&gt; EnumLit
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vec n (Text, EnumLit)
+</span><a href="#local-6989586621679309341"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Vec n (Text, EnumLit) -&gt; Fin n -&gt; (Text, EnumLit)
+forall (n :: Nat) a. Vec n a -&gt; Fin n -&gt; a
+</span><span class="hs-operator hs-var">Vec.!</span></span><span> </span><span class="annot"><span class="annottext">a
+Fin n
+</span><a href="#local-6989586621679309340"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span id="local-6989586621679309339"><span class="annot"><a href="Typescript.Json.Core.Encode.html#objTypeToValue"><span class="hs-identifier hs-type">objTypeToValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Typescript.Json.Types.html#IsObj"><span class="hs-identifier hs-type">IsObj</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309339"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">A.Pair</span></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621679309339"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-129"></span><span id="objTypeToValue"><span class="annot"><span class="annottext">objTypeToValue :: TSType 'Z 'IsObj a -&gt; Op [Pair] a
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToValue"><span class="hs-identifier hs-var hs-var">objTypeToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-130"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-type">TSObject</span></a></span><span>       </span><span id="local-6989586621679309337"><span class="annot"><span class="annottext">ts :: TSKeyVal 'Z a
+</span><a href="#local-6989586621679309337"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a -&gt; Op [Pair] a
+TSKeyVal 'Z ~&gt; Op [Pair]
+</span><a href="#local-6989586621679309336"><span class="hs-identifier hs-var">keyValToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a
+</span><a href="#local-6989586621679309337"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-type">TSIntersection</span></a></span><span> </span><span id="local-6989586621679309335"><span class="annot"><span class="annottext">ts :: PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309335"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TSType 'Z 'IsObj ~&gt; Op [Pair])
+-&gt; PreT Ap1 (TSType 'Z 'IsObj) a -&gt; Op [Pair] a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (g :: * -&gt; *) (f :: * -&gt; *).
+(forall m. Monoid m =&gt; Interpret t (AltConst m), Divisible g) =&gt;
+(f ~&gt; g) -&gt; PreT t f ~&gt; g
+</span><span class="hs-identifier hs-var">preDivisibleT</span></span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj ~&gt; Op [Pair]
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToValue"><span class="hs-identifier hs-var">objTypeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309335"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedType"><span class="hs-identifier hs-type">TSNamedType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309334"><span class="annot"><span class="annottext">nt :: TSNameable 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309334"><span class="hs-identifier hs-var">nt</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#%3A%24"><span class="hs-operator hs-type">:$</span></a></span><span> </span><span id="local-6989586621679309333"><span class="annot"><span class="annottext">xs :: NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309333"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSNameable 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309334"><span class="hs-identifier hs-var">nt</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-133"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-type">TSNFunc</span></a></span><span> </span><span id="local-6989586621679309332"><span class="annot"><span class="annottext">f :: TSTypeF 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309332"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Op [Pair] a
+TSType 'Z 'IsObj ~&gt; Op [Pair]
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToValue"><span class="hs-identifier hs-var">objTypeToValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSTypeF 'Z 'IsObj as es a
+-&gt; NP2 (Arg_ 'Z) as es -&gt; TSType 'Z 'IsObj a
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSTypeF p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier hs-var">tsApply</span></a></span><span> </span><span class="annot"><span class="annottext">TSTypeF 'Z 'IsObj as es a
+</span><a href="#local-6989586621679309332"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309333"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTransformType"><span class="hs-identifier hs-type">TSTransformType</span></a></span><span> </span><span id="local-6989586621679309331"><span class="annot"><span class="annottext">tf :: ICoyoneda (TSTransform 'Z 'IsObj) a
+</span><a href="#local-6989586621679309331"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Op [Pair] a
+TSType 'Z 'IsObj ~&gt; Op [Pair]
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToValue"><span class="hs-identifier hs-var">objTypeToValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TSTransform 'Z 'IsObj ~&gt; TSType 'Z 'IsObj)
+-&gt; ICoyoneda (TSTransform 'Z 'IsObj) a -&gt; TSType 'Z 'IsObj a
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+Interpret t f =&gt;
+(g ~&gt; f) -&gt; t g ~&gt; f
+</span><span class="hs-identifier hs-var">interpret</span></span><span> </span><span class="annot"><span class="annottext">TSTransform 'Z 'IsObj ~&gt; TSType 'Z 'IsObj
+forall (p :: Nat) (k :: IsObjType) a.
+TSTransform p k a -&gt; TSType p k a
+</span><a href="Typescript.Json.Types.html#applyTransform"><span class="hs-identifier hs-var">applyTransform</span></a></span><span> </span><span class="annot"><span class="annottext">ICoyoneda (TSTransform 'Z 'IsObj) a
+</span><a href="#local-6989586621679309331"><span class="hs-identifier hs-var">tf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-136"></span><span>    </span><span class="annot"><a href="#local-6989586621679309336"><span class="hs-identifier hs-type">keyValToValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSKeyVal"><span class="hs-identifier hs-type">TSKeyVal</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">~&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Op</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">A.Pair</span></span><span class="hs-special">]</span><span>
+</span><span id="line-137"></span><span>    </span><span id="local-6989586621679309336"><span class="annot"><span class="annottext">keyValToValue :: TSKeyVal 'Z x -&gt; Op [Pair] x
+</span><a href="#local-6989586621679309336"><span class="hs-identifier hs-var hs-var">keyValToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ObjMember (TSType_ 'Z) ~&gt; Op [Pair]) -&gt; TSKeyVal 'Z ~&gt; Op [Pair]
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (g :: * -&gt; *) (f :: * -&gt; *).
+(forall m. Monoid m =&gt; Interpret t (AltConst m), Divisible g) =&gt;
+(f ~&gt; g) -&gt; PreT t f ~&gt; g
+</span><span class="hs-identifier hs-var">preDivisibleT</span></span><span>
+</span><span id="line-138"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">(Mutability -&gt; Text -&gt; TSType_ 'Z ~&gt; Op [Pair])
+-&gt; (forall x.
+    Mutability -&gt; Text -&gt; TSType_ 'Z x -&gt; Op [Pair] (Maybe x))
+-&gt; ObjMember (TSType_ 'Z) ~&gt; Op [Pair]
+forall (g :: * -&gt; *) (f :: * -&gt; *).
+Invariant g =&gt;
+(Mutability -&gt; Text -&gt; f ~&gt; g)
+-&gt; (forall x. Mutability -&gt; Text -&gt; f x -&gt; g (Maybe x))
+-&gt; ObjMember f ~&gt; g
+</span><a href="Typescript.Json.Types.html#interpretObjMember"><span class="hs-identifier hs-var">interpretObjMember</span></a></span><span>
+</span><span id="line-139"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309330"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679309330"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679309329"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
+</span><a href="#local-6989586621679309329"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(x -&gt; [Pair]) -&gt; Op [Pair] x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span>           </span><span class="annot"><span class="annottext">((x -&gt; [Pair]) -&gt; Op [Pair] x) -&gt; (x -&gt; [Pair]) -&gt; Op [Pair] x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309328"><span class="annot"><span class="annottext">x :: x
+</span><a href="#local-6989586621679309328"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309330"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">A..=</span></span><span> </span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Value
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ 'Z x
+</span><a href="#local-6989586621679309329"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679309328"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309327"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621679309327"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679309326"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
+</span><a href="#local-6989586621679309326"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Maybe x -&gt; [Pair]) -&gt; Op [Pair] (Maybe x)
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((Maybe x -&gt; [Pair]) -&gt; Op [Pair] (Maybe x))
+-&gt; ((x -&gt; [Pair]) -&gt; Maybe x -&gt; [Pair])
+-&gt; (x -&gt; [Pair])
+-&gt; Op [Pair] (Maybe x)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(x -&gt; [Pair]) -&gt; Maybe x -&gt; [Pair]
+forall (t :: * -&gt; *) m a.
+(Foldable t, Monoid m) =&gt;
+(a -&gt; m) -&gt; t a -&gt; m
+</span><span class="hs-identifier hs-var">foldMap</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; [Pair]) -&gt; Op [Pair] (Maybe x))
+-&gt; (x -&gt; [Pair]) -&gt; Op [Pair] (Maybe x)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309325"><span class="annot"><span class="annottext">x :: x
+</span><a href="#local-6989586621679309325"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679309327"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">A..=</span></span><span> </span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Value
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ 'Z x
+</span><a href="#local-6989586621679309326"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679309325"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span id="local-6989586621679309537"><span id="local-6989586621679309538"><span class="annot"><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-type">typeToValue</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679309538"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679309537"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679309537"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Value</span></span></span></span><span>
+</span><span id="line-145"></span><span id="typeToValue"><span class="annot"><span class="annottext">typeToValue :: TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var hs-var">typeToValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-146"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSArray"><span class="hs-identifier hs-type">TSArray</span></a></span><span> </span><span id="local-6989586621679309324"><span class="annot"><span class="annottext">ts :: ILan [] (TSType 'Z k) a
+</span><a href="#local-6989586621679309324"><span class="hs-identifier hs-var">ts</span></a></span></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Array -&gt; Value
+</span><span class="hs-identifier hs-var">A.Array</span></span><span>
+</span><span id="line-147"></span><span>                       </span><span class="annot"><span class="annottext">(Array -&gt; Value) -&gt; (a -&gt; Array) -&gt; a -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Value] -&gt; Array
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span>
+</span><span id="line-148"></span><span>                       </span><span class="annot"><span class="annottext">([Value] -&gt; Array) -&gt; (a -&gt; [Value]) -&gt; a -&gt; Array
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op [Value] a -&gt; a -&gt; [Value]
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. TSType 'Z k x -&gt; Op [Value] [x])
+-&gt; ILan [] (TSType 'Z k) a -&gt; Op [Value] a
+forall k (f :: * -&gt; *) (h :: k -&gt; *) (g :: k -&gt; *) a.
+Invariant f =&gt;
+(forall (x :: k). h x -&gt; f (g x)) -&gt; ILan g h a -&gt; f a
+</span><a href="Typescript.Json.Types.Combinators.html#interpretILan"><span class="hs-identifier hs-var">interpretILan</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679309321"><span class="annot"><span class="annottext">t :: TSType 'Z k x
+</span><a href="#local-6989586621679309321"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">([x] -&gt; [Value]) -&gt; Op [Value] [x]
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">(x -&gt; Value) -&gt; [x] -&gt; [Value]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z k x -&gt; x -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k x
+</span><a href="#local-6989586621679309321"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ILan [] (TSType 'Z k) a
+</span><a href="#local-6989586621679309324"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTuple"><span class="hs-identifier hs-type">TSTuple</span></a></span><span> </span><span id="local-6989586621679309320"><span class="annot"><span class="annottext">ts :: PreT Ap (TSType_ 'Z) a
+</span><a href="#local-6989586621679309320"><span class="hs-identifier hs-var">ts</span></a></span></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Array -&gt; Value
+</span><span class="hs-identifier hs-var">A.Array</span></span><span>
+</span><span id="line-150"></span><span>                       </span><span class="annot"><span class="annottext">(Array -&gt; Value) -&gt; (a -&gt; Array) -&gt; a -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[Value] -&gt; Array
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span>
+</span><span id="line-151"></span><span>                       </span><span class="annot"><span class="annottext">([Value] -&gt; Array) -&gt; (a -&gt; [Value]) -&gt; a -&gt; Array
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op [Value] a -&gt; a -&gt; [Value]
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TSType_ 'Z ~&gt; Op [Value])
+-&gt; PreT Ap (TSType_ 'Z) a -&gt; Op [Value] a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (g :: * -&gt; *) (f :: * -&gt; *).
+(forall m. Monoid m =&gt; Interpret t (AltConst m), Divisible g) =&gt;
+(f ~&gt; g) -&gt; PreT t f ~&gt; g
+</span><span class="hs-identifier hs-var">preDivisibleT</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679309319"><span class="annot"><span class="annottext">t :: TSType_ 'Z x
+</span><a href="#local-6989586621679309319"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(x -&gt; [Value]) -&gt; Op [Value] x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; [Value]) -&gt; Op [Value] x) -&gt; (x -&gt; [Value]) -&gt; Op [Value] x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679309318"><span class="annot"><span class="annottext">x :: x
+</span><a href="#local-6989586621679309318"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Value
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType_ 'Z x
+</span><a href="#local-6989586621679309319"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">x
+</span><a href="#local-6989586621679309318"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PreT Ap (TSType_ 'Z) a
+</span><a href="#local-6989586621679309320"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-152"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-type">TSObject</span></a></span><span>    </span><span id="local-6989586621679309317"><span class="annot"><span class="annottext">ts :: TSKeyVal 'Z a
+</span><a href="#local-6989586621679309317"><span class="hs-identifier hs-var">ts</span></a></span></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">A.object</span></span><span> </span><span class="annot"><span class="annottext">([Pair] -&gt; Value) -&gt; (a -&gt; [Pair]) -&gt; a -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op [Pair] a -&gt; a -&gt; [Pair]
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Op [Pair] a
+TSType 'Z 'IsObj ~&gt; Op [Pair]
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToValue"><span class="hs-identifier hs-var">objTypeToValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSKeyVal 'Z a -&gt; TSType 'Z 'IsObj a
+forall (p :: Nat) a. TSKeyVal p a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Types.html#TSObject"><span class="hs-identifier hs-var">TSObject</span></a></span><span> </span><span class="annot"><span class="annottext">TSKeyVal 'Z a
+</span><a href="#local-6989586621679309317"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSSingle"><span class="hs-identifier hs-type">TSSingle</span></a></span><span> </span><span id="local-6989586621679309315"><span class="annot"><span class="annottext">ts :: TSType 'Z 'IsObj a
+</span><a href="#local-6989586621679309315"><span class="hs-identifier hs-var">ts</span></a></span></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; a -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a
+</span><a href="#local-6989586621679309315"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSUnion"><span class="hs-identifier hs-type">TSUnion</span></a></span><span> </span><span id="local-6989586621679309314"><span class="annot"><span class="annottext">ts :: TSUnionBranches 'Z a
+</span><a href="#local-6989586621679309314"><span class="hs-identifier hs-var">ts</span></a></span></span><span>        </span><span class="hs-glyph">-&gt;</span><span>  </span><span class="annot"><span class="annottext">Op Value a -&gt; a -&gt; Value
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="annot"><span class="annottext">(Op Value a -&gt; a -&gt; Value) -&gt; Op Value a -&gt; a -&gt; Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(TSType_ 'Z ~&gt; Op Value) -&gt; TSUnionBranches 'Z a -&gt; Op Value a
+forall (f :: * -&gt; *) (g :: * -&gt; *).
+Decide g =&gt;
+(f ~&gt; g) -&gt; DecAlt1 f ~&gt; g
+</span><span class="hs-identifier hs-var">runContraDecAlt1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(x -&gt; Value) -&gt; Op Value x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; Value) -&gt; Op Value x)
+-&gt; (TSType_ 'Z x -&gt; x -&gt; Value) -&gt; TSType_ 'Z x -&gt; Op Value x
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value)
+-&gt; TSType_ 'Z x -&gt; x -&gt; Value
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="annot"><span class="annottext">forall (k :: IsObjType). TSType 'Z k x -&gt; x -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TSUnionBranches 'Z a
+</span><a href="#local-6989586621679309314"><span class="hs-identifier hs-var">ts</span></a></span><span>
+</span><span id="line-155"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSNamedType"><span class="hs-identifier hs-type">TSNamedType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSNamed"><span class="hs-identifier hs-type">TSNamed</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309313"><span class="annot"><span class="annottext">nt :: TSNameable 'Z k as es a
+</span><a href="#local-6989586621679309313"><span class="hs-identifier hs-var">nt</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#%3A%24"><span class="hs-operator hs-type">:$</span></a></span><span> </span><span id="local-6989586621679309312"><span class="annot"><span class="annottext">xs :: NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309312"><span class="hs-identifier hs-var">xs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TSNameable 'Z k as es a
+</span><a href="#local-6989586621679309313"><span class="hs-identifier hs-var">nt</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-156"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNFunc"><span class="hs-identifier hs-type">TSNFunc</span></a></span><span> </span><span id="local-6989586621679309311"><span class="annot"><span class="annottext">f :: TSTypeF 'Z k as es a
+</span><a href="#local-6989586621679309311"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; a -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSTypeF 'Z k as es a -&gt; NP2 (Arg_ 'Z) as es -&gt; TSType 'Z k a
+forall (p :: Nat) (k :: IsObjType) (as :: [*]) (es :: [Maybe *]) b.
+TSTypeF p k as es b -&gt; NP2 (Arg_ p) as es -&gt; TSType p k b
+</span><a href="Typescript.Json.Types.html#tsApply"><span class="hs-identifier hs-var">tsApply</span></a></span><span> </span><span class="annot"><span class="annottext">TSTypeF 'Z k as es a
+</span><a href="#local-6989586621679309311"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) as es
+</span><a href="#local-6989586621679309312"><span class="hs-identifier hs-var">xs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSNBaseType"><span class="hs-identifier hs-type">TSNBaseType</span></a></span><span> </span><span id="local-6989586621679309310"><span class="annot"><span class="annottext">t :: ICoyoneda TSNamedBase a
+</span><a href="#local-6989586621679309310"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Op Value a -&gt; a -&gt; Value
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="annot"><span class="annottext">(Op Value a -&gt; a -&gt; Value) -&gt; Op Value a -&gt; a -&gt; Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(TSNamedBase ~&gt; Op Value) -&gt; ICoyoneda TSNamedBase a -&gt; Op Value a
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+Interpret t f =&gt;
+(g ~&gt; f) -&gt; t g ~&gt; f
+</span><span class="hs-identifier hs-var">interpret</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(x -&gt; Value) -&gt; Op Value x
+forall a b. (b -&gt; a) -&gt; Op a b
+</span><span class="hs-identifier hs-var">Op</span></span><span> </span><span class="annot"><span class="annottext">((x -&gt; Value) -&gt; Op Value x)
+-&gt; (TSNamedBase x -&gt; x -&gt; Value) -&gt; TSNamedBase x -&gt; Op Value x
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSNamedBase x -&gt; x -&gt; Value
+forall a. TSNamedBase a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#namedBaseToValue"><span class="hs-identifier hs-var">namedBaseToValue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ICoyoneda TSNamedBase a
+</span><a href="#local-6989586621679309310"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-type">TSIntersection</span></a></span><span> </span><span id="local-6989586621679309309"><span class="annot"><span class="annottext">ts :: PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309309"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">A.object</span></span><span> </span><span class="annot"><span class="annottext">([Pair] -&gt; Value) -&gt; (a -&gt; [Pair]) -&gt; a -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Op [Pair] a -&gt; a -&gt; [Pair]
+forall a b. Op a b -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var hs-var">getOp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z 'IsObj a -&gt; Op [Pair] a
+TSType 'Z 'IsObj ~&gt; Op [Pair]
+</span><a href="Typescript.Json.Core.Encode.html#objTypeToValue"><span class="hs-identifier hs-var">objTypeToValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PreT Ap1 (TSType 'Z 'IsObj) a -&gt; TSType 'Z 'IsObj a
+forall (p :: Nat) a.
+PreT Ap1 (TSType p 'IsObj) a -&gt; TSType p 'IsObj a
+</span><a href="Typescript.Json.Types.html#TSIntersection"><span class="hs-identifier hs-var">TSIntersection</span></a></span><span> </span><span class="annot"><span class="annottext">PreT Ap1 (TSType 'Z 'IsObj) a
+</span><a href="#local-6989586621679309309"><span class="hs-identifier hs-var">ts</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSTransformType"><span class="hs-identifier hs-type">TSTransformType</span></a></span><span> </span><span id="local-6989586621679309308"><span class="annot"><span class="annottext">tf :: ICoyoneda (TSTransform 'Z k) a
+</span><a href="#local-6989586621679309308"><span class="hs-identifier hs-var">tf</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; a -&gt; Value
+forall (k :: IsObjType) a. TSType 'Z k a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#typeToValue"><span class="hs-identifier hs-var">typeToValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TSTransform 'Z k ~&gt; TSType 'Z k)
+-&gt; ICoyoneda (TSTransform 'Z k) a -&gt; TSType 'Z k a
+forall k (t :: (k -&gt; *) -&gt; k -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+Interpret t f =&gt;
+(g ~&gt; f) -&gt; t g ~&gt; f
+</span><span class="hs-identifier hs-var">interpret</span></span><span> </span><span class="annot"><span class="annottext">TSTransform 'Z k ~&gt; TSType 'Z k
+forall (p :: Nat) (k :: IsObjType) a.
+TSTransform p k a -&gt; TSType p k a
+</span><a href="Typescript.Json.Types.html#applyTransform"><span class="hs-identifier hs-var">applyTransform</span></a></span><span> </span><span class="annot"><span class="annottext">ICoyoneda (TSTransform 'Z k) a
+</span><a href="#local-6989586621679309308"><span class="hs-identifier hs-var">tf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSPrimType"><span class="hs-identifier hs-type">TSPrimType</span></a></span><span> </span><span id="local-6989586621679309305"><span id="local-6989586621679309306"><span id="local-6989586621679309307"><span class="annot"><a href="Typescript.Json.Types.Combinators.html#PS"><span class="hs-identifier hs-type">PS</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSPrim r -&gt; r -&gt; Value
+forall a. TSPrim a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#primToValue"><span class="hs-identifier hs-var">primToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSPrim r
+</span><a href="#local-6989586621679309307"><span class="hs-identifier hs-var">psItem</span></a></span><span> </span><span class="annot"><span class="annottext">(r -&gt; Value) -&gt; (a -&gt; r) -&gt; a -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679309305"><span class="hs-identifier hs-var">psSerializer</span></a></span><span>
+</span><span id="line-161"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.html#TSBaseType"><span class="hs-identifier hs-type">TSBaseType</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#ICoyoneda"><span class="hs-identifier hs-type">ICoyoneda</span></a></span><span> </span><span id="local-6989586621679309304"><span class="annot"><span class="annottext">f :: a -&gt; r
+</span><a href="#local-6989586621679309304"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621679309303"><span class="annot"><span class="annottext">x :: TSBase r
+</span><a href="#local-6989586621679309303"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TSBase r -&gt; r -&gt; Value
+forall a. TSBase a -&gt; a -&gt; Value
+</span><a href="Typescript.Json.Core.Encode.html#baseToValue"><span class="hs-identifier hs-var">baseToValue</span></a></span><span> </span><span class="annot"><span class="annottext">TSBase r
+</span><a href="#local-6989586621679309303"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">(r -&gt; Value) -&gt; (a -&gt; r) -&gt; a -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; r
+</span><a href="#local-6989586621679309304"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span></pre></body></html>

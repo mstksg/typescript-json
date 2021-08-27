@@ -1,0 +1,247 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE AllowAmbiguousTypes        #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds                  #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveFoldable             #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DeriveFunctor              #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric              #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE DeriveTraversable          #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE DerivingVia                #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE EmptyCase                  #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts           #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances          #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE GADTs                      #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE InstanceSigs               #-}</span><span>
+</span><span id="line-14"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures             #-}</span><span>
+</span><span id="line-15"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase                 #-}</span><span>
+</span><span id="line-16"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses      #-}</span><span>
+</span><span id="line-17"></span><span class="hs-pragma">{-# LANGUAGE NamedFieldPuns             #-}</span><span>
+</span><span id="line-18"></span><span class="hs-pragma">{-# LANGUAGE OverloadedLabels           #-}</span><span>
+</span><span id="line-19"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings          #-}</span><span>
+</span><span id="line-20"></span><span class="hs-pragma">{-# LANGUAGE PatternSynonyms            #-}</span><span>
+</span><span id="line-21"></span><span class="hs-pragma">{-# LANGUAGE PolyKinds                  #-}</span><span>
+</span><span id="line-22"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes                 #-}</span><span>
+</span><span id="line-23"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards            #-}</span><span>
+</span><span id="line-24"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables        #-}</span><span>
+</span><span id="line-25"></span><span class="hs-pragma">{-# LANGUAGE StandaloneDeriving         #-}</span><span>
+</span><span id="line-26"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell            #-}</span><span>
+</span><span id="line-27"></span><span class="hs-pragma">{-# LANGUAGE TupleSections              #-}</span><span>
+</span><span id="line-28"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications           #-}</span><span>
+</span><span id="line-29"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies               #-}</span><span>
+</span><span id="line-30"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators              #-}</span><span>
+</span><span id="line-31"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances       #-}</span><span>
+</span><span id="line-32"></span><span class="hs-pragma">{-# LANGUAGE ViewPatterns               #-}</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Typescript.Json.Core</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><a href="Typescript.Json.Core.html#mkArg"><span class="hs-identifier">mkArg</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.html#mkArgs"><span class="hs-identifier">mkArgs</span></a></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.html#unsafeMkArg"><span class="hs-identifier">unsafeMkArg</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Typescript.Json.Core.html#unsafeMkArgs"><span class="hs-identifier">unsafeMkArgs</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Functor.Combinator</span></span><span> </span><span class="hs-keyword">hiding</span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Comp</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Kind</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.SOP</span></span><span>                          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NP</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><span class="hs-identifier">Data.Type.Nat</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Core.Assign.html"><span class="hs-identifier">Typescript.Json.Core.Assign</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.html"><span class="hs-identifier">Typescript.Json.Types</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span>           </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html"><span class="hs-identifier">Typescript.Json.Types.Combinators</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span id="local-6989586621679314715"><span id="local-6989586621679314716"><span id="local-6989586621679314717"><span class="annot"><a href="Typescript.Json.Core.html#mkArg"><span class="hs-identifier hs-type">mkArg</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314717"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314716"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314715"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314717"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314717"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314716"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-48"></span><span id="mkArg"><span class="annot"><span class="annottext">mkArg :: Param 'Z a e -&gt; TSType 'Z k a -&gt; Maybe (Arg_ 'Z a e)
+</span><a href="Typescript.Json.Core.html#mkArg"><span class="hs-identifier hs-var hs-var">mkArg</span></a></span></span><span> </span><span id="local-6989586621679314651"><span id="local-6989586621679314652"><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span><span> </span><span id="local-6989586621679314647"><span class="annot"><span class="annottext">t :: TSType 'Z k a
+</span><a href="#local-6989586621679314647"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Arg 'Z k a e -&gt; Arg_ 'Z a e
+forall (p :: Nat) a (b :: Maybe *) (k :: IsObjType).
+Arg p k a b -&gt; Arg_ p a b
+</span><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-var">Arg_</span></a></span><span> </span><span class="annot"><span class="annottext">(Arg 'Z k a e -&gt; Arg_ 'Z a e)
+-&gt; (MP (Assign a) e -&gt; Arg 'Z k a e)
+-&gt; MP (Assign a) e
+-&gt; Arg_ 'Z a e
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; MP (Assign a) e -&gt; Arg 'Z k a e
+forall (p :: Nat) (k :: IsObjType) a (b :: Maybe *).
+TSType p k a -&gt; MP (Assign a) b -&gt; Arg p k a b
+</span><a href="Typescript.Json.Types.html#Arg"><span class="hs-identifier hs-var">Arg</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+</span><a href="#local-6989586621679314647"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">(MP (Assign a) e -&gt; Arg_ 'Z a e)
+-&gt; Maybe (MP (Assign a) e) -&gt; Maybe (Arg_ 'Z a e)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(forall x. TSType_ 'Z x -&gt; Maybe (Assign a x))
+-&gt; MP (TSType_ 'Z) e -&gt; Maybe (MP (Assign a) e)
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (h :: * -&gt; *) (f :: k -&gt; *)
+       (g :: k -&gt; *) (a :: k1).
+(HTraversable t, Applicative h) =&gt;
+(forall (x :: k). f x -&gt; h (g x)) -&gt; t f a -&gt; h (t g a)
+</span><span class="hs-identifier hs-var">htraverse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; Maybe (Assign a x))
+-&gt; TSType_ 'Z x -&gt; Maybe (Assign a x)
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; TSType 'Z k x -&gt; Maybe (Assign a x)
+forall (k :: IsObjType) a (j :: IsObjType) b.
+TSType 'Z k a -&gt; TSType 'Z j b -&gt; Maybe (Assign a b)
+</span><a href="Typescript.Json.Core.Assign.html#reAssign"><span class="hs-identifier hs-var">reAssign</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+</span><a href="#local-6989586621679314647"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MP (TSType_ 'Z) e
+</span><a href="#local-6989586621679314651"><span class="hs-identifier hs-var">paramExtends</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621679314710"><span id="local-6989586621679314711"><span class="annot"><a href="Typescript.Json.Core.html#mkArgs"><span class="hs-identifier hs-type">mkArgs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314711"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314710"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314711"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314711"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314710"><span class="hs-identifier hs-type">es</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-51"></span><span id="mkArgs"><span class="annot"><span class="annottext">mkArgs :: NP2 (Param 'Z) as es
+-&gt; NP (TSType_ 'Z) as -&gt; Maybe (NP2 (Arg_ 'Z) as es)
+</span><a href="Typescript.Json.Core.html#mkArgs"><span class="hs-identifier hs-var hs-var">mkArgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-type">Nil2</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-53"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Nil</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) '[] '[] -&gt; Maybe (NP2 (Arg_ 'Z) '[] '[])
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span id="local-6989586621679314637"><span class="annot"><span class="annottext">p :: Param 'Z a b
+</span><a href="#local-6989586621679314637"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span id="local-6989586621679314635"><span class="annot"><span class="annottext">ps :: NP2 (Param 'Z) as bs
+</span><a href="#local-6989586621679314635"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-55"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span id="local-6989586621679314633"><span class="annot"><span class="annottext">x :: TSType 'Z k x
+</span><a href="#local-6989586621679314633"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*</span></span><span> </span><span id="local-6989586621679314631"><span class="annot"><span class="annottext">xs :: NP (TSType_ 'Z) xs
+</span><a href="#local-6989586621679314631"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Arg_ 'Z a b
+-&gt; NP2 (Arg_ 'Z) as bs -&gt; NP2 (Arg_ 'Z) (a : as) (b : bs)
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">(:**)</span></a></span><span> </span><span class="annot"><span class="annottext">(Arg_ 'Z a b
+ -&gt; NP2 (Arg_ 'Z) as bs -&gt; NP2 (Arg_ 'Z) (a : as) (b : bs))
+-&gt; Maybe (Arg_ 'Z a b)
+-&gt; Maybe (NP2 (Arg_ 'Z) as bs -&gt; NP2 (Arg_ 'Z) (a : as) (b : bs))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Param 'Z a b -&gt; TSType 'Z k a -&gt; Maybe (Arg_ 'Z a b)
+forall a (e :: Maybe *) (k :: IsObjType).
+Param 'Z a e -&gt; TSType 'Z k a -&gt; Maybe (Arg_ 'Z a e)
+</span><a href="Typescript.Json.Core.html#mkArg"><span class="hs-identifier hs-var">mkArg</span></a></span><span> </span><span class="annot"><span class="annottext">Param 'Z a b
+</span><a href="#local-6989586621679314637"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+TSType 'Z k x
+</span><a href="#local-6989586621679314633"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NP2 (Arg_ 'Z) as bs -&gt; NP2 (Arg_ 'Z) (a : as) (b : bs))
+-&gt; Maybe (NP2 (Arg_ 'Z) as bs)
+-&gt; Maybe (NP2 (Arg_ 'Z) (a : as) (b : bs))
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">NP2 (Param 'Z) as bs
+-&gt; NP (TSType_ 'Z) as -&gt; Maybe (NP2 (Arg_ 'Z) as bs)
+forall (as :: [*]) (es :: [Maybe *]).
+NP2 (Param 'Z) as es
+-&gt; NP (TSType_ 'Z) as -&gt; Maybe (NP2 (Arg_ 'Z) as es)
+</span><a href="Typescript.Json.Core.html#mkArgs"><span class="hs-identifier hs-var">mkArgs</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param 'Z) as bs
+</span><a href="#local-6989586621679314635"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">NP (TSType_ 'Z) as
+NP (TSType_ 'Z) xs
+</span><a href="#local-6989586621679314631"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span id="local-6989586621679314679"><span id="local-6989586621679314680"><span id="local-6989586621679314681"><span class="annot"><a href="Typescript.Json.Core.html#unsafeMkArg"><span class="hs-identifier hs-type">unsafeMkArg</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314681"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314680"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314679"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314681"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314681"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314680"><span class="hs-identifier hs-type">e</span></a></span></span></span></span><span>
+</span><span id="line-58"></span><span id="unsafeMkArg"><span class="annot"><span class="annottext">unsafeMkArg :: Param 'Z a e -&gt; TSType 'Z k a -&gt; Arg_ 'Z a e
+</span><a href="Typescript.Json.Core.html#unsafeMkArg"><span class="hs-identifier hs-var hs-var">unsafeMkArg</span></a></span></span><span> </span><span id="local-6989586621679314629"><span id="local-6989586621679314630"><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span><span> </span><span id="local-6989586621679314628"><span class="annot"><span class="annottext">t :: TSType 'Z k a
+</span><a href="#local-6989586621679314628"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Arg 'Z k a e -&gt; Arg_ 'Z a e
+forall (p :: Nat) a (b :: Maybe *) (k :: IsObjType).
+Arg p k a b -&gt; Arg_ p a b
+</span><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-var">Arg_</span></a></span><span> </span><span class="annot"><span class="annottext">(Arg 'Z k a e -&gt; Arg_ 'Z a e)
+-&gt; (MP (Assign a) e -&gt; Arg 'Z k a e)
+-&gt; MP (Assign a) e
+-&gt; Arg_ 'Z a e
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; MP (Assign a) e -&gt; Arg 'Z k a e
+forall (p :: Nat) (k :: IsObjType) a (b :: Maybe *).
+TSType p k a -&gt; MP (Assign a) b -&gt; Arg p k a b
+</span><a href="Typescript.Json.Types.html#Arg"><span class="hs-identifier hs-var">Arg</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+</span><a href="#local-6989586621679314628"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">(MP (Assign a) e -&gt; Arg_ 'Z a e) -&gt; MP (Assign a) e -&gt; Arg_ 'Z a e
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(TSType_ 'Z ~&gt; Assign a) -&gt; MP (TSType_ 'Z) e -&gt; MP (Assign a) e
+forall k k1 (t :: (k -&gt; *) -&gt; k1 -&gt; *) (f :: k -&gt; *) (g :: k -&gt; *).
+HFunctor t =&gt;
+(f ~&gt; g) -&gt; t f ~&gt; t g
+</span><span class="hs-identifier hs-var">hmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall (k :: IsObjType). TSType 'Z k x -&gt; Assign a x)
+-&gt; TSType_ 'Z x -&gt; Assign a x
+forall (p :: Nat) a r.
+(forall (k :: IsObjType). TSType p k a -&gt; r) -&gt; TSType_ p a -&gt; r
+</span><a href="Typescript.Json.Types.html#withTSType_"><span class="hs-identifier hs-var">withTSType_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; TSType 'Z k x -&gt; Assign a x
+forall (k :: IsObjType) a (j :: IsObjType) b.
+TSType 'Z k a -&gt; TSType 'Z j b -&gt; Assign a b
+</span><a href="Typescript.Json.Core.Assign.html#unsafeReAssign"><span class="hs-identifier hs-var">unsafeReAssign</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+</span><a href="#local-6989586621679314628"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MP (TSType_ 'Z) e
+</span><a href="#local-6989586621679314629"><span class="hs-identifier hs-var">paramExtends</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span id="local-6989586621679314677"><span id="local-6989586621679314678"><span class="annot"><a href="Typescript.Json.Core.html#unsafeMkArgs"><span class="hs-identifier hs-type">unsafeMkArgs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314678"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314677"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314678"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314678"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314677"><span class="hs-identifier hs-type">es</span></a></span></span></span><span>
+</span><span id="line-61"></span><span id="unsafeMkArgs"><span class="annot"><span class="annottext">unsafeMkArgs :: NP2 (Param 'Z) as es -&gt; NP (TSType_ 'Z) as -&gt; NP2 (Arg_ 'Z) as es
+</span><a href="Typescript.Json.Core.html#unsafeMkArgs"><span class="hs-identifier hs-var hs-var">unsafeMkArgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-type">Nil2</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-63"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Nil</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) as es
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span id="local-6989586621679314625"><span class="annot"><span class="annottext">p :: Param 'Z a b
+</span><a href="#local-6989586621679314625"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span id="local-6989586621679314624"><span class="annot"><span class="annottext">ps :: NP2 (Param 'Z) as bs
+</span><a href="#local-6989586621679314624"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-65"></span><span>      </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span id="local-6989586621679314623"><span class="annot"><span class="annottext">x :: TSType 'Z k x
+</span><a href="#local-6989586621679314623"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*</span></span><span> </span><span id="local-6989586621679314622"><span class="annot"><span class="annottext">xs :: NP (TSType_ 'Z) xs
+</span><a href="#local-6989586621679314622"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Param 'Z a b -&gt; TSType 'Z k a -&gt; Arg_ 'Z a b
+forall a (e :: Maybe *) (k :: IsObjType).
+Param 'Z a e -&gt; TSType 'Z k a -&gt; Arg_ 'Z a e
+</span><a href="Typescript.Json.Core.html#unsafeMkArg"><span class="hs-identifier hs-var">unsafeMkArg</span></a></span><span> </span><span class="annot"><span class="annottext">Param 'Z a b
+</span><a href="#local-6989586621679314625"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+TSType 'Z k x
+</span><a href="#local-6989586621679314623"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ 'Z a b
+-&gt; NP2 (Arg_ 'Z) as bs -&gt; NP2 (Arg_ 'Z) (a : as) (b : bs)
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param 'Z) as bs -&gt; NP (TSType_ 'Z) as -&gt; NP2 (Arg_ 'Z) as bs
+forall (as :: [*]) (es :: [Maybe *]).
+NP2 (Param 'Z) as es -&gt; NP (TSType_ 'Z) as -&gt; NP2 (Arg_ 'Z) as es
+</span><a href="Typescript.Json.Core.html#unsafeMkArgs"><span class="hs-identifier hs-var">unsafeMkArgs</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param 'Z) as bs
+</span><a href="#local-6989586621679314624"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">NP (TSType_ 'Z) as
+NP (TSType_ 'Z) xs
+</span><a href="#local-6989586621679314622"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span id="local-6989586621679314658"><span id="local-6989586621679314659"><span class="annot"><a href="Typescript.Json.Core.html#safeMkArg"><span class="hs-identifier hs-type">safeMkArg</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314659"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#TSType"><span class="hs-identifier hs-type">TSType</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314658"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314659"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span> </span><span class="annot"><a href="#local-6989586621679314659"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span></span></span><span>
+</span><span id="line-68"></span><span id="safeMkArg"><span class="annot"><span class="annottext">safeMkArg :: Param 'Z a 'Nothing -&gt; TSType 'Z k a -&gt; Arg_ 'Z a 'Nothing
+</span><a href="Typescript.Json.Core.html#safeMkArg"><span class="hs-identifier hs-var hs-var">safeMkArg</span></a></span></span><span> </span><span id="local-6989586621679314619"><span id="local-6989586621679314620"><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span></span></span><span> </span><span id="local-6989586621679314618"><span class="annot"><span class="annottext">t :: TSType 'Z k a
+</span><a href="#local-6989586621679314618"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Arg 'Z k a 'Nothing -&gt; Arg_ 'Z a 'Nothing
+forall (p :: Nat) a (b :: Maybe *) (k :: IsObjType).
+Arg p k a b -&gt; Arg_ p a b
+</span><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-var">Arg_</span></a></span><span> </span><span class="annot"><span class="annottext">(Arg 'Z k a 'Nothing -&gt; Arg_ 'Z a 'Nothing)
+-&gt; Arg 'Z k a 'Nothing -&gt; Arg_ 'Z a 'Nothing
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a -&gt; MP (Assign a) 'Nothing -&gt; Arg 'Z k a 'Nothing
+forall (p :: Nat) (k :: IsObjType) a (b :: Maybe *).
+TSType p k a -&gt; MP (Assign a) b -&gt; Arg p k a b
+</span><a href="Typescript.Json.Types.html#Arg"><span class="hs-identifier hs-var">Arg</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+</span><a href="#local-6989586621679314618"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">MP (Assign a) 'Nothing
+forall k (f :: k -&gt; *). MP f 'Nothing
+</span><a href="Typescript.Json.Types.Combinators.html#MPNothing"><span class="hs-identifier hs-var">MPNothing</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">class</span><span> </span><span id="SafeMkArgs"><span class="annot"><a href="Typescript.Json.Core.html#SafeMkArgs"><span class="hs-identifier hs-var">SafeMkArgs</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679314671"><span class="annot"><a href="#local-6989586621679314671"><span class="hs-keyword hs-type">as</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679314670"><span class="annot"><a href="#local-6989586621679314670"><span class="hs-identifier hs-type">es</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-71"></span><span>    </span><span id="safeMkArgs"><span class="annot"><a href="Typescript.Json.Core.html#safeMkArgs"><span class="hs-identifier hs-type">safeMkArgs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Param"><span class="hs-identifier hs-type">Param</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314671"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314670"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NP</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314671"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#NP2"><span class="hs-identifier hs-type">NP2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Typescript.Json.Types.html#Arg_"><span class="hs-identifier hs-type">Arg_</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Z</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621679314671"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314670"><span class="hs-identifier hs-type">es</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Typescript.Json.Core.html#SafeMkArgs"><span class="hs-identifier hs-type">SafeMkArgs</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-74"></span><span>    </span><span id="local-6989586621679314613"><span class="annot"><span class="annottext">safeMkArgs :: NP2 (Param 'Z) '[] '[]
+-&gt; NP (TSType_ 'Z) '[] -&gt; NP2 (Arg_ 'Z) '[] '[]
+</span><a href="#local-6989586621679314613"><span class="hs-identifier hs-var hs-var hs-var hs-var">safeMkArgs</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NP2 (Arg_ 'Z) '[] '[]
+forall k j (f :: k -&gt; j -&gt; *). NP2 f '[] '[]
+</span><a href="Typescript.Json.Types.Combinators.html#Nil2"><span class="hs-identifier hs-var">Nil2</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span id="local-6989586621679314610"><span id="local-6989586621679314611"><span id="local-6989586621679314612"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Typescript.Json.Core.html#SafeMkArgs"><span class="hs-identifier hs-type">SafeMkArgs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314612"><span class="hs-keyword hs-type">as</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679314611"><span class="hs-identifier hs-type">es</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Typescript.Json.Core.html#SafeMkArgs"><span class="hs-identifier hs-type">SafeMkArgs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679314610"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679314612"><span class="hs-keyword hs-type">as</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621679314611"><span class="hs-identifier hs-type">es</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621679314608"><span class="annot"><span class="annottext">safeMkArgs :: NP2 (Param 'Z) (a : as) ('Nothing : es)
+-&gt; NP (TSType_ 'Z) (a : as)
+-&gt; NP2 (Arg_ 'Z) (a : as) ('Nothing : es)
+</span><a href="#local-6989586621679314608"><span class="hs-identifier hs-var hs-var hs-var hs-var">safeMkArgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-78"></span><span>      </span><span id="local-6989586621679314607"><span class="annot"><span class="annottext">p :: Param 'Z a b
+</span><a href="#local-6989586621679314607"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="annot"><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-type">:**</span></a></span><span> </span><span id="local-6989586621679314606"><span class="annot"><span class="annottext">ps :: NP2 (Param 'Z) as bs
+</span><a href="#local-6989586621679314606"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-79"></span><span>        </span><span class="annot"><a href="Typescript.Json.Types.html#TSType_"><span class="hs-identifier hs-type">TSType_</span></a></span><span> </span><span id="local-6989586621679314605"><span class="annot"><span class="annottext">t :: TSType 'Z k x
+</span><a href="#local-6989586621679314605"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:*</span></span><span> </span><span id="local-6989586621679314604"><span class="annot"><span class="annottext">ts :: NP (TSType_ 'Z) xs
+</span><a href="#local-6989586621679314604"><span class="hs-identifier hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Param 'Z a 'Nothing -&gt; TSType 'Z k a -&gt; Arg_ 'Z a 'Nothing
+forall a (k :: IsObjType).
+Param 'Z a 'Nothing -&gt; TSType 'Z k a -&gt; Arg_ 'Z a 'Nothing
+</span><a href="Typescript.Json.Core.html#safeMkArg"><span class="hs-identifier hs-var">safeMkArg</span></a></span><span> </span><span class="annot"><span class="annottext">Param 'Z a b
+Param 'Z a 'Nothing
+</span><a href="#local-6989586621679314607"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">TSType 'Z k a
+TSType 'Z k x
+</span><a href="#local-6989586621679314605"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Arg_ 'Z a 'Nothing
+-&gt; NP2 (Arg_ 'Z) as bs -&gt; NP2 (Arg_ 'Z) (a : as) ('Nothing : bs)
+forall a a (f :: a -&gt; a -&gt; *) (a :: a) (b :: a) (as :: [a])
+       (bs :: [a]).
+f a b -&gt; NP2 f as bs -&gt; NP2 f (a : as) (b : bs)
+</span><a href="Typescript.Json.Types.Combinators.html#%3A%2A%2A"><span class="hs-operator hs-var">:**</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param 'Z) as bs -&gt; NP (TSType_ 'Z) as -&gt; NP2 (Arg_ 'Z) as bs
+forall (as :: [*]) (es :: [Maybe *]).
+SafeMkArgs as es =&gt;
+NP2 (Param 'Z) as es -&gt; NP (TSType_ 'Z) as -&gt; NP2 (Arg_ 'Z) as es
+</span><a href="Typescript.Json.Core.html#safeMkArgs"><span class="hs-identifier hs-var">safeMkArgs</span></a></span><span> </span><span class="annot"><span class="annottext">NP2 (Param 'Z) as bs
+</span><a href="#local-6989586621679314606"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">NP (TSType_ 'Z) as
+NP (TSType_ 'Z) xs
+</span><a href="#local-6989586621679314604"><span class="hs-identifier hs-var">ts</span></a></span></span></span></span><span>
+</span><span id="line-80"></span></pre></body></html>
