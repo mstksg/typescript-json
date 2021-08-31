@@ -12,7 +12,17 @@
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeOperators              #-}
 
-
+-- |
+-- Module      : Typescript.Json.Collection
+-- Copyright   : (c) Justin Le 2021
+-- License     : BSD3
+--
+-- Maintainer  : justin@jle.im
+-- Stability   : experimental
+-- Portability : non-portable
+--
+-- Construct Typescript values for json collections, such as arrays,
+-- tuples, and objects.
 module Typescript.Json.Collection (
   -- * Lists and Nullables
     tsList, tsVector, tsIsList
@@ -23,6 +33,10 @@ module Typescript.Json.Collection (
   , TupleVals(..)
   , tupleVal, tsTuple
   , stripObjectVals
+  -- ** Haskell Tuples
+  , tsTuple2
+  , tsTuple3
+  , tsTuple4
   -- * Intersections
   , IntersectVals(..)
   , intersectVal, tsIntersection
@@ -40,15 +54,33 @@ import           Typescript.Json.Types.Combinators
 import qualified Data.Vector.Generic               as V
 import qualified GHC.Exts                          as Exts
 
+-- | Given a typescript @T@, returns a Typescript @T[]@ represented as
+-- a Haskell lazily linked list.
 tsList :: TSType_ p a -> TSType p 'NotObj [a]
 tsList = withTSType_ (TSArray . ilan)
 
+-- | Given a typescript @T@, returns a Typescript @T[]@ represented as
+-- a Haskell vector from the vector library.
 tsVector :: V.Vector v a => TSType_ p a -> TSType p 'NotObj (v a)
 tsVector = invmap V.fromList V.toList . tsList
 
+-- | Given a typescript @T@ of item values, returns a Typescript @Array<T>@
+-- represented as any instance of 'Exts.IsList'.
+--
+-- For example, given a typescript representation of @(k, v)@, can return
+-- a typescript representation of @'Map' k v@ (represented as a list of
+-- key-value pairs) because of 'Map''s 'Exts.IsList' instance.
+--
+-- @
+-- > let tsSTringIntMap :: 'TSType' p 'NotObj (Map String Int)
+--       tsStringIntMap = 'tsIsList' $ 'TSType_' ('tsTuple2' (TSType_ 'tsString') (TSType_ 'tsInt'))
+-- > 'ppType' tsStringIntMap
+-- [ string, number ][]
+-- > encodeType tsStringIntMap $ Map.fromList [("hi", 2), ("bye", 5), ("ok", 1)]
+-- [["bye", 5], ["hi", 2], ["ok", 10]]
+-- @
 tsIsList :: Exts.IsList l => TSType_ p (Exts.Item l) -> TSType p 'NotObj l
 tsIsList = invmap Exts.fromList Exts.toList . tsList
-
 
 -- | A type aggregating key-value pairs for an object.  Meant to
 -- be assembled using 'keyVal' (for required properties) and 'keyValMay'
@@ -205,6 +237,62 @@ tsTuple
     -> TSType p 'NotObj a
 tsTuple = TSTuple . PreT . getTupleVals
 
+-- | Pull together two types into a Haskell tuple, representing
+-- a typescript 2-tuple.
+--
+-- @
+-- tsTuple2 x y = tsTuple $
+--     (,) <$> tupleVal fst x
+--         <*> tupleVal snd y
+-- @
+--
+-- @
+-- > let stringIntTuple = 'ppType' $ 'tsTuple' ('TSType_' 'tsString') (TSType_ 'tsInt')
+-- > 'ppType' stringIntTuple
+-- [ string, number ]
+-- > encodeType tsStringIntMap ("hi", 3)
+-- [ "hi", 3 ]
+-- @
+tsTuple2
+    :: TSType_ p a
+    -> TSType_ p b
+    -> TSType p 'NotObj (a, b)
+tsTuple2 x y = tsTuple $
+    (,) <$> tupleVal fst x
+        <*> tupleVal snd y
+
+-- | Pull together three types into a Haskell tuple, representing
+-- a typescript 3-tuple.
+tsTuple3
+    :: TSType_ p a
+    -> TSType_ p b
+    -> TSType_ p c
+    -> TSType p 'NotObj (a, b, c)
+tsTuple3 x y z = tsTuple $
+    (,,) <$> tupleVal (\(a,_,_) -> a) x
+         <*> tupleVal (\(_,b,_) -> b) y
+         <*> tupleVal (\(_,_,c) -> c) z
+
+-- | Pull together four types into a Haskell tuple, representing
+-- a typescript 4-tuple.
+tsTuple4
+    :: TSType_ p a
+    -> TSType_ p b
+    -> TSType_ p c
+    -> TSType_ p d
+    -> TSType p 'NotObj (a, b, c, d)
+tsTuple4 x y z q = tsTuple $
+    (,,,) <$> tupleVal (\(a,_,_,_) -> a) x
+          <*> tupleVal (\(_,b,_,_) -> b) y
+          <*> tupleVal (\(_,_,c,_) -> c) z
+          <*> tupleVal (\(_,_,_,d) -> d) q
+
+
+-- | Strip the keys from an 'ObjectProps' and turn it into just a plain
+-- tuple.
+--
+-- For example, @{ hi: string, bye: number }@ turns into @[string,
+-- number]@.
 stripObjectVals :: ObjectProps p a b -> TupleVals p a b
 stripObjectVals = TupleVals
                 . hmap (hmap ((id !*! go) . objMemberVal))

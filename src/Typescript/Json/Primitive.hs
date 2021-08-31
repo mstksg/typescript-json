@@ -45,6 +45,7 @@ module Typescript.Json.Primitive (
   , tsInteger
   , tsRealFloat
   , tsDouble
+  , tsInt
   , tsBigInt
   -- * String
   , tsText
@@ -125,6 +126,11 @@ tsRealFloat = invmap toRealFloat fromFloatDigits tsNumber
 -- | A typescript/json @number@ represented as a Haskell 'Double'.
 tsDouble :: TSType p 'NotObj Double
 tsDouble = tsRealFloat
+
+-- | A typescript/json @number@ represented as a Haskell 'Int'.  Will fail
+-- to parse if used on a non-integer.
+tsInt :: TSType p 'NotObj Int
+tsInt = tsBoundedInteger
 
 -- | A typescript/json @bigint@ represented as a Haskell 'Integer'.
 tsBigInt :: TSType p 'NotObj Integer
@@ -251,7 +257,7 @@ tsAnyWith f g = TSPrimType $ PS TSUnknown f g
 
 -- | A typescript @any@ represented as aeson's 'A.Value'.  Note that
 -- this must always be used in a "total" way; if you want a partial parsing
--- situation, use 'tsUnknownWith'.
+-- situation, use 'tsAnyWith'.
 tsAny :: TSType p 'NotObj A.Value
 tsAny = tsAnyWith Right id
 
