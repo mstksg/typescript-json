@@ -261,17 +261,17 @@ data TSTransform :: Nat -> IsObjType -> Type -> Type where
 
 
 data TSType :: Nat -> IsObjType -> Type -> Type where
-    TSArray        :: ILan [] (TSType p k) a -> TSType p 'NotObj a
-    TSTuple        :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
-    TSObject       :: TSKeyVal p a -> TSType p 'IsObj a
-    TSSingle       :: TSType p 'IsObj a -> TSType p 'NotObj a
-    TSUnion        :: TSUnionBranches p a -> TSType p 'NotObj a
-    TSNamedType    :: TSApplied p k a -> TSType p k a
-    TSVar          :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
-    TSIntersection :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
-    TSTransformType  :: ICoyoneda (TSTransform p k) a -> TSType p k a
-    TSPrimType     :: PS TSPrim a -> TSType p 'NotObj a
-    TSBaseType     :: ICoyoneda TSBase a -> TSType p 'NotObj a
+    TSArray         :: ILan [] (TSType p k) a -> TSType p 'NotObj a
+    TSTuple         :: PreT Ap (TSType_ p) a -> TSType p 'NotObj a
+    TSObject        :: TSKeyVal p a -> TSType p 'IsObj a
+    TSSingle        :: TSType p 'IsObj a -> TSType p 'NotObj a
+    TSUnion         :: TSUnionBranches p a -> TSType p 'NotObj a
+    TSNamedType     :: TSApplied p k a -> TSType p k a
+    TSVar           :: !(Fin p) -> TSType p 'NotObj a   -- is NotObj right?
+    TSIntersection  :: PreT Ap1 (TSType p 'IsObj) a -> TSType p 'IsObj a
+    TSTransformType :: ICoyoneda (TSTransform p k) a -> TSType p k a
+    TSPrimType      :: PS TSPrim a -> TSType p 'NotObj a
+    TSBaseType      :: ICoyoneda TSBase a -> TSType p 'NotObj a
 
 data TSNameable :: Nat -> IsObjType -> [Type] -> [Maybe Type] -> Type -> Type where
     TSNFunc     :: TSTypeF p k as es a -> TSNameable p k as es a
